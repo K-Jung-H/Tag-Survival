@@ -419,6 +419,7 @@ GameObject:
   m_Component:
   - component: {fileID: 515449760}
   - component: {fileID: 515449761}
+  - component: {fileID: 515449762}
   m_Layer: 0
   m_Name: Render
   m_TagString: Untagged
@@ -459,6 +460,25 @@ MonoBehaviour:
   aimLineLength: 1.8
   aimLineWidth: 0.05
   skillIndicatorRadius: 0.12
+--- !u!114 &515449762
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 515449759}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841baa586c1967c488245d6e38fc3662, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OffScreenIndicatorView
+  worldView: {fileID: 515449761}
+  targetCamera: {fileID: 519420031}
+  indicatorObjectName: OffScreenIndicator
+  viewportPadding: 0.06
+  indicatorZ: 0
+  rotationOffset: 270
+  showInsideView: 0
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0

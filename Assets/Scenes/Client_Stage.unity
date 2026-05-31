@@ -462,6 +462,9 @@ MonoBehaviour:
   aimLineLength: 1.8
   aimLineWidth: 0.05
   skillIndicatorRadius: 0.12
+  localFollowSpeed: 25
+  remoteFollowSpeed: 25
+  snapDistance: 1.5
 --- !u!114 &515449762
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -640,7 +643,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e9bce5ea32f4ad8bcbd47de8fbb6121, type: 3}
   m_Name: 

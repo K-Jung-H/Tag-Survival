@@ -20,6 +20,8 @@ public class Client_WorldView : MonoBehaviour
         public SpriteRenderer body;
         public SpriteRenderer aimLine;
         public SpriteRenderer skillIndicator;
+        public Vector2 renderPosition;
+        public bool hasRenderPosition;
     }
 
     [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
@@ -29,6 +31,11 @@ public class Client_WorldView : MonoBehaviour
     [SerializeField] private float aimLineLength = 1.8f;
     [SerializeField] private float aimLineWidth = 0.05f;
     [SerializeField] private float skillIndicatorRadius = 0.12f;
+
+    [Header("View Smoothing")]
+    [SerializeField] private float localFollowSpeed = 50f;
+    [SerializeField] private float remoteFollowSpeed = 25f;
+    [SerializeField] private float snapDistance = 1.5f;
 
     private readonly Dictionary<ulong, PlayerViewEntry> playerViews = new();
     private readonly List<ulong> removeTargets = new();
@@ -144,15 +151,63 @@ public class Client_WorldView : MonoBehaviour
             if (!TryGetOrCreatePlayerView(clientId, out PlayerViewEntry entry))
                 continue;
 
-            Vector2 renderPosition = snapshotState.position;
+            Vector2 targetPosition = snapshotState.position;
+            Vector2 renderPosition = SmoothRenderPosition(clientId, entry, targetPosition);
             Vector2 renderAim = snapshotState.aim;
             PlayerInputButtons renderButtons = snapshotState.buttons;
 
+            entry.renderPosition = renderPosition;
+            entry.hasRenderPosition = true;
             entry.root.position = new Vector3(renderPosition.x, renderPosition.y, 0f);
 
             UpdateAimLine(entry, renderAim);
             UpdateSkillIndicator(entry, renderAim, renderButtons);
+
+            playerViews[clientId] = entry;
         }
+    }
+
+    // Role: 현재 렌더 위치를 최신 서버 위치 쪽으로 보간한다.
+    // Parameters:
+    // - clientId: 플레이어 클라이언트 ID
+    // - entry: 플레이어 View 엔트리
+    // - targetPosition: 최신 서버 스냅샷 위치
+    private Vector2 SmoothRenderPosition(
+        ulong clientId,
+        PlayerViewEntry entry,
+        Vector2 targetPosition
+    )
+    {
+        if (!entry.hasRenderPosition)
+        {
+            return targetPosition;
+        }
+
+        Vector2 currentPosition = entry.renderPosition;
+        float distance = Vector2.Distance(currentPosition, targetPosition);
+
+        if (distance >= Mathf.Max(0f, snapDistance))
+        {
+            return targetPosition;
+        }
+
+        float followSpeed = IsLocalPlayer(clientId)
+            ? localFollowSpeed
+            : remoteFollowSpeed;
+
+        float t = 1f - Mathf.Exp(-Mathf.Max(0f, followSpeed) * Time.deltaTime);
+        return Vector2.Lerp(currentPosition, targetPosition, t);
+    }
+
+    // Role: 지정한 클라이언트 ID가 로컬 플레이어인지 판단한다.
+    // Parameters:
+    // - clientId: 검사할 클라이언트 ID
+    private bool IsLocalPlayer(ulong clientId)
+    {
+        if (NetworkManager.Singleton == null)
+            return false;
+
+        return clientId == NetworkManager.Singleton.LocalClientId;
     }
 
     // Role: 특정 클라이언트 ID에 해당하는 플레이어 View를 가져오거나 생성한다.
@@ -203,7 +258,9 @@ public class Client_WorldView : MonoBehaviour
             root = viewObject.transform,
             body = viewObject.GetComponent<SpriteRenderer>(),
             aimLine = GetChildSpriteRenderer(viewObject.transform, AIM_LINE_OBJECT_NAME),
-            skillIndicator = GetChildSpriteRenderer(viewObject.transform, SKILL_INDICATOR_OBJECT_NAME)
+            skillIndicator = GetChildSpriteRenderer(viewObject.transform, SKILL_INDICATOR_OBJECT_NAME),
+            renderPosition = Vector2.zero,
+            hasRenderPosition = false
         };
 
         return entry.body != null
@@ -393,7 +450,7 @@ public class Client_WorldView : MonoBehaviour
 
     // Role: 로컬 플레이어 View가 제거될 때 카메라 추적 대상을 해제한다.
     // Parameters:
-    // - clientId: 제거될 플레이어의 클라이언트 ID
+    // - clientId: 제거될 플레이어 클라이언트 ID
     // - root: 제거될 플레이어 View 루트
     private void ClearLocalCameraTargetIfNeeded(ulong clientId, Transform root)
     {

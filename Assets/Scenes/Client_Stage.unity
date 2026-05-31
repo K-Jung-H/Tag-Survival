@@ -420,6 +420,7 @@ GameObject:
   - component: {fileID: 515449760}
   - component: {fileID: 515449761}
   - component: {fileID: 515449762}
+  - component: {fileID: 515449763}
   m_Layer: 0
   m_Name: Render
   m_TagString: Untagged
@@ -455,6 +456,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_WorldView
   snapshotReceiver: {fileID: 1941727307}
+  cameraFollow: {fileID: 519420033}
   playerViewPrefab: {fileID: 6471373974344987701, guid: 29bdc0cbea57efe4ba5bf4e34bede596, type: 3}
   playerSize: {x: 0.8, y: 0.8}
   aimLineLength: 1.8
@@ -479,6 +481,20 @@ MonoBehaviour:
   indicatorZ: 0
   rotationOffset: 270
   showInsideView: 0
+--- !u!114 &515449763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 515449759}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e4f6b2d9f7449d2a6af5f3e90e571d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_StageRenderer
+  stageGrid: {fileID: 53474264060498492, guid: 1370731196e3d644f945ccfb6887374f, type: 3}
+  stageBakeData: {fileID: 11400000, guid: 327c8e9f47c8f654ba9a8fca35b580e1, type: 2}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -491,6 +507,7 @@ GameObject:
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
   - component: {fileID: 519420030}
+  - component: {fileID: 519420033}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -616,6 +633,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &519420033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e9bce5ea32f4ad8bcbd47de8fbb6121, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_CameraFollow
+  target: {fileID: 0}
+  lerpFactor: 5
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0

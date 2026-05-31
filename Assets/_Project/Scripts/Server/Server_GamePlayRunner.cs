@@ -4,10 +4,7 @@ using UnityEngine;
 
 public class Server_GamePlayRunner : MonoBehaviour
 {
-    [SerializeField] private bool useWorldCollision = true;
-    [SerializeField] private LayerMask worldCollisionMask;
-    [SerializeField] private bool usePlayerCollision = true;
-    [SerializeField] private float playerRadius = GameSimulationConfig.PlayerRadius;
+    [SerializeField] private StageBakeData stageBakeData;
 
     private readonly float serverDeltaTime = 1f / GameNetProtocol.ServerTickRate;
     private readonly float snapshotSendInterval = 1f / GameNetProtocol.SnapshotSendRate;
@@ -27,12 +24,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     // Role: 서버 게임플레이 시뮬레이션과 스냅샷 writer를 생성한다.
     private void Awake()
     {
-        gamePlay = new Server_GamePlay(
-            useWorldCollision,
-            worldCollisionMask,
-            usePlayerCollision,
-            playerRadius
-        );
+        gamePlay = new Server_GamePlay(stageBakeData);
 
         snapshotWriter = new FastBufferWriter(
             GameNetProtocol.SnapshotPacketBufferSize,

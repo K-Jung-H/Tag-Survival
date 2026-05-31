@@ -23,6 +23,7 @@ public class Client_WorldView : MonoBehaviour
     }
 
     [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
+    [SerializeField] private Client_CameraFollow cameraFollow;
     [SerializeField] private GameObject playerViewPrefab;
     [SerializeField] private Vector2 playerSize = new Vector2(0.8f, 0.8f);
     [SerializeField] private float aimLineLength = 1.8f;
@@ -185,6 +186,7 @@ public class Client_WorldView : MonoBehaviour
 
         ConfigurePlayerViewEntry(entry, clientId);
         playerViews.Add(clientId, entry);
+        TryAssignLocalCameraTarget(clientId, entry.root);
         RaisePlayerViewCreated(clientId, entry.root);
 
         return true;
@@ -360,9 +362,53 @@ public class Client_WorldView : MonoBehaviour
 
         foreach (ulong clientId in removeTargets)
         {
+            Transform removedRoot = playerViews[clientId].root;
             RaisePlayerViewRemoved(clientId);
-            Destroy(playerViews[clientId].root.gameObject);
+            ClearLocalCameraTargetIfNeeded(clientId, removedRoot);
+            Destroy(removedRoot.gameObject);
             playerViews.Remove(clientId);
+        }
+    }
+
+    // Role: 로컬 플레이어 View가 생성되면 카메라 추적 대상을 설정한다.
+    // Parameters:
+    // - clientId: 생성된 플레이어의 클라이언트 ID
+    // - root: 생성된 플레이어 View 루트
+    private void TryAssignLocalCameraTarget(ulong clientId, Transform root)
+    {
+        if (NetworkManager.Singleton == null)
+            return;
+
+        if (clientId != NetworkManager.Singleton.LocalClientId)
+            return;
+
+        if (cameraFollow == null)
+        {
+            Debug.LogWarning("[Client_WorldView] CameraFollow is not assigned.", this);
+            return;
+        }
+
+        cameraFollow.Target = root;
+    }
+
+    // Role: 로컬 플레이어 View가 제거될 때 카메라 추적 대상을 해제한다.
+    // Parameters:
+    // - clientId: 제거될 플레이어의 클라이언트 ID
+    // - root: 제거될 플레이어 View 루트
+    private void ClearLocalCameraTargetIfNeeded(ulong clientId, Transform root)
+    {
+        if (NetworkManager.Singleton == null)
+            return;
+
+        if (clientId != NetworkManager.Singleton.LocalClientId)
+            return;
+
+        if (cameraFollow == null)
+            return;
+
+        if (cameraFollow.Target == root)
+        {
+            cameraFollow.Target = null;
         }
     }
 

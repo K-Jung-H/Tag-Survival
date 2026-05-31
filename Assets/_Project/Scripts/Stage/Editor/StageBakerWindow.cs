@@ -1,0 +1,319 @@
+using System;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.Tilemaps;
+
+public sealed class StageBakerWindow : EditorWindow
+{
+    [Serializable]
+    private sealed class TilemapEntry
+    {
+        public Tilemap tilemap;
+        public bool includeInBake = true;
+        public int priority;
+        public StageLayerDefinition definition = StageLayerDefinition.Default;
+    }
+
+    [SerializeField] private StageBakeData output;
+    [SerializeField] private string stageId = "Stage";
+    [SerializeField] private Grid grid;
+    [SerializeField] private RectInt cellBounds = new RectInt(0, 0, 64, 32);
+    [SerializeField] private StageBoundaryMode leftBoundary = StageBoundaryMode.Solid;
+    [SerializeField] private StageBoundaryMode rightBoundary = StageBoundaryMode.Solid;
+    [SerializeField] private StageBoundaryMode bottomBoundary = StageBoundaryMode.Solid;
+    [SerializeField] private StageBoundaryMode topBoundary = StageBoundaryMode.Open;
+    [SerializeField] private bool mergeRectColliders = true;
+    [SerializeField] private bool generateSpatialIndex = true;
+    [SerializeField] private int uniformGridSize = 8;
+    [SerializeField] private List<TilemapEntry> tilemapEntries = new List<TilemapEntry>();
+    [SerializeField] private bool showBounds = true;
+    [SerializeField] private bool showBakeSettings = true;
+    [SerializeField] private bool showTilemapLayers = true;
+
+    private Vector2 scrollPosition;
+
+    // Role: Tools 메뉴에서 StageBaker 에디터 윈도우를 연다.
+    [MenuItem("Tools/StageBaker")]
+    public static void Open()
+    {
+        StageBakerWindow window = GetWindow<StageBakerWindow>("StageBaker");
+        window.Show();
+    }
+
+    // Role: StageBaker 에디터 윈도우의 전체 GUI를 그린다.
+    private void OnGUI()
+    {
+        scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
+
+        DrawOutputSection();
+        DrawBoundsSection();
+        DrawBakeSettingsSection();
+        DrawTilemapSection();
+        DrawActionSection();
+
+        EditorGUILayout.EndScrollView();
+    }
+
+    // Role: Bake 결과 저장 대상과 기준 Grid 정보를 그린다.
+    private void DrawOutputSection()
+    {
+        EditorGUILayout.LabelField("Output", EditorStyles.boldLabel);
+        output = (StageBakeData)EditorGUILayout.ObjectField("Stage Bake Data", output, typeof(StageBakeData), false);
+        stageId = EditorGUILayout.TextField("Stage Id", stageId);
+        grid = (Grid)EditorGUILayout.ObjectField("Grid", grid, typeof(Grid), true);
+        EditorGUILayout.Space(8f);
+    }
+
+    // Role: Stage 셀 범위와 경계 설정 UI를 그린다.
+    private void DrawBoundsSection()
+    {
+        showBounds = EditorGUILayout.Foldout(showBounds, "Bounds", true, EditorStyles.foldoutHeader);
+        if (!showBounds)
+        {
+            EditorGUILayout.Space(8f);
+            return;
+        }
+
+        cellBounds = DrawRectInt("Cell Bounds", cellBounds);
+
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            leftBoundary = (StageBoundaryMode)EditorGUILayout.EnumPopup("Left", leftBoundary);
+            rightBoundary = (StageBoundaryMode)EditorGUILayout.EnumPopup("Right", rightBoundary);
+        }
+
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            bottomBoundary = (StageBoundaryMode)EditorGUILayout.EnumPopup("Bottom", bottomBoundary);
+            topBoundary = (StageBoundaryMode)EditorGUILayout.EnumPopup("Top", topBoundary);
+        }
+
+        if (GUILayout.Button("Fit Bounds From Tilemaps"))
+        {
+            FitBoundsFromTilemaps();
+        }
+
+        EditorGUILayout.Space(8f);
+    }
+
+    // Role: 충돌체 병합과 공간 분할 Bake 설정 UI를 그린다.
+    private void DrawBakeSettingsSection()
+    {
+        showBakeSettings = EditorGUILayout.Foldout(showBakeSettings, "Bake Settings", true, EditorStyles.foldoutHeader);
+        if (!showBakeSettings)
+        {
+            EditorGUILayout.Space(8f);
+            return;
+        }
+
+        mergeRectColliders = EditorGUILayout.Toggle("Merge Rect Colliders", mergeRectColliders);
+        generateSpatialIndex = EditorGUILayout.Toggle("Generate Spatial Index", generateSpatialIndex);
+        uniformGridSize = Mathf.Max(1, EditorGUILayout.IntField("Uniform Grid Size", uniformGridSize));
+        EditorGUILayout.Space(8f);
+    }
+
+    // Role: Bake에 사용할 Tilemap 레이어 목록 UI를 그린다.
+    private void DrawTilemapSection()
+    {
+        showTilemapLayers = EditorGUILayout.Foldout(showTilemapLayers, "Tilemap_Layers", true, EditorStyles.foldoutHeader);
+        if (!showTilemapLayers)
+        {
+            EditorGUILayout.Space(8f);
+            return;
+        }
+
+        for (int i = 0; i < tilemapEntries.Count; i++)
+        {
+            DrawTilemapEntry(i);
+        }
+
+        if (GUILayout.Button("Add Tilemap Layer"))
+        {
+            tilemapEntries.Add(new TilemapEntry());
+        }
+
+        EditorGUILayout.Space(8f);
+    }
+
+    // Role: 특정 Tilemap 레이어의 참조와 LayerDefinition 설정 UI를 그린다.
+    // Parameters:
+    // - index: 표시할 Tilemap 레이어 인덱스
+    private void DrawTilemapEntry(int index)
+    {
+        TilemapEntry entry = tilemapEntries[index];
+
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+        bool shouldRemove = false;
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            EditorGUILayout.LabelField($"Layer {index + 1}", EditorStyles.boldLabel);
+            if (GUILayout.Button("Remove", GUILayout.Width(72f)))
+            {
+                shouldRemove = true;
+            }
+        }
+
+        if (shouldRemove)
+        {
+            tilemapEntries.RemoveAt(index);
+            EditorGUILayout.EndVertical();
+            return;
+        }
+
+        EditorGUI.BeginChangeCheck();
+        entry.tilemap = (Tilemap)EditorGUILayout.ObjectField("Tilemap", entry.tilemap, typeof(Tilemap), true);
+        if (EditorGUI.EndChangeCheck() && grid == null && entry.tilemap != null)
+        {
+            grid = entry.tilemap.GetComponentInParent<Grid>();
+        }
+
+        if (entry.tilemap != null)
+        {
+            entry.includeInBake = EditorGUILayout.Toggle("Include", entry.includeInBake);
+            entry.priority = EditorGUILayout.IntField("Priority", entry.priority);
+            entry.definition.surfacePhysicType = (StageSurfacePhysicType)EditorGUILayout.EnumPopup("Surface Physic Type", entry.definition.surfacePhysicType);
+            entry.definition.flags = (StageTileFlags)EditorGUILayout.EnumFlagsField("Flags", entry.definition.flags);
+        }
+
+        EditorGUILayout.EndVertical();
+    }
+
+    // Role: Validate와 Bake 실행 버튼 UI를 그린다.
+    private void DrawActionSection()
+    {
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            if (GUILayout.Button("Validate"))
+            {
+                LogReport("Stage validation", StageBaker.Validate(BuildRequest()));
+            }
+
+            if (GUILayout.Button("Bake"))
+            {
+                LogReport("Stage bake", StageBaker.Bake(BuildRequest()));
+            }
+        }
+    }
+
+    // Role: RectInt 값을 X/Y/Width/Height 입력 필드로 그린다.
+    // Parameters:
+    // - label: 필드 묶음 라벨
+    // - value: 현재 RectInt 값
+    private RectInt DrawRectInt(string label, RectInt value)
+    {
+        EditorGUILayout.LabelField(label);
+        EditorGUI.indentLevel++;
+        int x = EditorGUILayout.IntField("X", value.x);
+        int y = EditorGUILayout.IntField("Y", value.y);
+        int width = Mathf.Max(1, EditorGUILayout.IntField("Width", value.width));
+        int height = Mathf.Max(1, EditorGUILayout.IntField("Height", value.height));
+        EditorGUI.indentLevel--;
+        return new RectInt(x, y, width, height);
+    }
+
+    // Role: 등록된 Tilemap들의 cellBounds를 합쳐 Bake 범위를 자동 설정한다.
+    private void FitBoundsFromTilemaps()
+    {
+        bool hasBounds = false;
+        RectInt combined = new RectInt();
+
+        foreach (TilemapEntry entry in tilemapEntries)
+        {
+            if (entry.tilemap == null)
+            {
+                continue;
+            }
+
+            BoundsInt tilemapBounds = entry.tilemap.cellBounds;
+            RectInt bounds = new RectInt(
+                tilemapBounds.xMin,
+                tilemapBounds.yMin,
+                tilemapBounds.size.x,
+                tilemapBounds.size.y);
+            if (bounds.width <= 0 || bounds.height <= 0)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                combined = bounds;
+                hasBounds = true;
+                continue;
+            }
+
+            int xMin = Mathf.Min(combined.xMin, bounds.xMin);
+            int yMin = Mathf.Min(combined.yMin, bounds.yMin);
+            int xMax = Mathf.Max(combined.xMax, bounds.xMax);
+            int yMax = Mathf.Max(combined.yMax, bounds.yMax);
+            combined = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
+        }
+
+        if (!hasBounds)
+        {
+            Debug.LogWarning("No tilemap bounds are available.");
+            return;
+        }
+
+        cellBounds = combined;
+    }
+
+    // Role: 에디터 윈도우 입력값을 StageBakeRequest로 구성한다.
+    private StageBakeRequest BuildRequest()
+    {
+        List<StageBakeLayerInput> layers = new List<StageBakeLayerInput>(tilemapEntries.Count);
+        foreach (TilemapEntry entry in tilemapEntries)
+        {
+            layers.Add(new StageBakeLayerInput
+            {
+                tilemap = entry.tilemap,
+                includeInBake = entry.includeInBake,
+                priority = entry.priority,
+                definition = entry.definition,
+            });
+        }
+
+        return new StageBakeRequest
+        {
+            stageId = stageId,
+            grid = grid,
+            output = output,
+            cellBounds = cellBounds,
+            leftBoundary = leftBoundary,
+            rightBoundary = rightBoundary,
+            bottomBoundary = bottomBoundary,
+            topBoundary = topBoundary,
+            mergeRectColliders = mergeRectColliders,
+            generateSpatialIndex = generateSpatialIndex,
+            uniformGridSize = uniformGridSize,
+            layers = layers,
+        };
+    }
+
+    // Role: StageBaker 실행 결과를 Unity Console에 출력한다.
+    // Parameters:
+    // - label: 로그에 표시할 작업 이름
+    // - report: 출력할 Stage Bake 결과 리포트
+    private static void LogReport(string label, StageBakeReport report)
+    {
+        foreach (string error in report.errors)
+        {
+            Debug.LogError(error);
+        }
+
+        foreach (string warning in report.warnings)
+        {
+            Debug.LogWarning(warning);
+        }
+
+        if (report.HasErrors)
+        {
+            Debug.LogError($"{label} failed.");
+            return;
+        }
+
+        Debug.Log(
+            $"{label} complete. Baked cells: {report.bakedCellCount}, colliders: {report.colliderCount}, spatial buckets: {report.spatialBucketCount}, scanned cells: {report.scannedCellCount}.");
+    }
+}

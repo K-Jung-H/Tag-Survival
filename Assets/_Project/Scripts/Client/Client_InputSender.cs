@@ -108,6 +108,9 @@ public class Client_InputSender : MonoBehaviour
         }
     }
 
+    // Role: 입력 상태가 바뀐 경우 정기 전송을 기다리지 않고 즉시 전송할지 판단한다.
+    // Parameters:
+    // - inputState: 현재 프레임의 입력 상태
     private bool ShouldSendImmediately(ClientInputState inputState)
     {
         if (!sendImmediatelyOnInputChanged)
@@ -179,6 +182,9 @@ public class Client_InputSender : MonoBehaviour
         QueueOrSendInputPacket(packet);
     }
 
+    // Role: 지연 테스트 설정에 따라 입력 패킷을 즉시 전송하거나 지연 큐에 넣는다.
+    // Parameters:
+    // - packet: 전송할 클라이언트 입력 패킷
     private void QueueOrSendInputPacket(ClientInputPacket packet)
     {
         float delaySeconds = GetNetworkDelaySeconds();
@@ -196,6 +202,7 @@ public class Client_InputSender : MonoBehaviour
         });
     }
 
+    // Role: 지연 시간이 지난 입력 패킷을 실제 네트워크로 전송한다.
     private void FlushDelayedInputPackets()
     {
         if (delayedInputPackets.Count == 0)
@@ -216,6 +223,9 @@ public class Client_InputSender : MonoBehaviour
         }
     }
 
+    // Role: 입력 패킷을 버퍼에 기록하고 서버로 즉시 전송한다.
+    // Parameters:
+    // - packet: 실제 전송할 클라이언트 입력 패킷
     private void SendInputPacketNow(ClientInputPacket packet)
     {
         inputWriter.Truncate(0);
@@ -229,6 +239,7 @@ public class Client_InputSender : MonoBehaviour
         );
     }
 
+    // Role: 현재 클라이언트에 적용된 네트워크 지연 시간을 초 단위로 반환한다.
     private float GetNetworkDelaySeconds()
     {
         if (networkDelaySimulator == null)

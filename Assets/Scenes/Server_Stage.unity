@@ -263,6 +263,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6abf7f21dd802254a9d0c53e862c45c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Server_GamePlayRunner
+  stageBakeData: {fileID: 11400000, guid: 327c8e9f47c8f654ba9a8fca35b580e1, type: 2}
 --- !u!4 &1076854066
 Transform:
   m_ObjectHideFlags: 0

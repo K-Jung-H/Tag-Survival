@@ -9,12 +9,15 @@ public class Client_SnapshotReceiver : MonoBehaviour
         public float applyTime;
         public ServerSnapshotHeaderPacket header;
         public PlayerSnapshotPacket[] players;
+        public SkillSnapshotPacket[] skills;
     }
 
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
 
     private readonly Dictionary<ulong, ClientSnapshotState> snapshots = new();
+    private readonly Dictionary<ulong, ClientSkillSnapshotState> skillSnapshots = new();
     private readonly HashSet<ulong> receivedClientIds = new();
+    private readonly HashSet<ulong> receivedSkillOwnerIds = new();
     private readonly List<ulong> removeTargets = new();
     private readonly List<QueuedServerSnapshot> delayedSnapshots = new();
 
@@ -25,6 +28,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
     public uint LastServerTick { get; private set; }
 
     public IReadOnlyDictionary<ulong, ClientSnapshotState> Snapshots => snapshots;
+    public IReadOnlyDictionary<ulong, ClientSkillSnapshotState> SkillSnapshots => skillSnapshots;
 
     // Role: 입력 기록 컴포넌트를 캐싱하고 NetworkManager 연결 이벤트를 등록한다.
     private void Start()
@@ -90,7 +94,9 @@ public class Client_SnapshotReceiver : MonoBehaviour
             return;
 
         snapshots.Clear();
+        skillSnapshots.Clear();
         receivedClientIds.Clear();
+        receivedSkillOwnerIds.Clear();
         removeTargets.Clear();
         delayedSnapshots.Clear();
 
@@ -158,8 +164,14 @@ public class Client_SnapshotReceiver : MonoBehaviour
         if (!CanReceiveSnapshot())
             return;
 
-        if (!TryReadSnapshot(ref reader, out ServerSnapshotHeaderPacket header, out PlayerSnapshotPacket[] players))
+        if (!TryReadSnapshot(
+            ref reader,
+            out ServerSnapshotHeaderPacket header,
+            out PlayerSnapshotPacket[] players,
+            out SkillSnapshotPacket[] skills))
+        {
             return;
+        }
 
         float delaySeconds = GetNetworkDelaySeconds();
 
@@ -169,22 +181,25 @@ public class Client_SnapshotReceiver : MonoBehaviour
             {
                 applyTime = Time.realtimeSinceStartup + delaySeconds,
                 header = header,
-                players = players
+                players = players,
+                skills = skills
             });
 
             return;
         }
 
-        ApplyServerSnapshot(header, players);
+        ApplyServerSnapshot(header, players, skills);
     }
 
     private bool TryReadSnapshot(
         ref FastBufferReader reader,
         out ServerSnapshotHeaderPacket header,
-        out PlayerSnapshotPacket[] players
+        out PlayerSnapshotPacket[] players,
+        out SkillSnapshotPacket[] skills
     )
     {
         players = null;
+        skills = null;
 
         if (!ServerSnapshotHeaderPacket.TryRead(ref reader, out header))
             return false;
@@ -199,12 +214,22 @@ public class Client_SnapshotReceiver : MonoBehaviour
             players[i] = packet;
         }
 
+        skills = new SkillSnapshotPacket[header.skillCount];
+        for (int i = 0; i < header.skillCount; i++)
+        {
+            if (!SkillSnapshotPacket.TryRead(ref reader, out SkillSnapshotPacket packet))
+                return false;
+
+            skills[i] = packet;
+        }
+
         return true;
     }
 
     private void ApplyServerSnapshot(
         ServerSnapshotHeaderPacket header,
-        PlayerSnapshotPacket[] players
+        PlayerSnapshotPacket[] players,
+        SkillSnapshotPacket[] skills
     )
     {
         if (!IsNewerSnapshot(header.snapshotSeq))
@@ -234,12 +259,39 @@ public class Client_SnapshotReceiver : MonoBehaviour
                 buttons = packet.buttons,
                 locomotionState = packet.locomotionState,
                 characterId = packet.characterId,
+                skillId = packet.skillId,
                 facingSign = packet.facingSign,
                 lastReceivedTime = Time.time
             };
         }
 
+        receivedSkillOwnerIds.Clear();
+
+        for (int i = 0; i < skills.Length; i++)
+        {
+            SkillSnapshotPacket packet = skills[i];
+            if (packet.skillState == SkillObjectState.None)
+            {
+                continue;
+            }
+
+            receivedSkillOwnerIds.Add(packet.ownerClientId);
+            skillSnapshots[packet.ownerClientId] = new ClientSkillSnapshotState
+            {
+                ownerClientId = packet.ownerClientId,
+                snapshotSeq = header.snapshotSeq,
+                serverTick = header.serverTick,
+                serverTime = header.serverTime,
+                skillId = packet.skillId,
+                skillType = packet.skillType,
+                skillState = packet.skillState,
+                skillObjects = packet.skillObjects,
+                lastReceivedTime = Time.time
+            };
+        }
+
         RemoveMissingPlayers();
+        RemoveMissingSkills();
     }
 
     private void FlushDelayedSnapshots()
@@ -264,7 +316,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
 
             delayedSnapshots.RemoveAt(i);
             i--;
-            ApplyServerSnapshot(snapshot.header, snapshot.players);
+            ApplyServerSnapshot(snapshot.header, snapshot.players, snapshot.skills);
         }
     }
 
@@ -302,6 +354,25 @@ public class Client_SnapshotReceiver : MonoBehaviour
         foreach (ulong clientId in removeTargets)
         {
             snapshots.Remove(clientId);
+        }
+    }
+
+    // Role: 최신 스냅샷에 없는 스킬 상태를 제거한다.
+    private void RemoveMissingSkills()
+    {
+        removeTargets.Clear();
+
+        foreach (ulong ownerClientId in skillSnapshots.Keys)
+        {
+            if (!receivedSkillOwnerIds.Contains(ownerClientId))
+            {
+                removeTargets.Add(ownerClientId);
+            }
+        }
+
+        foreach (ulong ownerClientId in removeTargets)
+        {
+            skillSnapshots.Remove(ownerClientId);
         }
     }
 

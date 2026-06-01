@@ -6,6 +6,7 @@ public class Server_GamePlayRunner : MonoBehaviour
 {
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private CharacterCatalog characterCatalog;
+    [SerializeField] private SkillCatalog skillCatalog;
 
     private readonly float serverDeltaTime = 1f / GameNetProtocol.ServerTickRate;
     private readonly float snapshotSendInterval = 1f / GameNetProtocol.SnapshotSendRate;
@@ -14,6 +15,7 @@ public class Server_GamePlayRunner : MonoBehaviour
 
     private FastBufferWriter snapshotWriter;
     private bool snapshotWriterCreated;
+    private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
 
     private float tickTimer;
     private float snapshotTimer;
@@ -25,7 +27,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     // Role: 서버 게임플레이 시뮬레이션과 스냅샷 writer를 생성한다.
     private void Awake()
     {
-        gamePlay = new Server_GamePlay(stageDefinition, characterCatalog);
+        gamePlay = new Server_GamePlay(stageDefinition, characterCatalog, skillCatalog);
 
         snapshotWriter = new FastBufferWriter(
             GameNetProtocol.SnapshotPacketBufferSize,
@@ -215,8 +217,12 @@ public class Server_GamePlayRunner : MonoBehaviour
             snapshotSeq = snapshotSeq,
             serverTick = gamePlay.Tick,
             serverTime = (float)NetworkManager.Singleton.ServerTime.Time,
-            playerCount = (ushort)gamePlay.Players.Count
+            playerCount = (ushort)gamePlay.Players.Count,
+            skillCount = 0
         };
+
+        gamePlay.CopySkillSnapshotsTo(skillSnapshots);
+        header.skillCount = (ushort)skillSnapshots.Count;
 
         snapshotSeq++;
         header.Write(ref snapshotWriter);
@@ -235,10 +241,16 @@ public class Server_GamePlayRunner : MonoBehaviour
                 buttons = player.buttons,
                 locomotionState = characterState.locomotionState,
                 characterId = characterState.characterId,
+                skillId = player.skillId,
                 facingSign = characterState.facingSign
             };
 
             packet.Write(ref snapshotWriter);
+        }
+
+        for (int i = 0; i < skillSnapshots.Count; i++)
+        {
+            skillSnapshots[i].Write(ref snapshotWriter);
         }
 
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)

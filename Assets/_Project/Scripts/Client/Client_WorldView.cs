@@ -14,6 +14,7 @@ public class Client_WorldView : MonoBehaviour
     [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
     [SerializeField] private Client_CameraFollow cameraFollow;
     [SerializeField] private CharacterCatalog characterCatalog;
+    [SerializeField] private SkillCatalog skillCatalog;
 
     [Header("View Smoothing")]
     [SerializeField] private float localFollowSpeed = 50f;
@@ -21,8 +22,10 @@ public class Client_WorldView : MonoBehaviour
     [SerializeField] private float snapDistance = 1.5f;
 
     private readonly Dictionary<ulong, Client_CharacterView> playerViews = new();
+    private readonly Dictionary<ulong, Client_SkillObjectView> skillViews = new();
     private readonly List<ulong> removeTargets = new();
     private readonly HashSet<byte> missingCharacterWarnings = new();
+    private readonly HashSet<byte> missingSkillWarnings = new();
 
     public event Action<ClientWorldPlayerViewRef> PlayerViewCreated;
     public event Action<ulong> PlayerViewRemoved;
@@ -43,6 +46,13 @@ public class Client_WorldView : MonoBehaviour
         {
             Debug.LogError("[Client_WorldView] CharacterCatalog is not assigned.");
             enabled = false;
+            return;
+        }
+
+        if (skillCatalog == null)
+        {
+            Debug.LogError("[Client_WorldView] SkillCatalog is not assigned.");
+            enabled = false;
         }
     }
 
@@ -53,7 +63,9 @@ public class Client_WorldView : MonoBehaviour
             return;
 
         SyncPlayerViews();
+        SyncSkillViews();
         RemoveMissingViews();
+        RemoveMissingSkillViews();
     }
 
     // Role: 현재 생성된 플레이어 View 목록을 복사한다.
@@ -262,6 +274,118 @@ public class Client_WorldView : MonoBehaviour
             }
 
             RemovePlayerView(clientId, view, raiseEvent: true);
+        }
+    }
+
+    private void SyncSkillViews()
+    {
+        foreach (var pair in snapshotReceiver.SkillSnapshots)
+        {
+            ulong ownerClientId = pair.Key;
+            ClientSkillSnapshotState snapshotState = pair.Value;
+
+            if (!TryGetOrCreateSkillView(ownerClientId, snapshotState.skillId, out Client_SkillObjectView view))
+            {
+                continue;
+            }
+
+            TryGetPlayerViewRoot(ownerClientId, out Transform ownerRoot);
+            view.ApplySnapshot(snapshotState, ownerRoot);
+        }
+    }
+
+    private bool TryGetOrCreateSkillView(
+        ulong ownerClientId,
+        byte skillId,
+        out Client_SkillObjectView view)
+    {
+        if (skillViews.TryGetValue(ownerClientId, out view) && view != null)
+        {
+            if (view.SkillId == skillId)
+            {
+                return true;
+            }
+
+            Destroy(view.gameObject);
+            skillViews.Remove(ownerClientId);
+        }
+
+        view = null;
+        if (!TryGetSkillDefinition(skillId, out SkillDefinition definition))
+        {
+            return false;
+        }
+
+        if (definition.SkillObjectViewPrefab == null)
+        {
+            Debug.LogError($"[Client_WorldView] SkillObjectViewPrefab is not assigned for skillId {skillId}.", this);
+            return false;
+        }
+
+        GameObject viewObject = Instantiate(definition.SkillObjectViewPrefab, transform);
+        view = viewObject.GetComponent<Client_SkillObjectView>();
+        if (view == null)
+        {
+            Debug.LogError(
+                $"[Client_WorldView] SkillObjectViewPrefab for skillId {skillId} must have Client_SkillObjectView on root.",
+                this);
+            Destroy(viewObject);
+            return false;
+        }
+
+        view.name = $"SkillObjectView_{ownerClientId}_Skill_{skillId}";
+        view.Initialize(ownerClientId, definition);
+        skillViews[ownerClientId] = view;
+        return true;
+    }
+
+    private bool TryGetSkillDefinition(byte skillId, out SkillDefinition definition)
+    {
+        definition = null;
+        if (skillCatalog == null)
+        {
+            return false;
+        }
+
+        if (skillCatalog.TryGet(skillId, out definition))
+        {
+            return true;
+        }
+
+        if (missingSkillWarnings.Add(skillId))
+        {
+            Debug.LogError($"[Client_WorldView] SkillDefinition is not found for skillId {skillId}.", this);
+        }
+
+        return false;
+    }
+
+    private void RemoveMissingSkillViews()
+    {
+        removeTargets.Clear();
+
+        foreach (ulong ownerClientId in skillViews.Keys)
+        {
+            if (!snapshotReceiver.SkillSnapshots.ContainsKey(ownerClientId))
+            {
+                removeTargets.Add(ownerClientId);
+            }
+        }
+
+        for (int i = 0; i < removeTargets.Count; i++)
+        {
+            ulong ownerClientId = removeTargets[i];
+            if (!skillViews.TryGetValue(ownerClientId, out Client_SkillObjectView view))
+            {
+                continue;
+            }
+
+            if (view != null)
+            {
+                Destroy(view.gameObject);
+            }
+
+            skillViews.Remove(ownerClientId);
         }
     }
 

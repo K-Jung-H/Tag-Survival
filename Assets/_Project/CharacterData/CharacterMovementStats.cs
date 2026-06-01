@@ -10,6 +10,11 @@ public struct CharacterMovementStats
     public float upGravity;
     public float downGravity;
     public float maxFallSpeed;
+    public float groundAcceleration;
+    public float groundDeceleration;
+    public float airAcceleration;
+    public float airDeceleration;
+    public float overSpeedDeceleration;
     public float wallMoveSpeedMultiplier;
     public float coyoteTime;
 
@@ -28,6 +33,11 @@ public struct CharacterMovementStats
         float timeToApex,
         float timeToFall,
         float maxFallSpeed,
+        float groundAcceleration,
+        float groundDeceleration,
+        float airAcceleration,
+        float airDeceleration,
+        float overSpeedDeceleration,
         float wallMoveSpeedMultiplier,
         float coyoteTime)
     {
@@ -45,6 +55,11 @@ public struct CharacterMovementStats
             upGravity = -(2f * safeJumpHeight) / (safeTimeToApex * safeTimeToApex),
             downGravity = -(2f * safeJumpHeight) / (safeTimeToFall * safeTimeToFall),
             maxFallSpeed = Mathf.Max(0.0001f, maxFallSpeed),
+            groundAcceleration = Mathf.Max(0f, groundAcceleration),
+            groundDeceleration = Mathf.Max(0f, groundDeceleration),
+            airAcceleration = Mathf.Max(0f, airAcceleration),
+            airDeceleration = Mathf.Max(0f, airDeceleration),
+            overSpeedDeceleration = Mathf.Max(0f, overSpeedDeceleration),
             wallMoveSpeedMultiplier = Mathf.Max(0f, wallMoveSpeedMultiplier),
             coyoteTime = Mathf.Max(0f, coyoteTime),
         };

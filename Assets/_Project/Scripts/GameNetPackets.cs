@@ -66,6 +66,7 @@ public struct ServerSnapshotHeaderPacket
     public uint serverTick;
     public float serverTime;
     public ushort playerCount;
+    public ushort skillCount;
 
     // Role: 서버 스냅샷 헤더를 writer에 기록한다.
     // Parameters:
@@ -77,6 +78,7 @@ public struct ServerSnapshotHeaderPacket
         writer.WriteValueSafe(serverTick);
         writer.WriteValueSafe(serverTime);
         writer.WriteValueSafe(playerCount);
+        writer.WriteValueSafe(skillCount);
     }
 
     // Role: reader에서 서버 스냅샷 헤더를 읽는다.
@@ -92,6 +94,7 @@ public struct ServerSnapshotHeaderPacket
         reader.ReadValueSafe(out uint serverTick);
         reader.ReadValueSafe(out float serverTime);
         reader.ReadValueSafe(out ushort playerCount);
+        reader.ReadValueSafe(out ushort skillCount);
 
         if (protocolVersion != GameNetProtocol.ProtocolVersion)
             return false;
@@ -102,7 +105,8 @@ public struct ServerSnapshotHeaderPacket
             snapshotSeq = snapshotSeq,
             serverTick = serverTick,
             serverTime = serverTime,
-            playerCount = playerCount
+            playerCount = playerCount,
+            skillCount = skillCount
         };
 
         return true;
@@ -118,6 +122,7 @@ public struct PlayerSnapshotPacket
     public PlayerInputButtons buttons;
     public PlayerLocomotionState locomotionState;
     public byte characterId;
+    public byte skillId;
     public sbyte facingSign;
 
     // Role: 플레이어 스냅샷 데이터를 writer에 기록한다.
@@ -135,6 +140,7 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe((ushort)buttons);
         writer.WriteValueSafe((byte)locomotionState);
         writer.WriteValueSafe(characterId);
+        writer.WriteValueSafe(skillId);
         writer.WriteValueSafe(facingSign);
     }
 
@@ -156,6 +162,7 @@ public struct PlayerSnapshotPacket
         reader.ReadValueSafe(out ushort buttons);
         reader.ReadValueSafe(out byte locomotionState);
         reader.ReadValueSafe(out byte characterId);
+        reader.ReadValueSafe(out byte skillId);
         reader.ReadValueSafe(out sbyte facingSign);
 
         packet = new PlayerSnapshotPacket
@@ -167,6 +174,7 @@ public struct PlayerSnapshotPacket
             buttons = (PlayerInputButtons)buttons,
             locomotionState = (PlayerLocomotionState)locomotionState,
             characterId = characterId,
+            skillId = skillId,
             facingSign = facingSign
         };
 
@@ -186,6 +194,134 @@ public struct ClientSnapshotState
     public PlayerInputButtons buttons;
     public PlayerLocomotionState locomotionState;
     public byte characterId;
+    public byte skillId;
     public sbyte facingSign;
+    public float lastReceivedTime;
+}
+
+public struct SkillObjectSnapshotPacket
+{
+    public byte skillObjectId;
+    public Vector2 position;
+    public float rotation;
+    public Vector2 velocity;
+
+    // Role: 스킬 내부 렌더링 객체 하나의 스냅샷을 writer에 기록한다.
+    // Parameters:
+    // - writer: 패킷 데이터를 기록할 writer
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(skillObjectId);
+        writer.WriteValueSafe(position.x);
+        writer.WriteValueSafe(position.y);
+        writer.WriteValueSafe(rotation);
+        writer.WriteValueSafe(velocity.x);
+        writer.WriteValueSafe(velocity.y);
+    }
+
+    // Role: reader에서 스킬 내부 렌더링 객체 스냅샷을 읽는다.
+    // Parameters:
+    // - reader: 패킷 데이터를 읽을 reader
+    // - packet: 읽은 스킬 객체 스냅샷
+    public static bool TryRead(ref FastBufferReader reader, out SkillObjectSnapshotPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out byte skillObjectId);
+        reader.ReadValueSafe(out float positionX);
+        reader.ReadValueSafe(out float positionY);
+        reader.ReadValueSafe(out float rotation);
+        reader.ReadValueSafe(out float velocityX);
+        reader.ReadValueSafe(out float velocityY);
+
+        packet = new SkillObjectSnapshotPacket
+        {
+            skillObjectId = skillObjectId,
+            position = new Vector2(positionX, positionY),
+            rotation = rotation,
+            velocity = new Vector2(velocityX, velocityY)
+        };
+
+        return true;
+    }
+}
+
+public struct SkillSnapshotPacket
+{
+    public ulong ownerClientId;
+    public byte skillId;
+    public SkillType skillType;
+    public SkillObjectState skillState;
+    public byte skillObjectCount;
+    public SkillObjectSnapshotPacket[] skillObjects;
+
+    // Role: 스킬 스냅샷을 writer에 기록한다.
+    // Parameters:
+    // - writer: 패킷 데이터를 기록할 writer
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(ownerClientId);
+        writer.WriteValueSafe(skillId);
+        writer.WriteValueSafe((byte)skillType);
+        writer.WriteValueSafe((byte)skillState);
+        writer.WriteValueSafe(skillObjectCount);
+
+        int count = skillObjects != null
+            ? Mathf.Min(skillObjectCount, skillObjects.Length)
+            : 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            skillObjects[i].Write(ref writer);
+        }
+    }
+
+    // Role: reader에서 스킬 스냅샷을 읽는다.
+    // Parameters:
+    // - reader: 패킷 데이터를 읽을 reader
+    // - packet: 읽은 스킬 스냅샷
+    public static bool TryRead(ref FastBufferReader reader, out SkillSnapshotPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ulong ownerClientId);
+        reader.ReadValueSafe(out byte skillId);
+        reader.ReadValueSafe(out byte skillType);
+        reader.ReadValueSafe(out byte skillState);
+        reader.ReadValueSafe(out byte skillObjectCount);
+
+        SkillObjectSnapshotPacket[] skillObjects = new SkillObjectSnapshotPacket[skillObjectCount];
+        for (int i = 0; i < skillObjectCount; i++)
+        {
+            if (!SkillObjectSnapshotPacket.TryRead(ref reader, out skillObjects[i]))
+            {
+                return false;
+            }
+        }
+
+        packet = new SkillSnapshotPacket
+        {
+            ownerClientId = ownerClientId,
+            skillId = skillId,
+            skillType = (SkillType)skillType,
+            skillState = (SkillObjectState)skillState,
+            skillObjectCount = skillObjectCount,
+            skillObjects = skillObjects
+        };
+
+        return true;
+    }
+}
+
+public struct ClientSkillSnapshotState
+{
+    public ulong ownerClientId;
+    public uint snapshotSeq;
+    public uint serverTick;
+    public float serverTime;
+    public byte skillId;
+    public SkillType skillType;
+    public SkillObjectState skillState;
+    public SkillObjectSnapshotPacket[] skillObjects;
     public float lastReceivedTime;
 }

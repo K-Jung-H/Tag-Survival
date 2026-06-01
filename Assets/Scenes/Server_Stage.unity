@@ -265,6 +265,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Server_GamePlayRunner
   stageDefinition: {fileID: 11400000, guid: e280c1ed45f119242908d58f59ccdb55, type: 2}
   characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
+  skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
 --- !u!4 &1076854066
 Transform:
   m_ObjectHideFlags: 0

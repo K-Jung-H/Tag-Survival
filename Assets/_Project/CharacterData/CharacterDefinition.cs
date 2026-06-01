@@ -11,6 +11,11 @@ public sealed class CharacterDefinition : ScriptableObject
     [SerializeField] private float timeToApex = 0.35f;
     [SerializeField] private float timeToFall = 0.28f;
     [SerializeField] private float maxFallSpeed = GameSimulationConfig.PlayerMaxFallSpeed;
+    [SerializeField] private float groundAcceleration = 80f;
+    [SerializeField] private float groundDeceleration = 70f;
+    [SerializeField] private float airAcceleration = 35f;
+    [SerializeField] private float airDeceleration = 12f;
+    [SerializeField] private float overSpeedDeceleration = 18f;
     [SerializeField] private float wallMoveSpeedMultiplier = GameSimulationConfig.PlayerWallMoveSpeedMultiplier;
     [SerializeField] private float coyoteTime = 0.08f;
     [SerializeField] private Vector2 fallbackCollisionExtent = new Vector2(0.4f, 0.4f);
@@ -25,6 +30,11 @@ public sealed class CharacterDefinition : ScriptableObject
         timeToApex,
         timeToFall,
         maxFallSpeed,
+        groundAcceleration,
+        groundDeceleration,
+        airAcceleration,
+        airDeceleration,
+        overSpeedDeceleration,
         wallMoveSpeedMultiplier,
         coyoteTime);
 

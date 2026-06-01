@@ -4,6 +4,7 @@ using UnityEngine;
 public class Server_GamePlay
 {
     private const ushort NoReceivedInputSeq = ushort.MaxValue;
+    private const byte DefaultSkillId = 1;
     private const float MovementStateThresholdSqr = 0.0001f;
     private const float FacingDirectionThreshold = 0.0001f;
     private const float JumpInputThreshold = 0.5f;
@@ -17,6 +18,11 @@ public class Server_GamePlay
             0.35f,
             0.28f,
             GameSimulationConfig.PlayerMaxFallSpeed,
+            80f,
+            70f,
+            35f,
+            12f,
+            18f,
             GameSimulationConfig.PlayerWallMoveSpeedMultiplier,
             0.08f);
 
@@ -38,6 +44,8 @@ public class Server_GamePlay
         public float speed;
         public CharacterMovementStats movementStats;
         public PlayerInputButtons buttons;
+        public byte skillId;
+        public Skill_StateMachine skillStateMachine;
         public Character_StateMachine characterStateMachine;
         public Vector2 collisionHalfExtent;
         public Vector2 collisionOffset;
@@ -46,6 +54,8 @@ public class Server_GamePlay
         public sbyte wallNormalX;
         public bool isJumpPressed;
         public bool jumpQueued;
+        public bool isSkillPressed;
+        public bool skillQueued;
         public float coyoteTimeRemaining;
     }
 
@@ -56,10 +66,11 @@ public class Server_GamePlay
     private readonly StageCollisionSystem collisionSystem;
     private readonly StageDefinition stageDefinition;
     private readonly CharacterCatalog characterCatalog;
+    private readonly SkillCatalog skillCatalog;
 
     // Role: StageBakeData 없이 서버 게임플레이 시뮬레이션을 생성한다.
     public Server_GamePlay()
-        : this((StageDefinition)null, null)
+        : this((StageDefinition)null, null, null)
     {
     }
 
@@ -67,7 +78,7 @@ public class Server_GamePlay
     // Parameters:
     // - stageBakeData: 서버 충돌 연산에 사용할 Bake 결과 데이터
     public Server_GamePlay(StageBakeData stageBakeData)
-        : this(stageBakeData, null)
+        : this(stageBakeData, null, null)
     {
     }
 
@@ -76,7 +87,15 @@ public class Server_GamePlay
     // - stageBakeData: 서버 충돌 연산에 사용할 Bake 결과 데이터
     // - characterCatalog: 캐릭터 정의와 충돌 크기를 조회할 카탈로그
     public Server_GamePlay(StageBakeData stageBakeData, CharacterCatalog characterCatalog)
-        : this(null, stageBakeData, characterCatalog)
+        : this(null, stageBakeData, characterCatalog, null)
+    {
+    }
+
+    public Server_GamePlay(
+        StageBakeData stageBakeData,
+        CharacterCatalog characterCatalog,
+        SkillCatalog skillCatalog)
+        : this(null, stageBakeData, characterCatalog, skillCatalog)
     {
     }
 
@@ -85,17 +104,31 @@ public class Server_GamePlay
     // - stageDefinition: 서버 충돌과 전역 물리 설정을 제공할 Stage 정의
     // - characterCatalog: 캐릭터 정의와 충돌 크기를 조회할 카탈로그
     public Server_GamePlay(StageDefinition stageDefinition, CharacterCatalog characterCatalog)
-        : this(stageDefinition, stageDefinition != null ? stageDefinition.StageBakeData : null, characterCatalog)
+        : this(stageDefinition, characterCatalog, null)
+    {
+    }
+
+    public Server_GamePlay(
+        StageDefinition stageDefinition,
+        CharacterCatalog characterCatalog,
+        SkillCatalog skillCatalog)
+        : this(
+            stageDefinition,
+            stageDefinition != null ? stageDefinition.StageBakeData : null,
+            characterCatalog,
+            skillCatalog)
     {
     }
 
     private Server_GamePlay(
         StageDefinition stageDefinition,
         StageBakeData stageBakeData,
-        CharacterCatalog characterCatalog)
+        CharacterCatalog characterCatalog,
+        SkillCatalog skillCatalog)
     {
         this.stageDefinition = stageDefinition;
         this.characterCatalog = characterCatalog;
+        this.skillCatalog = skillCatalog;
         collisionSystem = new StageCollisionSystem(
             stageBakeData,
             DefaultCollisionExtent,
@@ -122,6 +155,8 @@ public class Server_GamePlay
         Vector2 collisionHalfExtent = ResolveCollisionHalfExtent(characterId);
         Vector2 collisionOffset = ResolveCollisionOffset(characterId);
         CharacterMovementStats movementStats = ResolveMovementStats(characterId);
+        SkillDefinition skillDefinition = ResolveSkillDefinition(DefaultSkillId);
+        Skill_StateMachine skillStateMachine = SkillStateMachineFactory.Create(skillDefinition);
 
         PlayerState player = new PlayerState
         {
@@ -133,6 +168,8 @@ public class Server_GamePlay
             speed = movementStats.moveSpeed,
             movementStats = movementStats,
             buttons = PlayerInputButtons.None,
+            skillId = skillDefinition != null ? skillDefinition.SkillId : DefaultSkillId,
+            skillStateMachine = skillStateMachine,
             characterStateMachine = CharacterStateMachineFactory.Create(characterId),
             collisionHalfExtent = collisionHalfExtent,
             collisionOffset = collisionOffset,
@@ -141,6 +178,8 @@ public class Server_GamePlay
             wallNormalX = 0,
             isJumpPressed = false,
             jumpQueued = false,
+            isSkillPressed = false,
+            skillQueued = false,
             coyoteTimeRemaining = 0f,
         };
         UpdateCharacterStateMachine(ref player);
@@ -236,6 +275,28 @@ public class Server_GamePlay
         return players.TryGetValue(clientId, out player);
     }
 
+    // Role: 현재 활성화된 스킬 스냅샷을 target에 복사한다.
+    // Parameters:
+    // - target: 스킬 스냅샷을 받을 리스트
+    public void CopySkillSnapshotsTo(List<SkillSnapshotPacket> target)
+    {
+        target.Clear();
+
+        foreach (var pair in players)
+        {
+            Skill_StateMachine skillStateMachine = pair.Value.skillStateMachine;
+            if (skillStateMachine == null)
+            {
+                continue;
+            }
+
+            if (skillStateMachine.TryGetSnapshot(out SkillSnapshotPacket snapshot))
+            {
+                target.Add(snapshot);
+            }
+        }
+    }
+
     // Role: 대기 중인 입력을 현재 tick의 플레이어 상태에 반영한다.
     private void ApplyQueuedInputsForTick()
     {
@@ -266,6 +327,14 @@ public class Server_GamePlay
             }
 
             player.isJumpPressed = isJumpPressed;
+
+            bool isSkillPressed = (command.buttons & PlayerInputButtons.Skill1) != 0;
+            if (isSkillPressed && !player.isSkillPressed)
+            {
+                player.skillQueued = true;
+            }
+
+            player.isSkillPressed = isSkillPressed;
 
             if (command.aim.sqrMagnitude > 0.0001f)
             {
@@ -300,6 +369,7 @@ public class Server_GamePlay
             float horizontalInput = GetPlatformerHorizontalInput(player.input);
             float verticalInput = GetPlatformerVerticalInput(player.input);
             ApplyPlatformerVelocity(ref player, horizontalInput, verticalInput, deltaTime);
+            PrepareSkillMovement(ref player, deltaTime);
 
             Vector2 collisionCenter = player.position + player.collisionOffset;
             StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
@@ -323,6 +393,7 @@ public class Server_GamePlay
             }
 
             UpdateWallStickAfterStageMove(ref player, moveResult, horizontalInput, verticalInput);
+            SimulateSkill(ref player, deltaTime);
             UpdatePlayerPresentationState(ref player);
             UpdateCharacterStateMachine(ref player);
 
@@ -455,6 +526,41 @@ public class Server_GamePlay
         player.characterStateMachine.ApplyState(characterState);
     }
 
+    // Role: 플레이어에게 장착된 스킬 상태 머신을 서버 tick 기준으로 갱신한다.
+    // Parameters:
+    // - player: 스킬을 사용하는 플레이어 데이터
+    // - deltaTime: 이번 시뮬레이션에 사용할 시간
+    private void SimulateSkill(ref PlayerState player, float deltaTime)
+    {
+        if (player.skillStateMachine == null)
+        {
+            player.skillQueued = false;
+            return;
+        }
+
+        bool skillPressedThisTick = player.skillQueued;
+        player.skillQueued = false;
+
+        player.skillStateMachine.Simulate(
+            ref player,
+            collisionSystem,
+            deltaTime,
+            skillPressedThisTick);
+    }
+
+    private void PrepareSkillMovement(ref PlayerState player, float deltaTime)
+    {
+        if (player.skillStateMachine == null)
+        {
+            return;
+        }
+
+        player.skillStateMachine.PrepareMovement(
+            ref player,
+            collisionSystem,
+            deltaTime);
+    }
+
     // Role: 이번 이동 전 사용할 coyote time을 갱신한다.
     // Parameters:
     // - player: coyote time을 갱신할 플레이어 데이터
@@ -556,8 +662,64 @@ public class Server_GamePlay
             player.wallNormalX = 0;
         }
 
-        player.velocity.x = horizontalInput * player.speed;
+        if (IsUsingSwingMovement(player))
+        {
+            ApplySwingGravity(ref player, deltaTime);
+            return;
+        }
+
+        ApplyPlatformerHorizontalVelocity(ref player, horizontalInput, deltaTime);
         ApplyJumpAndGravity(ref player, deltaTime);
+    }
+
+    private bool IsUsingSwingMovement(PlayerState player)
+    {
+        return player.skillStateMachine != null && player.skillStateMachine.UsesSwingMovement;
+    }
+
+    private void ApplySwingGravity(ref PlayerState player, float deltaTime)
+    {
+        player.jumpQueued = false;
+
+        float gravity = player.movementStats.downGravity * ResolveStageGravityScale();
+        player.velocity.y += gravity * deltaTime;
+
+        float maxFallSpeed = player.movementStats.maxFallSpeed * ResolveStageMaxFallSpeedMultiplier();
+        player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
+    }
+
+    private void ApplyPlatformerHorizontalVelocity(
+        ref PlayerState player,
+        float horizontalInput,
+        float deltaTime)
+    {
+        float targetVelocityX = horizontalInput * player.speed;
+        float currentVelocityX = player.velocity.x;
+        float inputMagnitude = Mathf.Abs(horizontalInput);
+
+        if (inputMagnitude <= FacingDirectionThreshold)
+        {
+            float deceleration = player.isGrounded
+                ? player.movementStats.groundDeceleration
+                : player.movementStats.airDeceleration;
+
+            player.velocity.x = Mathf.MoveTowards(currentVelocityX, 0f, deceleration * deltaTime);
+            return;
+        }
+
+        float acceleration = player.isGrounded
+            ? player.movementStats.groundAcceleration
+            : player.movementStats.airAcceleration;
+
+        bool sameDirection = Mathf.Sign(currentVelocityX) == Mathf.Sign(targetVelocityX);
+        bool isOverTargetSpeed = sameDirection
+            && Mathf.Abs(currentVelocityX) > Mathf.Abs(targetVelocityX);
+
+        float maxDelta = isOverTargetSpeed
+            ? player.movementStats.overSpeedDeceleration * deltaTime
+            : acceleration * deltaTime;
+
+        player.velocity.x = Mathf.MoveTowards(currentVelocityX, targetVelocityX, maxDelta);
     }
 
     // Role: Stage 이동 결과를 바탕으로 WallStick 유지 여부와 벽 법선 방향을 갱신한다.
@@ -727,6 +889,19 @@ public class Server_GamePlay
         }
 
         return DefaultMovementStats;
+    }
+
+    // Role: 스킬 ID에 맞는 SkillDefinition을 조회한다.
+    // Parameters:
+    // - skillId: 조회할 스킬 ID
+    private SkillDefinition ResolveSkillDefinition(byte skillId)
+    {
+        if (skillCatalog != null && skillCatalog.TryGet(skillId, out SkillDefinition definition))
+        {
+            return definition;
+        }
+
+        return null;
     }
 
     // Role: 서버 플레이어 물리 상태를 캐릭터 상태 머신에 반영한다.

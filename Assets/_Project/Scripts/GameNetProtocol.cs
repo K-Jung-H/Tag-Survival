@@ -2,14 +2,14 @@ using System;
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 8;
+    public const ushort ProtocolVersion = 9;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
     public const float InputSendRate = 60f;
 
     public const int InputPacketBufferSize = 64;
-    public const int SnapshotPacketBufferSize = 4096;
+    public const int SnapshotPacketBufferSize = 8192;
     public const int MaxPlayers = 10;
 }
 
@@ -38,4 +38,21 @@ public enum PlayerLocomotionState : byte
     Fall = 3,
     WallStick = 4,
     Death = 5
+}
+
+public enum SkillType : byte
+{
+    None = 0,
+    HookGrappling = 1,
+    Portal = 2,
+    Dash = 3,
+    Recall = 4
+}
+
+public enum SkillObjectState : byte
+{
+    None = 0,
+    Spawning = 1,
+    Active = 2,
+    Destroying = 3
 }

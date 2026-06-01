@@ -458,6 +458,7 @@ MonoBehaviour:
   snapshotReceiver: {fileID: 1941727307}
   cameraFollow: {fileID: 519420033}
   characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
+  skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
   localFollowSpeed: 25
   remoteFollowSpeed: 25
   snapDistance: 1.5

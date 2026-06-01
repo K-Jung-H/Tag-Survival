@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class OffScreenIndicatorView : MonoBehaviour
 {
+    private static readonly Color TaggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
+
     [SerializeField] private Client_WorldView worldView;
     [SerializeField] private Camera targetCamera;
     [SerializeField] private string indicatorObjectName = "OffScreenIndicator";
@@ -16,6 +18,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         public ulong clientId;
         public Transform playerRoot;
         public SpriteRenderer indicator;
+        public Color defaultColor;
     }
 
     private readonly Dictionary<ulong, IndicatorEntry> indicators = new();
@@ -142,7 +145,8 @@ public class OffScreenIndicatorView : MonoBehaviour
         {
             clientId = viewRef.clientId,
             playerRoot = viewRef.root,
-            indicator = indicator
+            indicator = indicator,
+            defaultColor = indicator.color
         });
     }
 
@@ -181,7 +185,20 @@ public class OffScreenIndicatorView : MonoBehaviour
         indicatorTransform.position = indicatorPosition;
         RotateToTarget(indicatorTransform, indicatorPosition, playerPosition);
 
+        entry.indicator.color = GetIndicatorColor(entry.clientId, entry.defaultColor);
         entry.indicator.enabled = true;
+    }
+
+    private Color GetIndicatorColor(ulong clientId, Color defaultColor)
+    {
+        if (worldView != null
+            && worldView.TryGetPlayerSnapshot(clientId, out ClientSnapshotState snapshotState)
+            && snapshotState.isTagger)
+        {
+            return TaggerColor;
+        }
+
+        return defaultColor;
     }
 
     // Role: Viewport 좌표가 카메라 화면 안인지 판단한다.

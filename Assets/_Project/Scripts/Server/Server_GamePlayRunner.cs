@@ -242,7 +242,8 @@ public class Server_GamePlayRunner : MonoBehaviour
                 locomotionState = characterState.locomotionState,
                 characterId = characterState.characterId,
                 skillId = player.skillId,
-                facingSign = characterState.facingSign
+                facingSign = characterState.facingSign,
+                isTagger = player.isTagger
             };
 
             packet.Write(ref snapshotWriter);

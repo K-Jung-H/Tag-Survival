@@ -15,6 +15,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     private SkillDefinition definition;
     private float[] baseRotationZ;
     private Vector3[] baseLocalScale;
+    private float[] baseVisualLengthX;
+    private SpriteRenderer[] spriteRenderers;
 
     public byte SkillId => definition != null ? definition.SkillId : (byte)0;
     private SkillType EffectiveSkillType => skillType != SkillType.None ? skillType : definition != null ? definition.SkillType : SkillType.None;
@@ -55,6 +57,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     {
         baseRotationZ = new float[skillObjects.Count];
         baseLocalScale = new Vector3[skillObjects.Count];
+        baseVisualLengthX = new float[skillObjects.Count];
+        spriteRenderers = new SpriteRenderer[skillObjects.Count];
 
         for (int i = 0; i < skillObjects.Count; i++)
         {
@@ -66,6 +70,10 @@ public sealed class Client_SkillObjectView : MonoBehaviour
 
             baseRotationZ[i] = skillObject.localEulerAngles.z;
             baseLocalScale[i] = skillObject.localScale;
+
+            SpriteRenderer spriteRenderer = skillObject.GetComponent<SpriteRenderer>();
+            spriteRenderers[i] = spriteRenderer;
+            baseVisualLengthX[i] = GetSpriteWorldLengthX(skillObject, spriteRenderer);
         }
     }
 
@@ -129,12 +137,20 @@ public sealed class Client_SkillObjectView : MonoBehaviour
 
         float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
         ropeTransform.gameObject.SetActive(true);
-        ropeTransform.position = (start + end) * 0.5f;
-        ropeTransform.rotation = Quaternion.Euler(0f, 0f, angle + GetBaseRotationZ(RopeObjectIndex) + ropeEntry.rotationOffset);
+        Quaternion ropeRotation = Quaternion.Euler(0f, 0f, angle + GetBaseRotationZ(RopeObjectIndex) + ropeEntry.rotationOffset);
 
         Vector3 scale = GetBaseLocalScale(RopeObjectIndex);
-        scale.x *= length;
+        float baseVisualLength = GetBaseVisualLengthX(RopeObjectIndex);
+        scale.x *= baseVisualLength > 0.0001f
+            ? length / baseVisualLength
+            : length;
+
+        ropeTransform.rotation = ropeRotation;
         ropeTransform.localScale = scale;
+        ropeTransform.position = GetVisualCenterAlignedPosition(
+            ropeTransform,
+            GetSpriteRenderer(RopeObjectIndex),
+            (start + end) * 0.5f);
         activeObjectIds.Add(RopeObjectIndex);
     }
 
@@ -193,6 +209,49 @@ public sealed class Client_SkillObjectView : MonoBehaviour
 
         Vector3 scale = baseLocalScale[skillObjectIndex];
         return scale == Vector3.zero ? Vector3.one : scale;
+    }
+
+    private float GetBaseVisualLengthX(byte skillObjectIndex)
+    {
+        if (baseVisualLengthX == null || skillObjectIndex >= baseVisualLengthX.Length)
+        {
+            return 0f;
+        }
+
+        return baseVisualLengthX[skillObjectIndex];
+    }
+
+    private SpriteRenderer GetSpriteRenderer(byte skillObjectIndex)
+    {
+        if (spriteRenderers == null || skillObjectIndex >= spriteRenderers.Length)
+        {
+            return null;
+        }
+
+        return spriteRenderers[skillObjectIndex];
+    }
+
+    private static float GetSpriteWorldLengthX(Transform spriteTransform, SpriteRenderer spriteRenderer)
+    {
+        if (spriteTransform == null || spriteRenderer == null || spriteRenderer.sprite == null)
+        {
+            return 0f;
+        }
+
+        return Mathf.Abs(spriteRenderer.sprite.bounds.size.x * spriteTransform.lossyScale.x);
+    }
+
+    private static Vector3 GetVisualCenterAlignedPosition(
+        Transform spriteTransform,
+        SpriteRenderer spriteRenderer,
+        Vector3 targetCenter)
+    {
+        if (spriteTransform == null || spriteRenderer == null)
+        {
+            return targetCenter;
+        }
+
+        return targetCenter - spriteTransform.TransformVector(spriteRenderer.localBounds.center);
     }
 
 #pragma warning disable 0649

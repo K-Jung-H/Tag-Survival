@@ -8,6 +8,7 @@ public class Server_GamePlay
     private const float MovementStateThresholdSqr = 0.0001f;
     private const float FacingDirectionThreshold = 0.0001f;
     private const float JumpInputThreshold = 0.5f;
+    private const float DeathInputLockSeconds = 5f;
     private static readonly Vector2 DefaultCollisionExtent =
         new Vector2(GameSimulationConfig.PlayerRadius, GameSimulationConfig.PlayerRadius);
     private static readonly Vector2 DefaultCollisionOffset = Vector2.zero;
@@ -57,6 +58,8 @@ public class Server_GamePlay
         public bool isSkillPressed;
         public bool skillQueued;
         public float coyoteTimeRemaining;
+        public bool isTagger;
+        public float deathTimer;
     }
 
     private readonly Dictionary<ulong, PlayerState> players = new();
@@ -158,6 +161,7 @@ public class Server_GamePlay
         SkillDefinition skillDefinition = ResolveSkillDefinition(DefaultSkillId);
         Skill_StateMachine skillStateMachine = SkillStateMachineFactory.Create(skillDefinition);
 
+        bool isFirstPlayer = players.Count == 0;
         PlayerState player = new PlayerState
         {
             clientId = clientId,
@@ -181,6 +185,8 @@ public class Server_GamePlay
             isSkillPressed = false,
             skillQueued = false,
             coyoteTimeRemaining = 0f,
+            isTagger = isFirstPlayer,
+            deathTimer = 0f,
         };
         UpdateCharacterStateMachine(ref player);
 
@@ -193,9 +199,17 @@ public class Server_GamePlay
     // - clientId: 제거할 클라이언트 ID
     public void RemovePlayer(ulong clientId)
     {
+        bool removedTagger = players.TryGetValue(clientId, out PlayerState removedPlayer)
+            && removedPlayer.isTagger;
+
         players.Remove(clientId);
         pendingInputs.Remove(clientId);
         latestReceivedInputSeqs.Remove(clientId);
+
+        if (removedTagger)
+        {
+            AssignFallbackTagger();
+        }
     }
 
     // Role: 클라이언트에서 받은 최신 입력을 다음 서버 tick 처리 대상으로 저장한다.
@@ -319,6 +333,13 @@ public class Server_GamePlay
             pendingInputs.Remove(clientId);
             PlayerState player = players[clientId];
 
+            if (player.deathTimer > 0f)
+            {
+                ClearPlayerInput(ref player);
+                players[clientId] = player;
+                continue;
+            }
+
             player.input = command.input;
             bool isJumpPressed = command.input.y > JumpInputThreshold;
             if (isJumpPressed && !player.isJumpPressed)
@@ -364,6 +385,7 @@ public class Server_GamePlay
             ulong clientId = simulationTargets[i];
             PlayerState player = players[clientId];
 
+            UpdateDeathTimerBeforeMove(ref player, deltaTime);
             UpdateCoyoteTimeBeforeMove(ref player, deltaTime);
 
             float horizontalInput = GetPlatformerHorizontalInput(player.input);
@@ -443,6 +465,7 @@ public class Server_GamePlay
                 second.velocity = collisionSystem.RemoveVelocityIntoNormal(second.velocity, -normal);
 
                 ApplyPlayerGroundContact(ref first, ref second, normal);
+                TryResolveTaggerCollision(ref first, ref second);
                 UpdatePlayerPresentationState(ref first);
                 UpdateCharacterStateMachine(ref first);
                 UpdatePlayerPresentationState(ref second);
@@ -495,7 +518,11 @@ public class Server_GamePlay
     {
         bool isMovingHorizontally = Mathf.Abs(player.velocity.x) > MovementStateThresholdSqr;
         PlayerLocomotionState locomotionState;
-        if (player.isWallSticking)
+        if (player.deathTimer > 0f)
+        {
+            locomotionState = PlayerLocomotionState.Death;
+        }
+        else if (player.isWallSticking)
         {
             locomotionState = PlayerLocomotionState.WallStick;
         }
@@ -559,6 +586,82 @@ public class Server_GamePlay
             ref player,
             collisionSystem,
             deltaTime);
+    }
+
+    private void UpdateDeathTimerBeforeMove(ref PlayerState player, float deltaTime)
+    {
+        if (player.deathTimer <= 0f)
+        {
+            return;
+        }
+
+        player.deathTimer = Mathf.Max(0f, player.deathTimer - deltaTime);
+        ClearPlayerInput(ref player);
+    }
+
+    private void ClearPlayerInput(ref PlayerState player)
+    {
+        player.input = Vector2.zero;
+        player.buttons = PlayerInputButtons.None;
+        player.isJumpPressed = false;
+        player.jumpQueued = false;
+        player.isSkillPressed = false;
+        player.skillQueued = false;
+    }
+
+    private void TryResolveTaggerCollision(ref PlayerState first, ref PlayerState second)
+    {
+        if (CanTagPlayer(first, second))
+        {
+            TransferTagger(ref first, ref second);
+            return;
+        }
+
+        if (CanTagPlayer(second, first))
+        {
+            TransferTagger(ref second, ref first);
+        }
+    }
+
+    private static bool CanTagPlayer(PlayerState tagger, PlayerState target)
+    {
+        return tagger.isTagger
+            && tagger.deathTimer <= 0f
+            && !target.isTagger
+            && target.deathTimer <= 0f;
+    }
+
+    private void TransferTagger(ref PlayerState oldTagger, ref PlayerState newTagger)
+    {
+        oldTagger.isTagger = false;
+        newTagger.isTagger = true;
+        newTagger.deathTimer = DeathInputLockSeconds;
+        newTagger.isWallSticking = false;
+        newTagger.wallNormalX = 0;
+        ClearPlayerInput(ref newTagger);
+    }
+
+    private void AssignFallbackTagger()
+    {
+        ulong fallbackClientId = 0;
+        bool hasFallback = false;
+
+        foreach (ulong clientId in players.Keys)
+        {
+            fallbackClientId = clientId;
+            hasFallback = true;
+            break;
+        }
+
+        if (!hasFallback)
+        {
+            return;
+        }
+
+        PlayerState player = players[fallbackClientId];
+        player.isTagger = true;
+        player.deathTimer = 0f;
+        players[fallbackClientId] = player;
     }
 
     // Role: 이번 이동 전 사용할 coyote time을 갱신한다.
@@ -674,7 +777,9 @@ public class Server_GamePlay
 
     private bool IsUsingSwingMovement(PlayerState player)
     {
-        return player.skillStateMachine != null && player.skillStateMachine.UsesSwingMovement;
+        return !player.isGrounded
+            && player.skillStateMachine != null
+            && player.skillStateMachine.UsesSwingMovement;
     }
 
     private void ApplySwingGravity(ref PlayerState player, float deltaTime)

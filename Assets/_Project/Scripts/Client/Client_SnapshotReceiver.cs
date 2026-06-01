@@ -261,6 +261,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
                 characterId = packet.characterId,
                 skillId = packet.skillId,
                 facingSign = packet.facingSign,
+                isTagger = packet.isTagger,
                 lastReceivedTime = Time.time
             };
         }

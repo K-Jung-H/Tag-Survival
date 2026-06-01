@@ -12,6 +12,8 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     private const float SwingDetachBoost = 15f;
     private const float SwingDampingPerSecond = 0.85f;
     private const float RopeTautTolerance = 0.03f;
+    private const float MovementInputThreshold = 0.0001f;
+    private const float DirectionThresholdSqr = 0.000001f;
 
     private readonly SkillObjectSnapshotPacket[] snapshotObjects = new SkillObjectSnapshotPacket[1];
 
@@ -45,6 +47,13 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         }
 
         hookPosition = anchorPosition;
+        hookVelocity = Vector2.zero;
+
+        if (player.isGrounded)
+        {
+            hasPreviousPlayerAnchor = false;
+            return;
+        }
 
         Vector2 playerAnchor = GetPlayerAnchorPosition(player);
         if (ropeLength <= 0f)
@@ -203,6 +212,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     {
         hookPosition = anchorPosition;
         hookVelocity = Vector2.zero;
+        bool wasGroundedBeforeRope = player.isGrounded;
 
         Vector2 playerAnchor = GetPlayerAnchorPosition(player);
         if (ropeLength <= 0f)
@@ -240,7 +250,8 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
                     player.collisionHalfExtent);
 
                 player.position = moveResult.position - player.collisionOffset;
-                player.isGrounded = moveResult.isGrounded;
+                player.isGrounded = moveResult.isGrounded
+                    || (wasGroundedBeforeRope && correctionDelta.y <= 0.0001f);
 
                 if (moveResult.isGrounded && player.velocity.y < 0f)
                 {
@@ -267,6 +278,13 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
             }
         }
 
+        if (wasGroundedBeforeRope || player.isGrounded)
+        {
+            RemoveOutwardRopeVelocity(ref player, direction);
+            hasPreviousPlayerAnchor = false;
+            return;
+        }
+
         RebuildVelocityFromConstrainedPosition(ref player, deltaTime);
         RemoveRopeRadialVelocity(ref player, direction);
         ApplySwingDamping(ref player, direction, deltaTime);
@@ -281,7 +299,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         float deltaTime)
     {
         float horizontalInput = Mathf.Clamp(player.input.x, -1f, 1f);
-        if (Mathf.Abs(horizontalInput) <= 0.0001f)
+        if (Mathf.Abs(horizontalInput) <= MovementInputThreshold)
         {
             return;
         }
@@ -304,7 +322,39 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
             return;
         }
 
-        player.velocity += toHook.normalized * ResolveDetachBoost();
+        Vector2 boostDirection = ResolveDetachBoostDirection(player, toHook);
+        if (boostDirection.sqrMagnitude <= DirectionThresholdSqr)
+        {
+            return;
+        }
+
+        player.velocity += boostDirection.normalized * ResolveDetachBoost();
+    }
+
+    private Vector2 ResolveDetachBoostDirection(
+        Server_GamePlay.PlayerState player,
+        Vector2 toHook)
+    {
+        if (Mathf.Abs(player.input.x) <= MovementInputThreshold)
+        {
+            return toHook.normalized;
+        }
+
+        Vector2 radialDirection = -toHook.normalized;
+        Vector2 tangentVelocity = player.velocity
+            - radialDirection * Vector2.Dot(player.velocity, radialDirection);
+        if (tangentVelocity.sqrMagnitude > DirectionThresholdSqr)
+        {
+            return tangentVelocity.normalized;
+        }
+
+        Vector2 tangent = new Vector2(-radialDirection.y, radialDirection.x);
+        if (Vector2.Dot(tangent, Vector2.right * player.input.x) < 0f)
+        {
+            tangent = -tangent;
+        }
+
+        return tangent;
     }
 
     private float ResolveDetachBoost()
@@ -342,6 +392,19 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         Vector2 radialDirection)
     {
         float radialVelocity = Vector2.Dot(player.velocity, radialDirection);
+        player.velocity -= radialDirection * radialVelocity;
+    }
+
+    private static void RemoveOutwardRopeVelocity(
+        ref Server_GamePlay.PlayerState player,
+        Vector2 radialDirection)
+    {
+        float radialVelocity = Vector2.Dot(player.velocity, radialDirection);
+        if (radialVelocity <= 0f)
+        {
+            return;
+        }
+
         player.velocity -= radialDirection * radialVelocity;
     }
 

@@ -2,7 +2,7 @@ using System;
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 9;
+    public const ushort ProtocolVersion = 10;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;

@@ -124,6 +124,7 @@ public struct PlayerSnapshotPacket
     public byte characterId;
     public byte skillId;
     public sbyte facingSign;
+    public bool isTagger;
 
     // Role: 플레이어 스냅샷 데이터를 writer에 기록한다.
     // Parameters:
@@ -142,6 +143,7 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe(characterId);
         writer.WriteValueSafe(skillId);
         writer.WriteValueSafe(facingSign);
+        writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
     }
 
     // Role: reader에서 플레이어 스냅샷 데이터를 읽는다.
@@ -164,6 +166,7 @@ public struct PlayerSnapshotPacket
         reader.ReadValueSafe(out byte characterId);
         reader.ReadValueSafe(out byte skillId);
         reader.ReadValueSafe(out sbyte facingSign);
+        reader.ReadValueSafe(out byte isTagger);
 
         packet = new PlayerSnapshotPacket
         {
@@ -175,7 +178,8 @@ public struct PlayerSnapshotPacket
             locomotionState = (PlayerLocomotionState)locomotionState,
             characterId = characterId,
             skillId = skillId,
-            facingSign = facingSign
+            facingSign = facingSign,
+            isTagger = isTagger != 0
         };
 
         return true;
@@ -196,6 +200,7 @@ public struct ClientSnapshotState
     public byte characterId;
     public byte skillId;
     public sbyte facingSign;
+    public bool isTagger;
     public float lastReceivedTime;
 }
 

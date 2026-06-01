@@ -23,6 +23,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     private bool hasCurrentClipState;
     private bool hasMissingAnimationDataWarning;
     private bool hasMissingClipWarning;
+    private Color defaultBodyColor = Color.white;
 
     public Character_StateMachine StateMachine => stateMachine;
     public CharacterAnimationData AnimationData => animationData;
@@ -61,6 +62,11 @@ public sealed class Client_CharacterView : MonoBehaviour
 
         hasRenderPosition = false;
         hasCurrentClipState = false;
+
+        if (body != null)
+        {
+            defaultBodyColor = body.color;
+        }
     }
 
     // Role: 생성한 애니메이션 Playable 리소스를 해제한다.
@@ -109,14 +115,15 @@ public sealed class Client_CharacterView : MonoBehaviour
         PlayLocomotionClip(stateMachine.State.locomotionState);
     }
 
-    // Role: 클라이언트 ID 기반 기본 색상을 적용한다.
+    // Role: Tagger 상태에 따라 Body 스프라이트 색상을 갱신한다.
     // Parameters:
-    // - color: 적용할 색상
-    public void ApplyBodyColor(Color color)
+    // - isTagger: 현재 플레이어가 Tagger인지 여부
+    // - taggerColor: Tagger에게 적용할 색상
+    public void ApplyTaggerColor(bool isTagger, Color taggerColor)
     {
         if (body != null)
         {
-            body.color = color;
+            body.color = isTagger ? taggerColor : defaultBodyColor;
         }
     }
 

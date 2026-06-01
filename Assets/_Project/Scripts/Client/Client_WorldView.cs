@@ -11,6 +11,8 @@ public struct ClientWorldPlayerViewRef
 
 public class Client_WorldView : MonoBehaviour
 {
+    private static readonly Color TaggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
+
     [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
     [SerializeField] private Client_CameraFollow cameraFollow;
     [SerializeField] private CharacterCatalog characterCatalog;
@@ -106,6 +108,18 @@ public class Client_WorldView : MonoBehaviour
         return true;
     }
 
+    public bool TryGetPlayerSnapshot(ulong clientId, out ClientSnapshotState snapshotState)
+    {
+        snapshotState = default;
+
+        if (snapshotReceiver == null)
+        {
+            return false;
+        }
+
+        return snapshotReceiver.TryGetSnapshot(clientId, out snapshotState);
+    }
+
     // Role: 현재 인스턴스가 클라이언트 월드 View를 렌더링할 수 있는지 판단한다.
     private bool CanRenderWorld()
     {
@@ -145,6 +159,7 @@ public class Client_WorldView : MonoBehaviour
                 localFollowSpeed,
                 remoteFollowSpeed,
                 snapDistance);
+            view.ApplyTaggerColor(snapshotState.isTagger, TaggerColor);
         }
     }
 
@@ -204,7 +219,7 @@ public class Client_WorldView : MonoBehaviour
 
         view.name = $"PlayerView_{clientId}_Character_{characterId}";
         view.Initialize(clientId, definition);
-        view.ApplyBodyColor(GetPlayerColor(clientId));
+        view.ApplyTaggerColor(isTagger: false, TaggerColor);
 
         playerViews[clientId] = view;
         TryAssignLocalCameraTarget(clientId, view.transform);
@@ -236,20 +251,6 @@ public class Client_WorldView : MonoBehaviour
         }
 
         return false;
-    }
-
-    // Role: 클라이언트 ID 기반 기본 색상을 반환한다.
-    // Parameters:
-    // - clientId: 색상 기준이 되는 클라이언트 ID
-    private Color GetPlayerColor(ulong clientId)
-    {
-        if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
-        {
-            return Color.green;
-        }
-
-        float hue = ((clientId * 37) % 360) / 360f;
-        return Color.HSVToRGB(hue, 0.75f, 0.95f);
     }
 
     // Role: 최신 스냅샷에 없는 플레이어 View를 제거한다.

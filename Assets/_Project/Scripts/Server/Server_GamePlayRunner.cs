@@ -4,7 +4,8 @@ using UnityEngine;
 
 public class Server_GamePlayRunner : MonoBehaviour
 {
-    [SerializeField] private StageBakeData stageBakeData;
+    [SerializeField] private StageDefinition stageDefinition;
+    [SerializeField] private CharacterCatalog characterCatalog;
 
     private readonly float serverDeltaTime = 1f / GameNetProtocol.ServerTickRate;
     private readonly float snapshotSendInterval = 1f / GameNetProtocol.SnapshotSendRate;
@@ -24,7 +25,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     // Role: 서버 게임플레이 시뮬레이션과 스냅샷 writer를 생성한다.
     private void Awake()
     {
-        gamePlay = new Server_GamePlay(stageBakeData);
+        gamePlay = new Server_GamePlay(stageDefinition, characterCatalog);
 
         snapshotWriter = new FastBufferWriter(
             GameNetProtocol.SnapshotPacketBufferSize,
@@ -223,15 +224,18 @@ public class Server_GamePlayRunner : MonoBehaviour
         foreach (var pair in gamePlay.Players)
         {
             Server_GamePlay.PlayerState player = pair.Value;
+            CharacterRuntimeState characterState = player.characterStateMachine.State;
 
             PlayerSnapshotPacket packet = new PlayerSnapshotPacket
             {
                 clientId = player.clientId,
-                position = player.position,
-                velocity = player.velocity,
-                aim = player.aim,
+                position = characterState.position,
+                velocity = characterState.velocity,
+                aim = characterState.aim,
                 buttons = player.buttons,
-                stateFlags = GetPlayerStateFlags(player.velocity)
+                locomotionState = characterState.locomotionState,
+                characterId = characterState.characterId,
+                facingSign = characterState.facingSign
             };
 
             packet.Write(ref snapshotWriter);
@@ -246,17 +250,6 @@ public class Server_GamePlayRunner : MonoBehaviour
                 NetworkDelivery.UnreliableSequenced
             );
         }
-    }
-
-    // Role: 플레이어 속도를 기준으로 상태 플래그를 만든다.
-    // Parameters:
-    // - velocity: 플레이어 현재 속도
-    private PlayerStateFlags GetPlayerStateFlags(Vector2 velocity)
-    {
-        if (velocity.sqrMagnitude > 0.0001f)
-            return PlayerStateFlags.Moving;
-
-        return PlayerStateFlags.None;
     }
 
     // Role: 서버 루프를 실행할 수 있는 네트워크 상태인지 판단한다.

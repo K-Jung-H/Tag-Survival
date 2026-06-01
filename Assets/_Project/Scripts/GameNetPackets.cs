@@ -116,7 +116,9 @@ public struct PlayerSnapshotPacket
     public Vector2 velocity;
     public Vector2 aim;
     public PlayerInputButtons buttons;
-    public PlayerStateFlags stateFlags;
+    public PlayerLocomotionState locomotionState;
+    public byte characterId;
+    public sbyte facingSign;
 
     // Role: 플레이어 스냅샷 데이터를 writer에 기록한다.
     // Parameters:
@@ -131,7 +133,9 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe(aim.x);
         writer.WriteValueSafe(aim.y);
         writer.WriteValueSafe((ushort)buttons);
-        writer.WriteValueSafe((ushort)stateFlags);
+        writer.WriteValueSafe((byte)locomotionState);
+        writer.WriteValueSafe(characterId);
+        writer.WriteValueSafe(facingSign);
     }
 
     // Role: reader에서 플레이어 스냅샷 데이터를 읽는다.
@@ -150,7 +154,9 @@ public struct PlayerSnapshotPacket
         reader.ReadValueSafe(out float aimX);
         reader.ReadValueSafe(out float aimY);
         reader.ReadValueSafe(out ushort buttons);
-        reader.ReadValueSafe(out ushort stateFlags);
+        reader.ReadValueSafe(out byte locomotionState);
+        reader.ReadValueSafe(out byte characterId);
+        reader.ReadValueSafe(out sbyte facingSign);
 
         packet = new PlayerSnapshotPacket
         {
@@ -159,7 +165,9 @@ public struct PlayerSnapshotPacket
             velocity = new Vector2(velocityX, velocityY),
             aim = new Vector2(aimX, aimY),
             buttons = (PlayerInputButtons)buttons,
-            stateFlags = (PlayerStateFlags)stateFlags
+            locomotionState = (PlayerLocomotionState)locomotionState,
+            characterId = characterId,
+            facingSign = facingSign
         };
 
         return true;
@@ -176,6 +184,8 @@ public struct ClientSnapshotState
     public Vector2 velocity;
     public Vector2 aim;
     public PlayerInputButtons buttons;
-    public PlayerStateFlags stateFlags;
+    public PlayerLocomotionState locomotionState;
+    public byte characterId;
+    public sbyte facingSign;
     public float lastReceivedTime;
 }

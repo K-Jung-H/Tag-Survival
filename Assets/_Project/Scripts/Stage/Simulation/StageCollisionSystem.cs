@@ -7,7 +7,7 @@ public sealed class StageCollisionSystem
     private readonly List<int> candidateBuffer = new List<int>();
 
     private StageBakeData stageBakeData;
-    private float playerHalfExtent;
+    private Vector2 defaultPlayerHalfExtent;
     private float skinWidth;
 
     // Role: StageBakeData 기반 충돌 연산 시스템을 생성한다.
@@ -19,9 +19,22 @@ public sealed class StageCollisionSystem
         StageBakeData stageBakeData,
         float playerHalfExtent,
         float skinWidth)
+        : this(stageBakeData, new Vector2(playerHalfExtent, playerHalfExtent), skinWidth)
+    {
+    }
+
+    // Role: StageBakeData 기반 충돌 연산 시스템을 생성한다.
+    // Parameters:
+    // - stageBakeData: 사용할 Stage Bake 결과 데이터
+    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
+    // - skinWidth: 충돌 여유 폭
+    public StageCollisionSystem(
+        StageBakeData stageBakeData,
+        Vector2 playerHalfExtent,
+        float skinWidth)
     {
         this.stageBakeData = stageBakeData;
-        this.playerHalfExtent = Mathf.Max(0.0001f, playerHalfExtent);
+        this.defaultPlayerHalfExtent = ClampHalfExtent(playerHalfExtent);
         this.skinWidth = Mathf.Max(0f, skinWidth);
     }
 
@@ -55,13 +68,44 @@ public sealed class StageCollisionSystem
     // - delta: 이번 이동량
     public Vector2 MovePlayerWithStageCollision(Vector2 startPosition, Vector2 delta)
     {
+        return MovePlayerWithStageCollision(startPosition, delta, defaultPlayerHalfExtent);
+    }
+
+    // Role: 플레이어 이동을 Stage 충돌과 경계 조건에 맞게 보정한다.
+    // Parameters:
+    // - startPosition: 이동 시작 위치
+    // - delta: 이번 이동량
+    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
+    public Vector2 MovePlayerWithStageCollision(Vector2 startPosition, Vector2 delta, Vector2 playerHalfExtent)
+    {
+        return MovePlayerWithStageCollisionDetailed(startPosition, delta, playerHalfExtent).position;
+    }
+
+    // Role: 플레이어 이동 결과와 Stage 접촉 방향을 함께 반환한다.
+    // Parameters:
+    // - startPosition: 이동 시작 위치
+    // - delta: 이번 이동량
+    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
+    public StageCollisionMoveResult MovePlayerWithStageCollisionDetailed(
+        Vector2 startPosition,
+        Vector2 delta,
+        Vector2 playerHalfExtent)
+    {
+        Vector2 halfExtent = ClampHalfExtent(playerHalfExtent);
+        StageCollisionMoveResult result = new StageCollisionMoveResult
+        {
+            position = startPosition + delta,
+        };
+
         if (!HasStageCollision())
         {
-            return ResolveStageBoundaries(startPosition + delta);
+            result.position = ResolveStageBoundaries(result.position, halfExtent, ref result);
+            return result;
         }
 
-        Vector2 movedPosition = MoveWithStageCollision(startPosition, delta, allowSlide: true);
-        return ResolveStageBoundaries(movedPosition);
+        result.position = MoveWithStageCollision(startPosition, delta, halfExtent, allowSlide: true, ref result);
+        result.position = ResolveStageBoundaries(result.position, halfExtent, ref result);
+        return result;
     }
 
     // Role: 두 플레이어 사각형의 SAT 충돌 여부와 보정 방향을 계산한다.
@@ -80,18 +124,51 @@ public sealed class StageCollisionSystem
         out Vector2 normal,
         out float penetration)
     {
+        return TryGetPlayerSatCollision(
+            firstPosition,
+            secondPosition,
+            defaultPlayerHalfExtent,
+            defaultPlayerHalfExtent,
+            firstId,
+            secondId,
+            out normal,
+            out penetration);
+    }
+
+    // Role: 두 플레이어 사각형의 SAT 충돌 여부와 보정 방향을 계산한다.
+    // Parameters:
+    // - firstPosition: 첫 번째 플레이어 위치
+    // - secondPosition: 두 번째 플레이어 위치
+    // - firstHalfExtent: 첫 번째 플레이어 사각형의 X/Y 반지름 크기
+    // - secondHalfExtent: 두 번째 플레이어 사각형의 X/Y 반지름 크기
+    // - firstId: 첫 번째 플레이어 클라이언트 ID
+    // - secondId: 두 번째 플레이어 클라이언트 ID
+    // - normal: 첫 번째 플레이어에서 두 번째 플레이어로 향하는 보정 방향
+    // - penetration: 겹친 깊이
+    public bool TryGetPlayerSatCollision(
+        Vector2 firstPosition,
+        Vector2 secondPosition,
+        Vector2 firstHalfExtent,
+        Vector2 secondHalfExtent,
+        ulong firstId,
+        ulong secondId,
+        out Vector2 normal,
+        out float penetration)
+    {
         normal = Vector2.zero;
         penetration = 0f;
 
+        firstHalfExtent = ClampHalfExtent(firstHalfExtent);
+        secondHalfExtent = ClampHalfExtent(secondHalfExtent);
         Vector2 delta = secondPosition - firstPosition;
-        float overlapX = playerHalfExtent * 2f - Mathf.Abs(delta.x);
+        float overlapX = firstHalfExtent.x + secondHalfExtent.x - Mathf.Abs(delta.x);
 
         if (overlapX <= 0f)
         {
             return false;
         }
 
-        float overlapY = playerHalfExtent * 2f - Mathf.Abs(delta.y);
+        float overlapY = firstHalfExtent.y + secondHalfExtent.y - Mathf.Abs(delta.y);
 
         if (overlapY <= 0f)
         {
@@ -138,22 +215,28 @@ public sealed class StageCollisionSystem
     // - startPosition: 이동 시작 위치
     // - delta: 이번 이동량
     // - allowSlide: 충돌 후 남은 이동량을 벽면 방향으로 미끄러뜨릴지 여부
-    private Vector2 MoveWithStageCollision(Vector2 startPosition, Vector2 delta, bool allowSlide)
+    private Vector2 MoveWithStageCollision(
+        Vector2 startPosition,
+        Vector2 delta,
+        Vector2 playerHalfExtent,
+        bool allowSlide,
+        ref StageCollisionMoveResult result)
     {
         float distance = delta.magnitude;
 
         if (distance <= 0.000001f)
         {
-            return ResolveStageOverlaps(startPosition);
+            return ResolveStageOverlaps(startPosition, playerHalfExtent, ref result);
         }
 
-        if (!TrySweepStage(startPosition, delta, out StageSweepHit hit))
+        if (!TrySweepStage(startPosition, delta, playerHalfExtent, out StageSweepHit hit))
         {
-            return ResolveStageOverlaps(startPosition + delta);
+            return ResolveStageOverlaps(startPosition + delta, playerHalfExtent, ref result);
         }
 
+        AddContactNormal(hit.normal, ref result);
         Vector2 resolvedPosition = startPosition + delta * hit.fraction;
-        resolvedPosition = ResolveStageOverlaps(resolvedPosition);
+        resolvedPosition = ResolveStageOverlaps(resolvedPosition, playerHalfExtent, ref result);
 
         if (!allowSlide)
         {
@@ -168,7 +251,12 @@ public sealed class StageCollisionSystem
             return resolvedPosition;
         }
 
-        return MoveWithStageCollision(resolvedPosition, slideDelta, allowSlide: false);
+        return MoveWithStageCollision(
+            resolvedPosition,
+            slideDelta,
+            playerHalfExtent,
+            allowSlide: false,
+            ref result);
     }
 
     // Role: 이동 경로에서 가장 먼저 부딪히는 Stage 충돌체를 찾는다.
@@ -176,12 +264,16 @@ public sealed class StageCollisionSystem
     // - startPosition: 이동 시작 위치
     // - delta: 이번 이동량
     // - closestHit: 가장 가까운 Sweep 충돌 결과
-    private bool TrySweepStage(Vector2 startPosition, Vector2 delta, out StageSweepHit closestHit)
+    private bool TrySweepStage(
+        Vector2 startPosition,
+        Vector2 delta,
+        Vector2 playerHalfExtent,
+        out StageSweepHit closestHit)
     {
         closestHit = default;
         closestHit.fraction = 1f;
 
-        Rect sweepRect = CreatePlayerSweepRect(startPosition, delta);
+        Rect sweepRect = CreatePlayerSweepRect(startPosition, delta, playerHalfExtent);
         CollectCandidateColliders(sweepRect);
 
         bool hasHit = false;
@@ -196,6 +288,7 @@ public sealed class StageCollisionSystem
             if (!TrySweepPointAgainstExpandedRect(
                 startPosition,
                 delta,
+                playerHalfExtent,
                 collider.rect,
                 out StageSweepHit hit))
             {
@@ -223,12 +316,13 @@ public sealed class StageCollisionSystem
     private bool TrySweepPointAgainstExpandedRect(
         Vector2 startPosition,
         Vector2 delta,
+        Vector2 playerHalfExtent,
         Rect colliderRect,
         out StageSweepHit hit)
     {
         hit = default;
 
-        Rect expandedRect = ExpandRect(colliderRect, playerHalfExtent + skinWidth);
+        Rect expandedRect = ExpandRect(colliderRect, playerHalfExtent + new Vector2(skinWidth, skinWidth));
         if (expandedRect.Contains(startPosition))
         {
             return false;
@@ -308,9 +402,12 @@ public sealed class StageCollisionSystem
     // Role: 이미 Stage 충돌체 안에 들어간 위치를 가장 가까운 바깥 방향으로 밀어낸다.
     // Parameters:
     // - position: 보정할 플레이어 위치
-    private Vector2 ResolveStageOverlaps(Vector2 position)
+    private Vector2 ResolveStageOverlaps(
+        Vector2 position,
+        Vector2 playerHalfExtent,
+        ref StageCollisionMoveResult result)
     {
-        CollectCandidateColliders(CreatePlayerBounds(position));
+        CollectCandidateColliders(CreatePlayerBounds(position, playerHalfExtent));
 
         Vector2 resolvedPosition = position;
         for (int iteration = 0; iteration < 4; iteration++)
@@ -332,6 +429,7 @@ public sealed class StageCollisionSystem
 
                 Vector2 push = GetSmallestPushOut(resolvedPosition, expandedRect);
                 resolvedPosition += push;
+                AddPushContact(push, ref result);
                 resolvedAny = true;
             }
 
@@ -425,24 +523,24 @@ public sealed class StageCollisionSystem
     // Role: 플레이어 위치를 기준으로 충돌 검사 사각형을 만든다.
     // Parameters:
     // - position: 플레이어 중심 위치
-    private Rect CreatePlayerBounds(Vector2 position)
+    private Rect CreatePlayerBounds(Vector2 position, Vector2 playerHalfExtent)
     {
-        float extent = playerHalfExtent + skinWidth;
+        Vector2 extent = playerHalfExtent + new Vector2(skinWidth, skinWidth);
         return new Rect(
-            position.x - extent,
-            position.y - extent,
-            extent * 2f,
-            extent * 2f);
+            position.x - extent.x,
+            position.y - extent.y,
+            extent.x * 2f,
+            extent.y * 2f);
     }
 
     // Role: 이동 시작과 끝 위치를 모두 포함하는 Sweep 검사 범위를 만든다.
     // Parameters:
     // - startPosition: 이동 시작 위치
     // - delta: 이번 이동량
-    private Rect CreatePlayerSweepRect(Vector2 startPosition, Vector2 delta)
+    private Rect CreatePlayerSweepRect(Vector2 startPosition, Vector2 delta, Vector2 playerHalfExtent)
     {
-        Rect startBounds = CreatePlayerBounds(startPosition);
-        Rect endBounds = CreatePlayerBounds(startPosition + delta);
+        Rect startBounds = CreatePlayerBounds(startPosition, playerHalfExtent);
+        Rect endBounds = CreatePlayerBounds(startPosition + delta, playerHalfExtent);
         float xMin = Mathf.Min(startBounds.xMin, endBounds.xMin);
         float yMin = Mathf.Min(startBounds.yMin, endBounds.yMin);
         float xMax = Mathf.Max(startBounds.xMax, endBounds.xMax);
@@ -454,13 +552,13 @@ public sealed class StageCollisionSystem
     // Parameters:
     // - rect: 확장할 사각형
     // - amount: 각 방향으로 확장할 크기
-    private Rect ExpandRect(Rect rect, float amount)
+    private Rect ExpandRect(Rect rect, Vector2 amount)
     {
         return Rect.MinMaxRect(
-            rect.xMin - amount,
-            rect.yMin - amount,
-            rect.xMax + amount,
-            rect.yMax + amount);
+            rect.xMin - amount.x,
+            rect.yMin - amount.y,
+            rect.xMax + amount.x,
+            rect.yMax + amount.y);
     }
 
     // Role: 확장된 사각형 내부의 점을 가장 짧은 방향으로 밖으로 밀어낼 벡터를 구한다.
@@ -504,7 +602,21 @@ public sealed class StageCollisionSystem
     // Role: Stage 경계 설정에 따라 플레이어 위치를 제한한다.
     // Parameters:
     // - position: 경계 보정을 적용할 위치
-    private Vector2 ResolveStageBoundaries(Vector2 position)
+    private Vector2 ResolveStageBoundaries(Vector2 position, Vector2 playerHalfExtent)
+    {
+        StageCollisionMoveResult result = default;
+        return ResolveStageBoundaries(position, playerHalfExtent, ref result);
+    }
+
+    // Role: Stage 경계 보정 결과를 접촉 상태에 반영한다.
+    // Parameters:
+    // - position: 경계 보정 전 위치
+    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
+    // - result: 갱신할 이동 결과
+    private Vector2 ResolveStageBoundaries(
+        Vector2 position,
+        Vector2 playerHalfExtent,
+        ref StageCollisionMoveResult result)
     {
         if (stageBakeData == null)
         {
@@ -518,25 +630,49 @@ public sealed class StageCollisionSystem
         Vector2 resolvedPosition = position;
         if (bounds.left == StageBoundaryMode.Solid)
         {
-            resolvedPosition.x = Mathf.Max(resolvedPosition.x, playerHalfExtent);
+            float clampedX = Mathf.Max(resolvedPosition.x, playerHalfExtent.x);
+            resolvedPosition.x = clampedX;
         }
 
         if (bounds.right == StageBoundaryMode.Solid)
         {
-            resolvedPosition.x = Mathf.Min(resolvedPosition.x, width - playerHalfExtent);
+            float clampedX = Mathf.Min(resolvedPosition.x, width - playerHalfExtent.x);
+            resolvedPosition.x = clampedX;
         }
 
         if (bounds.bottom == StageBoundaryMode.Solid)
         {
-            resolvedPosition.y = Mathf.Max(resolvedPosition.y, playerHalfExtent);
+            float clampedY = Mathf.Max(resolvedPosition.y, playerHalfExtent.y);
+            if (clampedY > resolvedPosition.y)
+            {
+                result.isGrounded = true;
+            }
+
+            resolvedPosition.y = clampedY;
         }
 
         if (bounds.top == StageBoundaryMode.Solid)
         {
-            resolvedPosition.y = Mathf.Min(resolvedPosition.y, height - playerHalfExtent);
+            float clampedY = Mathf.Min(resolvedPosition.y, height - playerHalfExtent.y);
+            if (clampedY < resolvedPosition.y)
+            {
+                result.hitCeiling = true;
+            }
+
+            resolvedPosition.y = clampedY;
         }
 
         return resolvedPosition;
+    }
+
+    // Role: 충돌 반지름 값이 너무 작아지지 않도록 보정한다.
+    // Parameters:
+    // - halfExtent: 보정할 X/Y 반지름 크기
+    private static Vector2 ClampHalfExtent(Vector2 halfExtent)
+    {
+        return new Vector2(
+            Mathf.Max(0.0001f, halfExtent.x),
+            Mathf.Max(0.0001f, halfExtent.y));
     }
 
     // Role: StageColliderData가 플레이어를 막는 충돌체인지 판단한다.
@@ -569,9 +705,62 @@ public sealed class StageCollisionSystem
         return (hash & 1u) == 0u ? Vector2.right : Vector2.up;
     }
 
+    // Role: Sweep 충돌 법선으로 바닥, 천장, 벽 접촉 상태를 갱신한다.
+    // Parameters:
+    // - normal: 충돌 표면이 플레이어를 밀어내는 방향
+    // - result: 갱신할 이동 결과
+    private static void AddContactNormal(Vector2 normal, ref StageCollisionMoveResult result)
+    {
+        if (normal.y > 0.5f)
+        {
+            result.isGrounded = true;
+        }
+        else if (normal.y < -0.5f)
+        {
+            result.hitCeiling = true;
+        }
+
+        if (Mathf.Abs(normal.x) > 0.5f)
+        {
+            result.hitWall = true;
+            result.wallNormalX = normal.x > 0f ? (sbyte)1 : (sbyte)-1;
+        }
+    }
+
+    // Role: Overlap 보정 방향으로 바닥, 천장, 벽 접촉 상태를 갱신한다.
+    // Parameters:
+    // - push: 겹침을 해소하기 위해 플레이어에 적용한 이동량
+    // - result: 갱신할 이동 결과
+    private static void AddPushContact(Vector2 push, ref StageCollisionMoveResult result)
+    {
+        if (push.y > 0.000001f)
+        {
+            result.isGrounded = true;
+        }
+        else if (push.y < -0.000001f)
+        {
+            result.hitCeiling = true;
+        }
+
+        if (Mathf.Abs(push.x) > 0.000001f)
+        {
+            result.hitWall = true;
+            result.wallNormalX = push.x > 0f ? (sbyte)1 : (sbyte)-1;
+        }
+    }
+
     private struct StageSweepHit
     {
         public float fraction;
         public Vector2 normal;
     }
+}
+
+public struct StageCollisionMoveResult
+{
+    public Vector2 position;
+    public bool isGrounded;
+    public bool hitCeiling;
+    public bool hitWall;
+    public sbyte wallNormalX;
 }

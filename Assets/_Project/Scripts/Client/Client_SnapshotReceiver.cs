@@ -232,7 +232,9 @@ public class Client_SnapshotReceiver : MonoBehaviour
                 velocity = packet.velocity,
                 aim = packet.aim,
                 buttons = packet.buttons,
-                stateFlags = packet.stateFlags,
+                locomotionState = packet.locomotionState,
+                characterId = packet.characterId,
+                facingSign = packet.facingSign,
                 lastReceivedTime = Time.time
             };
         }

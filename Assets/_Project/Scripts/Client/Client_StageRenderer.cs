@@ -3,8 +3,7 @@ using UnityEngine.Tilemaps;
 
 public sealed class Client_StageRenderer : MonoBehaviour
 {
-    [SerializeField] private Grid stageGrid;
-    [SerializeField] private StageBakeData stageBakeData;
+    [SerializeField] private StageDefinition stageDefinition;
 
     private Grid runtimeStageGrid;
 
@@ -14,15 +13,6 @@ public sealed class Client_StageRenderer : MonoBehaviour
         EnsureRuntimeStageGrid();
         ApplyStageOffset();
         EnableTilemapRenderers();
-    }
-
-    // Role: 인스펙터 변경 시 하위 Grid를 자동으로 보조 연결한다.
-    private void OnValidate()
-    {
-        if (stageGrid == null)
-        {
-            stageGrid = GetComponentInChildren<Grid>();
-        }
     }
 
     // Role: StageBakeData의 좌측 하단 기준 오프셋에 맞춰 Grid 위치를 보정한다.
@@ -35,6 +25,7 @@ public sealed class Client_StageRenderer : MonoBehaviour
             return;
         }
 
+        StageBakeData stageBakeData = stageDefinition != null ? stageDefinition.StageBakeData : null;
         if (stageBakeData == null)
         {
             Debug.LogWarning("[Client_StageRenderer] StageBakeData is not assigned.", this);
@@ -52,26 +43,33 @@ public sealed class Client_StageRenderer : MonoBehaviour
     // Role: 씬 Grid 또는 프리팹 Grid를 런타임 렌더링 대상으로 준비한다.
     private void EnsureRuntimeStageGrid()
     {
-        if (stageGrid == null)
+        Grid stageGridPrefab = stageDefinition != null ? stageDefinition.StageGridPrefab : null;
+        if (stageGridPrefab == null)
         {
+            Debug.LogWarning("[Client_StageRenderer] StageDefinition or Stage Grid Prefab is not assigned.", this);
             return;
         }
 
-        if (stageGrid.gameObject.scene.IsValid())
+        if (stageGridPrefab.gameObject.scene.IsValid())
         {
-            runtimeStageGrid = stageGrid;
+            runtimeStageGrid = stageGridPrefab;
             return;
         }
 
-        runtimeStageGrid = Instantiate(stageGrid, transform);
-        runtimeStageGrid.name = stageGrid.name;
+        runtimeStageGrid = Instantiate(stageGridPrefab, transform);
+        runtimeStageGrid.name = stageGridPrefab.name;
         runtimeStageGrid.gameObject.SetActive(true);
     }
 
     // Role: 현재 렌더링에 사용할 Grid 인스턴스를 반환한다.
     private Grid GetTargetGrid()
     {
-        return runtimeStageGrid != null ? runtimeStageGrid : stageGrid;
+        if (runtimeStageGrid != null)
+        {
+            return runtimeStageGrid;
+        }
+
+        return stageDefinition != null ? stageDefinition.StageGridPrefab : null;
     }
 
     // Role: Grid 하위 TilemapRenderer들을 활성화하여 타일맵을 화면에 표시한다.

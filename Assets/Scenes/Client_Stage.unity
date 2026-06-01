@@ -457,11 +457,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Client_WorldView
   snapshotReceiver: {fileID: 1941727307}
   cameraFollow: {fileID: 519420033}
-  playerViewPrefab: {fileID: 6471373974344987701, guid: 29bdc0cbea57efe4ba5bf4e34bede596, type: 3}
-  playerSize: {x: 0.8, y: 0.8}
-  aimLineLength: 1.8
-  aimLineWidth: 0.05
-  skillIndicatorRadius: 0.12
+  characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
   localFollowSpeed: 25
   remoteFollowSpeed: 25
   snapDistance: 1.5
@@ -496,8 +492,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e4f6b2d9f7449d2a6af5f3e90e571d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_StageRenderer
-  stageGrid: {fileID: 53474264060498492, guid: 1370731196e3d644f945ccfb6887374f, type: 3}
-  stageBakeData: {fileID: 11400000, guid: 327c8e9f47c8f654ba9a8fca35b580e1, type: 2}
+  stageDefinition: {fileID: 11400000, guid: e280c1ed45f119242908d58f59ccdb55, type: 2}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0

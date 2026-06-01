@@ -34,6 +34,7 @@
   <Project Path="PPv2URPConverters.csproj" />
   <Project Path="Unity.Services.QoS.csproj" />
   <Project Path="Unity.2D.Animation.Editor.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.Services.Authentication.Editor.csproj" />
   <Project Path="Unity.Searcher.Editor.csproj" />
   <Project Path="Unity.Services.Wire.Internal.csproj" />
@@ -81,7 +82,6 @@
   <Project Path="Unity.Services.Core.Configuration.csproj" />
   <Project Path="Unity.Multiplayer.Center.Common.csproj" />
   <Project Path="Unity.Services.Core.Environments.Internal.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.InputSystem.ForUI.csproj" />
   <Project Path="Unity.Services.Core.Scheduler.csproj" />
   <Project Path="Unity.Collections.CodeGen.csproj" />

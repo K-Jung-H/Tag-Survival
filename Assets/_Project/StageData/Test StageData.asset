@@ -13,24 +13,16 @@ MonoBehaviour:
   m_Name: Test StageData
   m_EditorClassIdentifier: Assembly-CSharp::StageBakeData
   stageId: Stage
-  stageOffsetPosition: {x: -9, y: -5}
+  stageOffsetPosition: {x: -29, y: -5}
   cellSize: 1
   uniformGridSize: 8
   bounds:
-    sizeInCells: {x: 18, y: 10}
+    sizeInCells: {x: 71, y: 20}
     left: 1
     right: 1
     bottom: 1
     top: 0
   cells:
-  - cell: {x: 0, y: 0}
-    surfacePhysicType: 1
-    flags: 1
-    layerPriority: 0
-  - cell: {x: 1, y: 0}
-    surfacePhysicType: 1
-    flags: 1
-    layerPriority: 0
   - cell: {x: 2, y: 0}
     surfacePhysicType: 1
     flags: 1
@@ -95,11 +87,215 @@ MonoBehaviour:
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
-  - cell: {x: 0, y: 1}
+  - cell: {x: 18, y: 0}
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
-  - cell: {x: 1, y: 1}
+  - cell: {x: 19, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 20, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 21, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 22, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 23, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 24, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 25, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 26, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 27, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 28, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 29, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 30, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 31, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 32, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 33, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 34, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 35, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 36, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 37, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 38, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 39, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 40, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 41, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 42, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 43, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 44, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 45, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 46, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 47, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 48, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 49, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 50, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 51, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 52, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 60, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 61, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 62, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 63, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 64, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 65, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 66, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 67, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 68, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 69, y: 0}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 70, y: 0}
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
@@ -167,11 +363,215 @@ MonoBehaviour:
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
-  - cell: {x: 0, y: 2}
+  - cell: {x: 18, y: 1}
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
-  - cell: {x: 1, y: 2}
+  - cell: {x: 19, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 20, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 21, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 22, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 23, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 24, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 25, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 26, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 27, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 28, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 29, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 30, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 31, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 32, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 33, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 34, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 35, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 36, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 37, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 38, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 39, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 40, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 41, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 42, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 43, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 44, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 45, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 46, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 47, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 48, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 49, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 50, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 51, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 52, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 60, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 61, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 62, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 63, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 64, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 65, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 66, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 67, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 68, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 69, y: 1}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 70, y: 1}
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
@@ -239,63 +639,1171 @@ MonoBehaviour:
     surfacePhysicType: 1
     flags: 1
     layerPriority: 0
-  - cell: {x: 0, y: 7}
-    surfacePhysicType: 2
+  - cell: {x: 18, y: 2}
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
-  - cell: {x: 1, y: 7}
-    surfacePhysicType: 2
+  - cell: {x: 19, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 20, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 21, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 22, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 23, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 24, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 25, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 26, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 27, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 28, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 29, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 30, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 31, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 32, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 33, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 34, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 35, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 36, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 37, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 38, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 39, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 40, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 41, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 42, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 43, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 44, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 45, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 46, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 47, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 48, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 49, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 50, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 51, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 52, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 60, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 61, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 62, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 63, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 64, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 65, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 66, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 67, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 68, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 69, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 70, y: 2}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 60, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 61, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 62, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 63, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 64, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 65, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 66, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 67, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 68, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 69, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 70, y: 3}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 52, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 60, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 61, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 62, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 63, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 64, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 65, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 66, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 67, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 68, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 69, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 70, y: 4}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 52, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 5}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 52, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 6}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 59, y: 6}
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 2, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 20, y: 7}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
-  - cell: {x: 15, y: 7}
+  - cell: {x: 21, y: 7}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
-  - cell: {x: 16, y: 7}
+  - cell: {x: 22, y: 7}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
-  - cell: {x: 17, y: 7}
+  - cell: {x: 35, y: 7}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
-  - cell: {x: 7, y: 8}
+  - cell: {x: 36, y: 7}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
-  - cell: {x: 8, y: 8}
+  - cell: {x: 37, y: 7}
     surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 7}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 8}
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 9, y: 8}
-    surfacePhysicType: 2
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 10, y: 8}
-    surfacePhysicType: 2
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 11, y: 8}
-    surfacePhysicType: 2
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 12, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 27, y: 8}
     surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 28, y: 8}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 29, y: 8}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 30, y: 8}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 31, y: 8}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 32, y: 8}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 8}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 9}
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 3, y: 9}
-    surfacePhysicType: 2
+    surfacePhysicType: 1
     flags: 1
     layerPriority: 0
   - cell: {x: 4, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 23, y: 9}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
-  - cell: {x: 5, y: 9}
+  - cell: {x: 24, y: 9}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 25, y: 9}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 9}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 49, y: 10}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 50, y: 10}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 53, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 54, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 57, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 58, y: 10}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 37, y: 11}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 38, y: 11}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 49, y: 11}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 50, y: 11}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 11}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 37, y: 12}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 38, y: 12}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 46, y: 12}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 47, y: 12}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 12}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 31, y: 13}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 32, y: 13}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 46, y: 13}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 47, y: 13}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 13}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 18, y: 14}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 19, y: 14}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 31, y: 14}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 32, y: 14}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 41, y: 14}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 42, y: 14}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 14}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 18, y: 15}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 19, y: 15}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 41, y: 15}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 42, y: 15}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 15}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 9, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 10, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 11, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 12, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 16}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 2, y: 17}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 3, y: 17}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 4, y: 17}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 25, y: 17}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 26, y: 17}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 55, y: 17}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 56, y: 17}
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 0, y: 18}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 1, y: 18}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 25, y: 18}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 26, y: 18}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 0, y: 19}
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+  - cell: {x: 1, y: 19}
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
@@ -306,18 +1814,73 @@ MonoBehaviour:
     layerPriority: 0
     rect:
       serializedVersion: 2
-      x: 0
+      x: 2
       y: 0
-      width: 18
+      width: 69
       height: 3
     points: []
   - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 2
+      y: 3
+      width: 3
+      height: 15
+    points: []
+  - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 9
+      y: 3
+      width: 4
+      height: 14
+    points: []
+  - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 53
+      y: 3
+      width: 18
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 52
+      y: 4
+      width: 1
+      height: 3
+    points: []
+  - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 53
+      y: 5
+      width: 7
+      height: 2
+    points: []
+  - type: 0
     surfacePhysicType: 2
     flags: 1
     layerPriority: 0
     rect:
       serializedVersion: 2
-      x: 0
+      x: 20
       y: 7
       width: 3
       height: 1
@@ -328,10 +1891,21 @@ MonoBehaviour:
     layerPriority: 0
     rect:
       serializedVersion: 2
-      x: 15
+      x: 35
       y: 7
       width: 3
       height: 1
+    points: []
+  - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 53
+      y: 7
+      width: 6
+      height: 4
     points: []
   - type: 0
     surfacePhysicType: 2
@@ -339,7 +1913,7 @@ MonoBehaviour:
     layerPriority: 0
     rect:
       serializedVersion: 2
-      x: 7
+      x: 27
       y: 8
       width: 6
       height: 1
@@ -350,10 +1924,109 @@ MonoBehaviour:
     layerPriority: 0
     rect:
       serializedVersion: 2
-      x: 3
+      x: 23
       y: 9
       width: 3
       height: 1
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 49
+      y: 10
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 37
+      y: 11
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 1
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 55
+      y: 11
+      width: 2
+      height: 7
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 46
+      y: 12
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 31
+      y: 13
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 18
+      y: 14
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 41
+      y: 14
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 25
+      y: 17
+      width: 2
+      height: 2
+    points: []
+  - type: 0
+    surfacePhysicType: 2
+    flags: 1
+    layerPriority: 0
+    rect:
+      serializedVersion: 2
+      x: 0
+      y: 18
+      width: 2
+      height: 2
     points: []
   spatialBuckets:
   - coord: {x: 0, y: 0}
@@ -361,8 +2034,42 @@ MonoBehaviour:
   - coord: {x: 1, y: 0}
     colliderIndices: 0000000002000000
   - coord: {x: 2, y: 0}
-    colliderIndices: 0000000002000000
+    colliderIndices: 0000000006000000
+  - coord: {x: 3, y: 0}
+    colliderIndices: 00000000
+  - coord: {x: 4, y: 0}
+    colliderIndices: 0000000007000000
+  - coord: {x: 5, y: 0}
+    colliderIndices: 00000000
+  - coord: {x: 6, y: 0}
+    colliderIndices: 0000000003000000040000000500000008000000
+  - coord: {x: 7, y: 0}
+    colliderIndices: 00000000030000000500000008000000
+  - coord: {x: 8, y: 0}
+    colliderIndices: 0000000003000000
   - coord: {x: 0, y: 1}
-    colliderIndices: 0300000004000000
+    colliderIndices: 01000000
   - coord: {x: 1, y: 1}
-    colliderIndices: 03000000
+    colliderIndices: 02000000
+  - coord: {x: 2, y: 1}
+    colliderIndices: 0a00000010000000
+  - coord: {x: 3, y: 1}
+    colliderIndices: 090000000a0000000f000000
+  - coord: {x: 4, y: 1}
+    colliderIndices: 090000000c0000000f000000
+  - coord: {x: 5, y: 1}
+    colliderIndices: 0e00000011000000
+  - coord: {x: 6, y: 1}
+    colliderIndices: 080000000b0000000d000000
+  - coord: {x: 7, y: 1}
+    colliderIndices: 080000000d000000
+  - coord: {x: 0, y: 2}
+    colliderIndices: 0100000013000000
+  - coord: {x: 1, y: 2}
+    colliderIndices: 02000000
+  - coord: {x: 3, y: 2}
+    colliderIndices: 12000000
+  - coord: {x: 6, y: 2}
+    colliderIndices: 0d000000
+  - coord: {x: 7, y: 2}
+    colliderIndices: 0d000000

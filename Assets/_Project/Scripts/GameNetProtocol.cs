@@ -2,7 +2,7 @@ using System;
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 4;
+    public const ushort ProtocolVersion = 8;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -29,12 +29,13 @@ public enum PlayerInputButtons : ushort
     Skill2 = 1 << 3
 }
 
-[Flags]
-public enum PlayerStateFlags : ushort
+// Role: 서버가 결정한 플레이어 이동 상태를 클라이언트 표현에 전달한다.
+public enum PlayerLocomotionState : byte
 {
-    None = 0,
-    Moving = 1 << 0,
-    Dead = 1 << 1,
-    Invincible = 1 << 2,
-    Stunned = 1 << 3
+    Idle = 0,
+    Run = 1,
+    Jump = 2,
+    Fall = 3,
+    WallStick = 4,
+    Death = 5
 }

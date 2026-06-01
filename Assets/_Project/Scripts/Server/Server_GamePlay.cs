@@ -4,6 +4,21 @@ using UnityEngine;
 public class Server_GamePlay
 {
     private const ushort NoReceivedInputSeq = ushort.MaxValue;
+    private const float MovementStateThresholdSqr = 0.0001f;
+    private const float FacingDirectionThreshold = 0.0001f;
+    private const float JumpInputThreshold = 0.5f;
+    private static readonly Vector2 DefaultCollisionExtent =
+        new Vector2(GameSimulationConfig.PlayerRadius, GameSimulationConfig.PlayerRadius);
+    private static readonly Vector2 DefaultCollisionOffset = Vector2.zero;
+    private static readonly CharacterMovementStats DefaultMovementStats =
+        CharacterMovementStats.Create(
+            GameSimulationConfig.PlayerMoveSpeed,
+            2.25f,
+            0.35f,
+            0.28f,
+            GameSimulationConfig.PlayerMaxFallSpeed,
+            GameSimulationConfig.PlayerWallMoveSpeedMultiplier,
+            0.08f);
 
     private struct PlayerInputCommand
     {
@@ -21,7 +36,17 @@ public class Server_GamePlay
         public Vector2 velocity;
         public Vector2 aim;
         public float speed;
+        public CharacterMovementStats movementStats;
         public PlayerInputButtons buttons;
+        public Character_StateMachine characterStateMachine;
+        public Vector2 collisionHalfExtent;
+        public Vector2 collisionOffset;
+        public bool isGrounded;
+        public bool isWallSticking;
+        public sbyte wallNormalX;
+        public bool isJumpPressed;
+        public bool jumpQueued;
+        public float coyoteTimeRemaining;
     }
 
     private readonly Dictionary<ulong, PlayerState> players = new();
@@ -29,10 +54,12 @@ public class Server_GamePlay
     private readonly Dictionary<ulong, ushort> latestReceivedInputSeqs = new();
     private readonly List<ulong> simulationTargets = new();
     private readonly StageCollisionSystem collisionSystem;
+    private readonly StageDefinition stageDefinition;
+    private readonly CharacterCatalog characterCatalog;
 
     // Role: StageBakeData 없이 서버 게임플레이 시뮬레이션을 생성한다.
     public Server_GamePlay()
-        : this(null)
+        : this((StageDefinition)null, null)
     {
     }
 
@@ -40,10 +67,38 @@ public class Server_GamePlay
     // Parameters:
     // - stageBakeData: 서버 충돌 연산에 사용할 Bake 결과 데이터
     public Server_GamePlay(StageBakeData stageBakeData)
+        : this(stageBakeData, null)
     {
+    }
+
+    // Role: 지정된 StageBakeData와 CharacterCatalog를 사용하는 서버 게임플레이 시뮬레이션을 생성한다.
+    // Parameters:
+    // - stageBakeData: 서버 충돌 연산에 사용할 Bake 결과 데이터
+    // - characterCatalog: 캐릭터 정의와 충돌 크기를 조회할 카탈로그
+    public Server_GamePlay(StageBakeData stageBakeData, CharacterCatalog characterCatalog)
+        : this(null, stageBakeData, characterCatalog)
+    {
+    }
+
+    // Role: 지정된 StageDefinition과 CharacterCatalog를 사용하는 서버 게임플레이 시뮬레이션을 생성한다.
+    // Parameters:
+    // - stageDefinition: 서버 충돌과 전역 물리 설정을 제공할 Stage 정의
+    // - characterCatalog: 캐릭터 정의와 충돌 크기를 조회할 카탈로그
+    public Server_GamePlay(StageDefinition stageDefinition, CharacterCatalog characterCatalog)
+        : this(stageDefinition, stageDefinition != null ? stageDefinition.StageBakeData : null, characterCatalog)
+    {
+    }
+
+    private Server_GamePlay(
+        StageDefinition stageDefinition,
+        StageBakeData stageBakeData,
+        CharacterCatalog characterCatalog)
+    {
+        this.stageDefinition = stageDefinition;
+        this.characterCatalog = characterCatalog;
         collisionSystem = new StageCollisionSystem(
             stageBakeData,
-            GameSimulationConfig.PlayerRadius,
+            DefaultCollisionExtent,
             GameSimulationConfig.CollisionSkinWidth
         );
     }
@@ -63,6 +118,11 @@ public class Server_GamePlay
             return;
         }
 
+        byte characterId = 0;
+        Vector2 collisionHalfExtent = ResolveCollisionHalfExtent(characterId);
+        Vector2 collisionOffset = ResolveCollisionOffset(characterId);
+        CharacterMovementStats movementStats = ResolveMovementStats(characterId);
+
         PlayerState player = new PlayerState
         {
             clientId = clientId,
@@ -70,9 +130,20 @@ public class Server_GamePlay
             input = Vector2.zero,
             velocity = Vector2.zero,
             aim = Vector2.right,
-            speed = GameSimulationConfig.PlayerMoveSpeed,
+            speed = movementStats.moveSpeed,
+            movementStats = movementStats,
             buttons = PlayerInputButtons.None,
+            characterStateMachine = CharacterStateMachineFactory.Create(characterId),
+            collisionHalfExtent = collisionHalfExtent,
+            collisionOffset = collisionOffset,
+            isGrounded = false,
+            isWallSticking = false,
+            wallNormalX = 0,
+            isJumpPressed = false,
+            jumpQueued = false,
+            coyoteTimeRemaining = 0f,
         };
+        UpdateCharacterStateMachine(ref player);
 
         players.Add(clientId, player);
         latestReceivedInputSeqs.Add(clientId, NoReceivedInputSeq);
@@ -188,6 +259,13 @@ public class Server_GamePlay
             PlayerState player = players[clientId];
 
             player.input = command.input;
+            bool isJumpPressed = command.input.y > JumpInputThreshold;
+            if (isJumpPressed && !player.isJumpPressed)
+            {
+                player.jumpQueued = true;
+            }
+
+            player.isJumpPressed = isJumpPressed;
 
             if (command.aim.sqrMagnitude > 0.0001f)
             {
@@ -217,11 +295,36 @@ public class Server_GamePlay
             ulong clientId = simulationTargets[i];
             PlayerState player = players[clientId];
 
-            player.velocity = player.input * player.speed;
-            player.position = collisionSystem.MovePlayerWithStageCollision(
-                player.position,
-                player.velocity * deltaTime
+            UpdateCoyoteTimeBeforeMove(ref player, deltaTime);
+
+            float horizontalInput = GetPlatformerHorizontalInput(player.input);
+            float verticalInput = GetPlatformerVerticalInput(player.input);
+            ApplyPlatformerVelocity(ref player, horizontalInput, verticalInput, deltaTime);
+
+            Vector2 collisionCenter = player.position + player.collisionOffset;
+            StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
+                collisionCenter,
+                player.velocity * deltaTime,
+                player.collisionHalfExtent
             );
+
+            player.position = moveResult.position - player.collisionOffset;
+            player.isGrounded = moveResult.isGrounded;
+
+            if (moveResult.isGrounded && player.velocity.y < 0f)
+            {
+                player.velocity.y = 0f;
+                player.coyoteTimeRemaining = player.movementStats.coyoteTime;
+            }
+
+            if (moveResult.hitCeiling && player.velocity.y > 0f)
+            {
+                player.velocity.y = 0f;
+            }
+
+            UpdateWallStickAfterStageMove(ref player, moveResult, horizontalInput, verticalInput);
+            UpdatePlayerPresentationState(ref player);
+            UpdateCharacterStateMachine(ref player);
 
             players[clientId] = player;
         }
@@ -248,8 +351,10 @@ public class Server_GamePlay
                 PlayerState second = players[secondId];
 
                 if (!collisionSystem.TryGetPlayerSatCollision(
-                    first.position,
-                    second.position,
+                    first.position + first.collisionOffset,
+                    second.position + second.collisionOffset,
+                    first.collisionHalfExtent,
+                    second.collisionHalfExtent,
                     firstId,
                     secondId,
                     out Vector2 normal,
@@ -266,10 +371,375 @@ public class Server_GamePlay
                 first.velocity = collisionSystem.RemoveVelocityIntoNormal(first.velocity, normal);
                 second.velocity = collisionSystem.RemoveVelocityIntoNormal(second.velocity, -normal);
 
+                ApplyPlayerGroundContact(ref first, ref second, normal);
+                UpdatePlayerPresentationState(ref first);
+                UpdateCharacterStateMachine(ref first);
+                UpdatePlayerPresentationState(ref second);
+                UpdateCharacterStateMachine(ref second);
+
                 players[firstId] = first;
                 players[secondId] = second;
             }
         }
+    }
+
+    // Role: 플레이어끼리 수직으로 접촉한 경우 위쪽 플레이어의 Ground 상태를 갱신한다.
+    // Parameters:
+    // - first: 첫 번째 플레이어 데이터
+    // - second: 두 번째 플레이어 데이터
+    // - normal: 첫 번째 플레이어에서 두 번째 플레이어를 밀어내는 방향
+    private void ApplyPlayerGroundContact(
+        ref PlayerState first,
+        ref PlayerState second,
+        Vector2 normal)
+    {
+        if (normal.y > 0.5f)
+        {
+            second.isGrounded = true;
+            second.isWallSticking = false;
+            second.wallNormalX = 0;
+            second.coyoteTimeRemaining = second.movementStats.coyoteTime;
+            if (second.velocity.y < 0f)
+            {
+                second.velocity.y = 0f;
+            }
+        }
+        else if (normal.y < -0.5f)
+        {
+            first.isGrounded = true;
+            first.isWallSticking = false;
+            first.wallNormalX = 0;
+            first.coyoteTimeRemaining = first.movementStats.coyoteTime;
+            if (first.velocity.y < 0f)
+            {
+                first.velocity.y = 0f;
+            }
+        }
+    }
+
+    // Role: 서버 기준 플레이어 논리 상태를 클라이언트 표현용 상태값으로 갱신한다.
+    // Parameters:
+    // - player: 상태를 갱신할 플레이어 데이터
+    private void UpdatePlayerPresentationState(ref PlayerState player)
+    {
+        bool isMovingHorizontally = Mathf.Abs(player.velocity.x) > MovementStateThresholdSqr;
+        PlayerLocomotionState locomotionState;
+        if (player.isWallSticking)
+        {
+            locomotionState = PlayerLocomotionState.WallStick;
+        }
+        else if (!player.isGrounded)
+        {
+            locomotionState = player.velocity.y > 0f
+                ? PlayerLocomotionState.Jump
+                : PlayerLocomotionState.Fall;
+        }
+        else
+        {
+            locomotionState = isMovingHorizontally ? PlayerLocomotionState.Run : PlayerLocomotionState.Idle;
+        }
+
+        CharacterRuntimeState characterState = player.characterStateMachine.State;
+        characterState.locomotionState = locomotionState;
+
+        float horizontalInput = GetPlatformerHorizontalInput(player.input);
+        if (horizontalInput > FacingDirectionThreshold)
+        {
+            characterState.facingSign = 1;
+        }
+        else if (horizontalInput < -FacingDirectionThreshold)
+        {
+            characterState.facingSign = -1;
+        }
+
+        player.characterStateMachine.ApplyState(characterState);
+    }
+
+    // Role: 이번 이동 전 사용할 coyote time을 갱신한다.
+    // Parameters:
+    // - player: coyote time을 갱신할 플레이어 데이터
+    // - deltaTime: 이번 시뮬레이션에 사용할 시간
+    private void UpdateCoyoteTimeBeforeMove(ref PlayerState player, float deltaTime)
+    {
+        if (player.isGrounded)
+        {
+            player.coyoteTimeRemaining = player.movementStats.coyoteTime;
+            return;
+        }
+
+        if (player.isWallSticking)
+        {
+            player.coyoteTimeRemaining = 0f;
+            return;
+        }
+
+        player.coyoteTimeRemaining = Mathf.Max(0f, player.coyoteTimeRemaining - deltaTime);
+    }
+
+    // Role: 점프 입력과 중력을 서버 기준 플레이어 속도에 반영한다.
+    // Parameters:
+    // - player: 속도를 갱신할 플레이어 데이터
+    // - deltaTime: 이번 시뮬레이션에 사용할 시간
+    private void ApplyJumpAndGravity(ref PlayerState player, float deltaTime)
+    {
+        bool wantsGroundJump = player.isGrounded && player.isJumpPressed;
+        bool wantsCoyoteJump = !player.isGrounded
+            && player.coyoteTimeRemaining > 0f
+            && player.jumpQueued;
+
+        if (wantsGroundJump || wantsCoyoteJump)
+        {
+            player.velocity.y = player.movementStats.jumpVelocity;
+            player.isGrounded = false;
+            player.isWallSticking = false;
+            player.wallNormalX = 0;
+            player.coyoteTimeRemaining = 0f;
+        }
+
+        player.jumpQueued = false;
+
+        float gravity = player.velocity.y > 0f
+            ? player.movementStats.upGravity
+            : player.movementStats.downGravity;
+
+        gravity *= ResolveStageGravityScale();
+        player.velocity.y += gravity * deltaTime;
+
+        float maxFallSpeed = player.movementStats.maxFallSpeed * ResolveStageMaxFallSpeedMultiplier();
+        player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
+    }
+
+    // Role: 플랫폼 입력 조합에 따라 일반 이동, 점프, WallStick 이동, WallStick 점프 속도를 계산한다.
+    // Parameters:
+    // - player: 속도를 갱신할 플레이어 데이터
+    // - horizontalInput: 플랫폼 수평 입력
+    // - verticalInput: 플랫폼 수직 입력
+    // - deltaTime: 이번 시뮬레이션에 사용할 시간
+    private void ApplyPlatformerVelocity(
+        ref PlayerState player,
+        float horizontalInput,
+        float verticalInput,
+        float deltaTime)
+    {
+        if (player.isWallSticking && player.wallNormalX != 0)
+        {
+            if (verticalInput > JumpInputThreshold
+                && !IsMovingIntoWall(horizontalInput, player.wallNormalX))
+            {
+                float wallExitSpeedMultiplier = IsMovingAwayFromWall(horizontalInput, player.wallNormalX)
+                    ? 1f
+                    : player.movementStats.wallMoveSpeedMultiplier;
+
+                player.velocity.x = player.wallNormalX * player.speed * wallExitSpeedMultiplier;
+                player.velocity.y = player.movementStats.jumpVelocity;
+                player.isGrounded = false;
+                player.isWallSticking = false;
+                player.wallNormalX = 0;
+                player.jumpQueued = false;
+                player.coyoteTimeRemaining = 0f;
+                return;
+            }
+
+            if (IsMovingIntoWall(horizontalInput, player.wallNormalX))
+            {
+                player.velocity.x = horizontalInput * player.speed;
+                player.velocity.y = GetWallStickVerticalSpeed(
+                    verticalInput,
+                    player.speed,
+                    player.movementStats.wallMoveSpeedMultiplier);
+                player.isGrounded = false;
+                player.jumpQueued = false;
+                return;
+            }
+
+            player.isWallSticking = false;
+            player.wallNormalX = 0;
+        }
+
+        player.velocity.x = horizontalInput * player.speed;
+        ApplyJumpAndGravity(ref player, deltaTime);
+    }
+
+    // Role: Stage 이동 결과를 바탕으로 WallStick 유지 여부와 벽 법선 방향을 갱신한다.
+    // Parameters:
+    // - player: 벽 접촉 상태를 갱신할 플레이어 데이터
+    // - moveResult: Stage 충돌 이동 결과
+    // - horizontalInput: 플랫폼 수평 입력
+    // - verticalInput: 플랫폼 수직 입력
+    private void UpdateWallStickAfterStageMove(
+        ref PlayerState player,
+        StageCollisionMoveResult moveResult,
+        float horizontalInput,
+        float verticalInput)
+    {
+        bool canWallStick = !moveResult.isGrounded
+            && !moveResult.hitCeiling
+            && moveResult.hitWall
+            && moveResult.wallNormalX != 0
+            && IsMovingIntoWall(horizontalInput, moveResult.wallNormalX);
+
+        if (!canWallStick)
+        {
+            if (moveResult.isGrounded || moveResult.hitCeiling || !moveResult.hitWall)
+            {
+                player.isWallSticking = false;
+                player.wallNormalX = 0;
+            }
+
+            return;
+        }
+
+        player.isWallSticking = true;
+        player.wallNormalX = moveResult.wallNormalX;
+        player.isGrounded = false;
+        player.coyoteTimeRemaining = 0f;
+        player.velocity.x = 0f;
+        player.velocity.y = GetWallStickVerticalSpeed(
+            verticalInput,
+            player.speed,
+            player.movementStats.wallMoveSpeedMultiplier);
+    }
+
+    // Role: WallStick 중 벽면을 따라 이동할 수직 속도를 계산한다.
+    // Parameters:
+    // - verticalInput: 플랫폼 수직 입력
+    // - playerSpeed: 플레이어 기본 이동 속도
+    private float GetWallStickVerticalSpeed(
+        float verticalInput,
+        float playerSpeed,
+        float wallMoveSpeedMultiplier)
+    {
+        if (verticalInput > JumpInputThreshold)
+        {
+            return playerSpeed * wallMoveSpeedMultiplier;
+        }
+
+        if (verticalInput < -JumpInputThreshold)
+        {
+            return -playerSpeed * wallMoveSpeedMultiplier;
+        }
+
+        return 0f;
+    }
+
+    // Role: 플랫폼 이동에 사용할 수평 입력값을 계산한다.
+    // Parameters:
+    // - input: 클라이언트에서 전달된 이동 입력
+    private float GetPlatformerHorizontalInput(Vector2 input)
+    {
+        float horizontal = Mathf.Clamp(input.x, -1f, 1f);
+        if (Mathf.Abs(horizontal) > 0.5f)
+        {
+            return Mathf.Sign(horizontal);
+        }
+
+        return horizontal;
+    }
+
+    // Role: 플랫폼 이동에 사용할 수직 입력값을 계산한다.
+    // Parameters:
+    // - input: 클라이언트에서 전달된 이동 입력
+    private float GetPlatformerVerticalInput(Vector2 input)
+    {
+        float vertical = Mathf.Clamp(input.y, -1f, 1f);
+        if (Mathf.Abs(vertical) > 0.5f)
+        {
+            return Mathf.Sign(vertical);
+        }
+
+        return vertical;
+    }
+
+    // Role: 수평 입력이 현재 벽을 향하는지 판단한다.
+    // Parameters:
+    // - horizontalInput: 플랫폼 수평 입력
+    // - wallNormalX: 벽이 플레이어를 밀어내는 X 방향
+    private bool IsMovingIntoWall(float horizontalInput, sbyte wallNormalX)
+    {
+        return wallNormalX != 0
+            && Mathf.Abs(horizontalInput) > FacingDirectionThreshold
+            && Mathf.Sign(horizontalInput) == -wallNormalX;
+    }
+
+    // Role: 수평 입력이 현재 벽 반대 방향인지 판단한다.
+    // Parameters:
+    // - horizontalInput: 플랫폼 수평 입력
+    // - wallNormalX: 벽이 플레이어를 밀어내는 X 방향
+    private bool IsMovingAwayFromWall(float horizontalInput, sbyte wallNormalX)
+    {
+        return wallNormalX != 0
+            && Mathf.Abs(horizontalInput) > FacingDirectionThreshold
+            && Mathf.Sign(horizontalInput) == wallNormalX;
+    }
+
+    // Role: StageDefinition의 전역 중력 배율을 반환한다.
+    private float ResolveStageGravityScale()
+    {
+        return stageDefinition != null ? stageDefinition.GravityScale : 1f;
+    }
+
+    // Role: StageDefinition의 전역 최대 낙하 속도 배율을 반환한다.
+    private float ResolveStageMaxFallSpeedMultiplier()
+    {
+        return stageDefinition != null ? stageDefinition.MaxFallSpeedMultiplier : 1f;
+    }
+
+    // Role: 캐릭터 정의에서 서버 충돌에 사용할 BoxCollider2D Extent를 조회한다.
+    // Parameters:
+    // - characterId: 조회할 캐릭터 ID
+    private Vector2 ResolveCollisionHalfExtent(byte characterId)
+    {
+        if (characterCatalog != null
+            && characterCatalog.TryGet(characterId, out CharacterDefinition definition)
+            && definition != null)
+        {
+            return definition.CollisionExtent;
+        }
+
+        return DefaultCollisionExtent;
+    }
+
+    // Role: 캐릭터 정의에서 서버 충돌에 사용할 BoxCollider2D Offset을 조회한다.
+    // Parameters:
+    // - characterId: 조회할 캐릭터 ID
+    private Vector2 ResolveCollisionOffset(byte characterId)
+    {
+        if (characterCatalog != null
+            && characterCatalog.TryGet(characterId, out CharacterDefinition definition)
+            && definition != null)
+        {
+            return definition.CollisionOffset;
+        }
+
+        return DefaultCollisionOffset;
+    }
+
+    // Role: 캐릭터 정의에서 서버 이동 연산에 사용할 이동 스탯을 조회한다.
+    // Parameters:
+    // - characterId: 조회할 캐릭터 ID
+    private CharacterMovementStats ResolveMovementStats(byte characterId)
+    {
+        if (characterCatalog != null
+            && characterCatalog.TryGet(characterId, out CharacterDefinition definition)
+            && definition != null)
+        {
+            return definition.MovementStats;
+        }
+
+        return DefaultMovementStats;
+    }
+
+    // Role: 서버 플레이어 물리 상태를 캐릭터 상태 머신에 반영한다.
+    // Parameters:
+    // - player: 상태를 반영할 플레이어 데이터
+    private void UpdateCharacterStateMachine(ref PlayerState player)
+    {
+        CharacterRuntimeState characterState = player.characterStateMachine.State;
+        characterState.clientId = player.clientId;
+        characterState.position = player.position;
+        characterState.velocity = player.velocity;
+        characterState.aim = player.aim;
+        player.characterStateMachine.ApplyState(characterState);
     }
 
     // Role: 입력 시퀀스 번호가 현재 기록보다 최신인지 판단한다.

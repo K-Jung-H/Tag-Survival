@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4a4f6dde6f8fcbd48ba8bd2ff9264510, type: 3}
-  m_Name: New Skill Catalog
+  m_Name: Skill Catalog
   m_EditorClassIdentifier: Assembly-CSharp::SkillCatalog
   fallbackDefinition: {fileID: 11400000, guid: 4e860c3baace658458e8e72070b8a568, type: 2}
   definitions:

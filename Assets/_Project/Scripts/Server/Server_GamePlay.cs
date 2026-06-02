@@ -1,10 +1,14 @@
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 public class Server_GamePlay
 {
     private const ushort NoReceivedInputSeq = ushort.MaxValue;
+    private const byte DefaultCharacterId = 0;
     private const byte DefaultSkillId = 1;
+    private const int MaxNicknameLength = 16;
+    private const string DefaultNickname = "NoName";
     private const float MovementStateThresholdSqr = 0.0001f;
     private const float FacingDirectionThreshold = 0.0001f;
     private const float JumpInputThreshold = 0.5f;
@@ -38,6 +42,7 @@ public class Server_GamePlay
     public struct PlayerState
     {
         public ulong clientId;
+        public string nickname;
         public Vector2 position;
         public Vector2 input;
         public Vector2 velocity;
@@ -47,7 +52,7 @@ public class Server_GamePlay
         public PlayerInputButtons buttons;
         public byte skillId;
         public Skill_StateMachine skillStateMachine;
-        public Character_StateMachine characterStateMachine;
+        public ICharacterStateMachine characterStateMachine;
         public Vector2 collisionHalfExtent;
         public Vector2 collisionOffset;
         public bool isGrounded;
@@ -60,6 +65,7 @@ public class Server_GamePlay
         public float coyoteTimeRemaining;
         public bool isTagger;
         public float deathTimer;
+        public float taggerAccumulatedTime;
     }
 
     private readonly Dictionary<ulong, PlayerState> players = new();
@@ -70,6 +76,10 @@ public class Server_GamePlay
     private readonly StageDefinition stageDefinition;
     private readonly CharacterCatalog characterCatalog;
     private readonly SkillCatalog skillCatalog;
+    private float gameDurationSeconds = 180f;
+    private float gameElapsedSeconds;
+    private bool isGameStarted;
+    private bool isGameEnded;
 
     // Role: StageBakeData 없이 서버 게임플레이 시뮬레이션을 생성한다.
     public Server_GamePlay()
@@ -140,31 +150,58 @@ public class Server_GamePlay
     }
 
     public uint Tick { get; private set; }
+    public uint GameStateVersion { get; private set; }
 
     public IReadOnlyDictionary<ulong, PlayerState> Players => players;
     public StageCollisionSystem CollisionSystem => collisionSystem;
+    public float GameDurationSeconds => gameDurationSeconds;
+    public float GameElapsedSeconds => gameElapsedSeconds;
+    public float RemainingSeconds => Mathf.Max(0f, gameDurationSeconds - gameElapsedSeconds);
+    public bool IsGameStarted => isGameStarted;
+    public bool IsGameEnded => isGameEnded;
+
+    public void SetGameDurationSeconds(float durationSeconds)
+    {
+        gameDurationSeconds = Mathf.Max(0f, durationSeconds);
+        if (isGameEnded)
+        {
+            gameElapsedSeconds = gameDurationSeconds;
+        }
+    }
 
     // Role: 새 클라이언트의 플레이어 상태를 서버 시뮬레이션에 추가한다.
     // Parameters:
     // - clientId: 추가할 클라이언트 ID
     public void AddPlayer(ulong clientId)
     {
+        AddPlayer(clientId, null, DefaultCharacterId, DefaultSkillId);
+    }
+
+    public bool AddPlayer(ulong clientId, string nickname, byte characterId, byte skillId)
+    {
         if (players.ContainsKey(clientId))
         {
-            return;
+            return false;
         }
 
-        byte characterId = 0;
-        Vector2 collisionHalfExtent = ResolveCollisionHalfExtent(characterId);
-        Vector2 collisionOffset = ResolveCollisionOffset(characterId);
-        CharacterMovementStats movementStats = ResolveMovementStats(characterId);
-        SkillDefinition skillDefinition = ResolveSkillDefinition(DefaultSkillId);
+        CharacterDefinition characterDefinition = ResolveCharacterDefinition(characterId);
+        byte resolvedCharacterId = characterDefinition != null
+            ? characterDefinition.CharacterId
+            : DefaultCharacterId;
+        Vector2 collisionHalfExtent = ResolveCollisionHalfExtent(resolvedCharacterId);
+        Vector2 collisionOffset = ResolveCollisionOffset(resolvedCharacterId);
+        CharacterMovementStats movementStats = ResolveMovementStats(resolvedCharacterId);
+        SkillDefinition skillDefinition = ResolveSkillDefinition(skillId);
         Skill_StateMachine skillStateMachine = SkillStateMachineFactory.Create(skillDefinition);
+        byte resolvedSkillId = skillDefinition != null
+            ? skillDefinition.SkillId
+            : DefaultSkillId;
 
         bool isFirstPlayer = players.Count == 0;
         PlayerState player = new PlayerState
         {
             clientId = clientId,
+            nickname = SanitizeNickname(nickname, clientId),
             position = collisionSystem.GetStageCenterPosition(),
             input = Vector2.zero,
             velocity = Vector2.zero,
@@ -172,9 +209,9 @@ public class Server_GamePlay
             speed = movementStats.moveSpeed,
             movementStats = movementStats,
             buttons = PlayerInputButtons.None,
-            skillId = skillDefinition != null ? skillDefinition.SkillId : DefaultSkillId,
+            skillId = resolvedSkillId,
             skillStateMachine = skillStateMachine,
-            characterStateMachine = CharacterStateMachineFactory.Create(characterId),
+            characterStateMachine = CharacterStateMachineFactory.Create(resolvedCharacterId),
             collisionHalfExtent = collisionHalfExtent,
             collisionOffset = collisionOffset,
             isGrounded = false,
@@ -187,11 +224,15 @@ public class Server_GamePlay
             coyoteTimeRemaining = 0f,
             isTagger = isFirstPlayer,
             deathTimer = 0f,
+            taggerAccumulatedTime = 0f,
         };
         UpdateCharacterStateMachine(ref player);
 
         players.Add(clientId, player);
         latestReceivedInputSeqs.Add(clientId, NoReceivedInputSeq);
+        StartGameIfNeeded();
+        MarkGameStateChanged();
+        return true;
     }
 
     // Role: 연결 해제된 클라이언트의 플레이어 상태와 입력 기록을 제거한다.
@@ -210,6 +251,8 @@ public class Server_GamePlay
         {
             AssignFallbackTagger();
         }
+
+        MarkGameStateChanged();
     }
 
     // Role: 클라이언트에서 받은 최신 입력을 다음 서버 tick 처리 대상으로 저장한다.
@@ -268,6 +311,7 @@ public class Server_GamePlay
     public void Simulate(float deltaTime)
     {
         Tick++;
+        UpdateGameTimerAndTaggerTimes(deltaTime);
         ApplyQueuedInputsForTick();
 
         int subSteps = Mathf.Max(1, GameSimulationConfig.MovementSubSteps);
@@ -309,6 +353,54 @@ public class Server_GamePlay
                 target.Add(snapshot);
             }
         }
+    }
+
+    public void CopyGameStateEntriesTo(List<GameStateEntryPacket> target, bool taggersOnly)
+    {
+        target.Clear();
+
+        foreach (var pair in players)
+        {
+            PlayerState player = pair.Value;
+            if (taggersOnly && !player.isTagger)
+            {
+                continue;
+            }
+
+            target.Add(new GameStateEntryPacket
+            {
+                clientId = player.clientId,
+                taggerTimeMs = SecondsToMilliseconds(player.taggerAccumulatedTime),
+                isTagger = player.isTagger
+            });
+        }
+
+        target.Sort(CompareLeaderboardEntries);
+    }
+
+    public void CopyRosterEntriesTo(List<RosterEntryPacket> target)
+    {
+        target.Clear();
+
+        foreach (var pair in players)
+        {
+            PlayerState player = pair.Value;
+            FixedString64Bytes nickname = default;
+            nickname.CopyFromTruncated(player.nickname);
+            byte characterId = player.characterStateMachine != null
+                ? player.characterStateMachine.State.characterId
+                : DefaultCharacterId;
+
+            target.Add(new RosterEntryPacket
+            {
+                clientId = player.clientId,
+                nickname = nickname,
+                characterId = characterId,
+                skillId = player.skillId
+            });
+        }
+
+        target.Sort(CompareRosterEntries);
     }
 
     // Role: 대기 중인 입력을 현재 tick의 플레이어 상태에 반영한다.
@@ -623,9 +715,10 @@ public class Server_GamePlay
         }
     }
 
-    private static bool CanTagPlayer(PlayerState tagger, PlayerState target)
+    private bool CanTagPlayer(PlayerState tagger, PlayerState target)
     {
-        return tagger.isTagger
+        return !isGameEnded
+            && tagger.isTagger
             && tagger.deathTimer <= 0f
             && !target.isTagger
             && target.deathTimer <= 0f;
@@ -639,6 +732,7 @@ public class Server_GamePlay
         newTagger.isWallSticking = false;
         newTagger.wallNormalX = 0;
         ClearPlayerInput(ref newTagger);
+        MarkGameStateChanged();
     }
 
     private void AssignFallbackTagger()
@@ -662,6 +756,98 @@ public class Server_GamePlay
         player.isTagger = true;
         player.deathTimer = 0f;
         players[fallbackClientId] = player;
+        MarkGameStateChanged();
+    }
+
+    // Role: 첫 플레이어가 등록되면 게임 타이머를 시작한다.
+    private void StartGameIfNeeded()
+    {
+        if (isGameStarted)
+        {
+            return;
+        }
+
+        isGameStarted = true;
+        isGameEnded = gameDurationSeconds <= 0f;
+        gameElapsedSeconds = isGameEnded ? gameDurationSeconds : 0f;
+        MarkGameStateChanged();
+    }
+
+    private void UpdateGameTimerAndTaggerTimes(float deltaTime)
+    {
+        if (!isGameStarted || isGameEnded)
+        {
+            return;
+        }
+
+        float safeDeltaTime = Mathf.Max(0f, deltaTime);
+        if (safeDeltaTime <= 0f)
+        {
+            return;
+        }
+
+        gameElapsedSeconds = Mathf.Min(gameDurationSeconds, gameElapsedSeconds + safeDeltaTime);
+
+        simulationTargets.Clear();
+        foreach (ulong clientId in players.Keys)
+        {
+            simulationTargets.Add(clientId);
+        }
+
+        for (int i = 0; i < simulationTargets.Count; i++)
+        {
+            ulong clientId = simulationTargets[i];
+            PlayerState player = players[clientId];
+            if (!player.isTagger)
+            {
+                continue;
+            }
+
+            player.taggerAccumulatedTime += safeDeltaTime;
+            players[clientId] = player;
+        }
+
+        if (gameElapsedSeconds >= gameDurationSeconds)
+        {
+            isGameEnded = true;
+            MarkGameStateChanged();
+        }
+    }
+
+    private void MarkGameStateChanged()
+    {
+        GameStateVersion++;
+    }
+
+    private static uint SecondsToMilliseconds(float seconds)
+    {
+        float milliseconds = Mathf.Max(0f, seconds) * 1000f;
+        if (milliseconds >= uint.MaxValue)
+        {
+            return uint.MaxValue;
+        }
+
+        return (uint)Mathf.Round(milliseconds);
+    }
+
+    private static int CompareLeaderboardEntries(
+        GameStateEntryPacket first,
+        GameStateEntryPacket second)
+    {
+        int timeComparison = first.taggerTimeMs.CompareTo(second.taggerTimeMs);
+        if (timeComparison != 0)
+        {
+            return timeComparison;
+        }
+
+        return first.clientId.CompareTo(second.clientId);
+    }
+
+    private static int CompareRosterEntries(
+        RosterEntryPacket first,
+        RosterEntryPacket second)
+    {
+        return first.clientId.CompareTo(second.clientId);
     }
 
     // Role: 이번 이동 전 사용할 coyote time을 갱신한다.
@@ -956,9 +1142,8 @@ public class Server_GamePlay
     // - characterId: 조회할 캐릭터 ID
     private Vector2 ResolveCollisionHalfExtent(byte characterId)
     {
-        if (characterCatalog != null
-            && characterCatalog.TryGet(characterId, out CharacterDefinition definition)
-            && definition != null)
+        CharacterDefinition definition = ResolveCharacterDefinition(characterId);
+        if (definition != null)
         {
             return definition.CollisionExtent;
         }
@@ -971,9 +1156,8 @@ public class Server_GamePlay
     // - characterId: 조회할 캐릭터 ID
     private Vector2 ResolveCollisionOffset(byte characterId)
     {
-        if (characterCatalog != null
-            && characterCatalog.TryGet(characterId, out CharacterDefinition definition)
-            && definition != null)
+        CharacterDefinition definition = ResolveCharacterDefinition(characterId);
+        if (definition != null)
         {
             return definition.CollisionOffset;
         }
@@ -986,9 +1170,8 @@ public class Server_GamePlay
     // - characterId: 조회할 캐릭터 ID
     private CharacterMovementStats ResolveMovementStats(byte characterId)
     {
-        if (characterCatalog != null
-            && characterCatalog.TryGet(characterId, out CharacterDefinition definition)
-            && definition != null)
+        CharacterDefinition definition = ResolveCharacterDefinition(characterId);
+        if (definition != null)
         {
             return definition.MovementStats;
         }
@@ -1007,6 +1190,37 @@ public class Server_GamePlay
         }
 
         return null;
+    }
+
+    private CharacterDefinition ResolveCharacterDefinition(byte characterId)
+    {
+        if (characterCatalog == null)
+        {
+            return null;
+        }
+
+        if (characterCatalog.TryGet(characterId, out CharacterDefinition definition))
+        {
+            return definition;
+        }
+
+        return null;
+    }
+
+    private static string SanitizeNickname(string nickname, ulong clientId)
+    {
+        if (string.IsNullOrWhiteSpace(nickname))
+        {
+            return DefaultNickname;
+        }
+
+        string trimmedNickname = nickname.Trim();
+        if (trimmedNickname.Length > MaxNicknameLength)
+        {
+            return trimmedNickname.Substring(0, MaxNicknameLength);
+        }
+
+        return trimmedNickname;
     }
 
     // Role: 서버 플레이어 물리 상태를 캐릭터 상태 머신에 반영한다.

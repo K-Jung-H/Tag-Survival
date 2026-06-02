@@ -51,6 +51,11 @@ public class Client_InputSender : MonoBehaviour
             networkDelaySimulator = GetComponent<Client_NetworkDelaySimulator>();
         }
 
+        if (networkDelaySimulator == null)
+        {
+            Debug.LogWarning("[Client_InputSender] NetworkDelaySimulator is not assigned. Network delay is disabled.", this);
+        }
+
         inputWriter = new FastBufferWriter(
             GameNetProtocol.InputPacketBufferSize,
             Allocator.Persistent
@@ -242,16 +247,6 @@ public class Client_InputSender : MonoBehaviour
     // Role: 현재 클라이언트에 적용된 네트워크 지연 시간을 초 단위로 반환한다.
     private float GetNetworkDelaySeconds()
     {
-        if (networkDelaySimulator == null)
-        {
-            networkDelaySimulator = GetComponent<Client_NetworkDelaySimulator>();
-        }
-
-        if (networkDelaySimulator == null)
-        {
-            networkDelaySimulator = FindAnyObjectByType<Client_NetworkDelaySimulator>();
-        }
-
         if (networkDelaySimulator == null)
             return 0f;
 

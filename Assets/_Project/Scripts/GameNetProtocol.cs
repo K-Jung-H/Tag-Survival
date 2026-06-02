@@ -2,21 +2,27 @@ using System;
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 10;
+    public const ushort ProtocolVersion = 15;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
     public const float InputSendRate = 60f;
 
     public const int InputPacketBufferSize = 64;
+    public const int ClientJoinProfilePacketBufferSize = 128;
     public const int SnapshotPacketBufferSize = 8192;
+    public const int GameStatePacketBufferSize = 1024;
+    public const int RosterPacketBufferSize = 2048;
     public const int MaxPlayers = 10;
 }
 
 public static class GameNetMessages
 {
+    public const string ClientJoinProfile = "client_join_profile";
     public const string ClientInput = "client_input";
     public const string ServerSnapshot = "server_snapshot";
+    public const string ServerGameState = "server_game_state";
+    public const string ServerRoster = "server_roster";
 }
 
 [Flags]

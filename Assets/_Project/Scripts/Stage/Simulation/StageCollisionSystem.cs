@@ -5,6 +5,7 @@ public sealed class StageCollisionSystem
 {
     private readonly HashSet<int> candidateSet = new HashSet<int>();
     private readonly List<int> candidateBuffer = new List<int>();
+    private readonly Dictionary<Vector2Int, int> bucketIndexByCoord = new Dictionary<Vector2Int, int>();
 
     private StageBakeData stageBakeData;
     private Vector2 defaultPlayerHalfExtent;
@@ -36,6 +37,7 @@ public sealed class StageCollisionSystem
         this.stageBakeData = stageBakeData;
         this.defaultPlayerHalfExtent = ClampHalfExtent(playerHalfExtent);
         this.skinWidth = Mathf.Max(0f, skinWidth);
+        RebuildBucketLookup();
     }
 
     public StageBakeData StageBakeData => stageBakeData;
@@ -46,6 +48,7 @@ public sealed class StageCollisionSystem
     public void SetStageBakeData(StageBakeData newStageBakeData)
     {
         stageBakeData = newStageBakeData;
+        RebuildBucketLookup();
     }
 
     // Role: Stage bounds 기준 중앙 위치를 반환한다.
@@ -494,29 +497,50 @@ public sealed class StageCollisionSystem
     // - buckets: StageBakeData에 저장된 공간 분할 버킷 목록
     private void AddBucketColliderCandidates(Vector2Int bucketCoord, StageSpatialBucketData[] buckets)
     {
+        if (!bucketIndexByCoord.TryGetValue(bucketCoord, out int bucketIndex))
+        {
+            return;
+        }
+
+        if (bucketIndex < 0 || bucketIndex >= buckets.Length)
+        {
+            return;
+        }
+
+        int[] colliderIndices = buckets[bucketIndex].colliderIndices;
+        if (colliderIndices == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < colliderIndices.Length; i++)
+        {
+            int colliderIndex = colliderIndices[i];
+            if (candidateSet.Add(colliderIndex))
+            {
+                candidateBuffer.Add(colliderIndex);
+            }
+        }
+    }
+
+    private void RebuildBucketLookup()
+    {
+        bucketIndexByCoord.Clear();
+
+        if (stageBakeData == null)
+        {
+            return;
+        }
+
+        StageSpatialBucketData[] buckets = stageBakeData.SpatialBuckets;
+        if (buckets == null)
+        {
+            return;
+        }
+
         for (int i = 0; i < buckets.Length; i++)
         {
-            if (buckets[i].coord != bucketCoord)
-            {
-                continue;
-            }
-
-            int[] colliderIndices = buckets[i].colliderIndices;
-            if (colliderIndices == null)
-            {
-                return;
-            }
-
-            for (int j = 0; j < colliderIndices.Length; j++)
-            {
-                int colliderIndex = colliderIndices[j];
-                if (candidateSet.Add(colliderIndex))
-                {
-                    candidateBuffer.Add(colliderIndex);
-                }
-            }
-
-            return;
+            bucketIndexByCoord[buckets[i].coord] = i;
         }
     }
 

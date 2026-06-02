@@ -3,19 +3,20 @@ using UnityEngine;
 public sealed class Hook_SkillStateMachine : Skill_StateMachine
 {
     private const byte HookObjectIndex = 0;
-    private const float HookSpeed = 18f;
-    private const float ReturnSpeedMultiplier = 2f;
-    private const float MaxRopeLength = 12f;
-    private const float HookHitHalfExtent = 0.08f;
-    private const float ReturnCompleteDistance = 0.18f;
-    private const float SwingInputAcceleration = 18f;
-    private const float SwingDetachBoost = 15f;
-    private const float SwingDampingPerSecond = 0.85f;
-    private const float RopeTautTolerance = 0.03f;
+    private const float DefaultHookSpeed = 18f;
+    private const float DefaultReturnSpeedMultiplier = 2f;
+    private const float DefaultMaxRopeLength = 12f;
+    private const float DefaultHookHitHalfExtent = 0.08f;
+    private const float DefaultReturnCompleteDistance = 0.18f;
+    private const float DefaultSwingInputAcceleration = 18f;
+    private const float DefaultSwingDetachBoost = 15f;
+    private const float DefaultSwingDampingPerSecond = 0.85f;
+    private const float DefaultRopeTautTolerance = 0.03f;
     private const float MovementInputThreshold = 0.0001f;
     private const float DirectionThresholdSqr = 0.000001f;
 
     private readonly SkillObjectSnapshotPacket[] snapshotObjects = new SkillObjectSnapshotPacket[1];
+    private readonly HookSkillConfig config;
 
     private ulong ownerClientId;
     private Vector2 hookPosition;
@@ -31,6 +32,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     public Hook_SkillStateMachine(SkillDefinition definition)
         : base(definition)
     {
+        config = definition != null ? definition.GetConfig<HookSkillConfig>() : null;
     }
 
     public override bool UsesSwingMovement => State == SkillObjectState.Active;
@@ -454,4 +456,20 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     {
         return player.position + player.collisionOffset;
     }
+
+    private float HookSpeed => config != null ? config.HookSpeed : DefaultHookSpeed;
+    private float ReturnSpeedMultiplier => config != null ? config.ReturnSpeedMultiplier : DefaultReturnSpeedMultiplier;
+    private float MaxRopeLength => config != null ? config.MaxRopeLength : DefaultMaxRopeLength;
+    private float HookHitHalfExtent => config != null ? config.HookHitHalfExtent : DefaultHookHitHalfExtent;
+    private float ReturnCompleteDistance => config != null
+        ? config.ReturnCompleteDistance
+        : DefaultReturnCompleteDistance;
+    private float SwingInputAcceleration => config != null
+        ? config.SwingInputAcceleration
+        : DefaultSwingInputAcceleration;
+    private float SwingDetachBoost => config != null ? config.SwingDetachBoost : DefaultSwingDetachBoost;
+    private float SwingDampingPerSecond => config != null
+        ? config.SwingDampingPerSecond
+        : DefaultSwingDampingPerSecond;
+    private float RopeTautTolerance => config != null ? config.RopeTautTolerance : DefaultRopeTautTolerance;
 }

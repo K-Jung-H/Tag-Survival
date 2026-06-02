@@ -308,6 +308,7 @@ Transform:
   - {fileID: 288531174134472002}
   - {fileID: 288531174134472012}
   - {fileID: 8212449635391530877}
+  - {fileID: 2434348113970387452}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7380552999120060239
@@ -326,6 +327,7 @@ MonoBehaviour:
   body: {fileID: 6907012357751949140}
   aimLine: {fileID: 288531174134472003}
   skillIndicator: {fileID: 288531174134472013}
+  nameplateAnchor: {fileID: 2434348113970387452}
   playerSize: {x: 0.8, y: 0.8}
   aimLineLength: 1.8
   aimLineWidth: 0.05
@@ -376,6 +378,37 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 0.9, y: 1.1}
   m_EdgeRadius: 0
+--- !u!1 &7914140184256180972
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2434348113970387452}
+  m_Layer: 0
+  m_Name: NameplateAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2434348113970387452
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7914140184256180972}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 644539538578101173}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8315889187239747242
 GameObject:
   m_ObjectHideFlags: 0

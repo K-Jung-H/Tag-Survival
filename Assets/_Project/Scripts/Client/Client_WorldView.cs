@@ -7,6 +7,7 @@ public struct ClientWorldPlayerViewRef
 {
     public ulong clientId;
     public Transform root;
+    public Transform nameplateAnchor;
 }
 
 public class Client_WorldView : MonoBehaviour
@@ -85,7 +86,8 @@ public class Client_WorldView : MonoBehaviour
             target.Add(new ClientWorldPlayerViewRef
             {
                 clientId = pair.Key,
-                root = pair.Value.transform
+                root = pair.Value.transform,
+                nameplateAnchor = pair.Value.NameplateAnchor
             });
         }
     }
@@ -223,7 +225,7 @@ public class Client_WorldView : MonoBehaviour
 
         playerViews[clientId] = view;
         TryAssignLocalCameraTarget(clientId, view.transform);
-        RaisePlayerViewCreated(clientId, view.transform);
+        RaisePlayerViewCreated(clientId, view);
         return true;
     }
 
@@ -457,12 +459,13 @@ public class Client_WorldView : MonoBehaviour
     // Parameters:
     // - clientId: 생성된 플레이어 클라이언트 ID
     // - root: 생성된 플레이어 View 루트
-    private void RaisePlayerViewCreated(ulong clientId, Transform root)
+    private void RaisePlayerViewCreated(ulong clientId, Client_CharacterView view)
     {
         PlayerViewCreated?.Invoke(new ClientWorldPlayerViewRef
         {
             clientId = clientId,
-            root = root
+            root = view != null ? view.transform : null,
+            nameplateAnchor = view != null ? view.NameplateAnchor : null
         });
     }
 

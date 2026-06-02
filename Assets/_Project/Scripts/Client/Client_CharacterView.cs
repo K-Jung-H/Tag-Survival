@@ -8,12 +8,13 @@ public sealed class Client_CharacterView : MonoBehaviour
     [SerializeField] private SpriteRenderer body;
     [SerializeField] private SpriteRenderer aimLine;
     [SerializeField] private SpriteRenderer skillIndicator;
+    [SerializeField] private Transform nameplateAnchor;
     [SerializeField] private Vector2 playerSize = new Vector2(0.8f, 0.8f);
     [SerializeField] private float aimLineLength = 1.8f;
     [SerializeField] private float aimLineWidth = 0.05f;
     [SerializeField] private float skillIndicatorRadius = 0.12f;
 
-    private Character_StateMachine stateMachine;
+    private ICharacterStateMachine stateMachine;
     private CharacterAnimationData animationData;
     private Vector2 renderPosition;
     private bool hasRenderPosition;
@@ -25,8 +26,14 @@ public sealed class Client_CharacterView : MonoBehaviour
     private bool hasMissingClipWarning;
     private Color defaultBodyColor = Color.white;
 
-    public Character_StateMachine StateMachine => stateMachine;
+    public ICharacterStateMachine StateMachine => stateMachine;
     public CharacterAnimationData AnimationData => animationData;
+    public Transform NameplateAnchor => nameplateAnchor != null ? nameplateAnchor : transform;
+
+    private void Awake()
+    {
+        ResolveNameplateAnchor();
+    }
 
     // Role: 인스펙터에서 누락된 렌더링 참조를 보조 연결한다.
     private void OnValidate()
@@ -39,6 +46,20 @@ public sealed class Client_CharacterView : MonoBehaviour
         if (body == null)
         {
             body = GetComponent<SpriteRenderer>();
+        }
+
+        ResolveNameplateAnchor();
+    }
+
+    private void ResolveNameplateAnchor()
+    {
+        if (nameplateAnchor == null)
+        {
+            Transform foundAnchor = transform.Find("NameplateAnchor");
+            if (foundAnchor != null)
+            {
+                nameplateAnchor = foundAnchor;
+            }
         }
     }
 

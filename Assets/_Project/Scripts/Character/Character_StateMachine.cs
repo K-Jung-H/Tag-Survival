@@ -1,6 +1,14 @@
 using UnityEngine;
 
-public class Character_StateMachine
+public interface ICharacterStateMachine
+{
+    CharacterRuntimeState State { get; }
+    void ApplyState(CharacterRuntimeState newState);
+    void ApplySnapshot(PlayerSnapshotPacket packet);
+    void ApplySnapshotState(ClientSnapshotState snapshotState);
+}
+
+public class Character_StateMachine : ICharacterStateMachine
 {
     private CharacterRuntimeState state;
 

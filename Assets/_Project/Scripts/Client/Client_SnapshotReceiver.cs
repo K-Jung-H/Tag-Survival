@@ -38,6 +38,11 @@ public class Client_SnapshotReceiver : MonoBehaviour
             networkDelaySimulator = GetComponent<Client_NetworkDelaySimulator>();
         }
 
+        if (networkDelaySimulator == null)
+        {
+            Debug.LogWarning("[Client_SnapshotReceiver] NetworkDelaySimulator is not assigned. Network delay is disabled.", this);
+        }
+
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError("[Client_SnapshotReceiver] NetworkManager.Singleton is null.");
@@ -399,16 +404,6 @@ public class Client_SnapshotReceiver : MonoBehaviour
 
     private float GetNetworkDelaySeconds()
     {
-        if (networkDelaySimulator == null)
-        {
-            networkDelaySimulator = GetComponent<Client_NetworkDelaySimulator>();
-        }
-
-        if (networkDelaySimulator == null)
-        {
-            networkDelaySimulator = FindAnyObjectByType<Client_NetworkDelaySimulator>();
-        }
-
         if (networkDelaySimulator == null)
             return 0f;
 

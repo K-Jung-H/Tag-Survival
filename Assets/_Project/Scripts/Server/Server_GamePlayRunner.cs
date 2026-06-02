@@ -7,6 +7,9 @@ public class Server_GamePlayRunner : MonoBehaviour
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
+    [SerializeField] private float gameDurationSeconds = 180f;
+    [SerializeField] private float gameStateSendInterval = 1f;
+    [SerializeField] private float fullGameStateSendInterval = 30f;
 
     private readonly float serverDeltaTime = 1f / GameNetProtocol.ServerTickRate;
     private readonly float snapshotSendInterval = 1f / GameNetProtocol.SnapshotSendRate;
@@ -14,13 +17,28 @@ public class Server_GamePlayRunner : MonoBehaviour
     private Server_GamePlay gamePlay;
 
     private FastBufferWriter snapshotWriter;
+    private FastBufferWriter gameStateWriter;
+    private FastBufferWriter rosterWriter;
     private bool snapshotWriterCreated;
+    private bool gameStateWriterCreated;
+    private bool rosterWriterCreated;
     private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
+    private readonly System.Collections.Generic.List<GameStateEntryPacket> gameStateEntries = new();
+    private readonly System.Collections.Generic.List<RosterEntryPacket> rosterEntries = new();
+    private readonly GameStateEntryPacket[] gameStateEntryBuffer =
+        new GameStateEntryPacket[GameNetProtocol.MaxPlayers];
+    private readonly RosterEntryPacket[] rosterEntryBuffer =
+        new RosterEntryPacket[GameNetProtocol.MaxPlayers];
 
     private float tickTimer;
     private float snapshotTimer;
-    private bool isInputHandlerRegistered;
+    private float gameStateTimer;
+    private float fullGameStateTimer;
+    private bool areClientMessageHandlersRegistered;
     private uint snapshotSeq;
+    private uint gameStateSeq;
+    private uint rosterSeq;
+    private uint lastSentGameStateVersion;
 
     public Server_GamePlay GamePlay => gamePlay;
 
@@ -28,13 +46,26 @@ public class Server_GamePlayRunner : MonoBehaviour
     private void Awake()
     {
         gamePlay = new Server_GamePlay(stageDefinition, characterCatalog, skillCatalog);
+        gamePlay.SetGameDurationSeconds(gameDurationSeconds);
 
         snapshotWriter = new FastBufferWriter(
             GameNetProtocol.SnapshotPacketBufferSize,
             Allocator.Persistent
         );
 
+        gameStateWriter = new FastBufferWriter(
+            GameNetProtocol.GameStatePacketBufferSize,
+            Allocator.Persistent
+        );
+
+        rosterWriter = new FastBufferWriter(
+            GameNetProtocol.RosterPacketBufferSize,
+            Allocator.Persistent
+        );
+
         snapshotWriterCreated = true;
+        gameStateWriterCreated = true;
+        rosterWriterCreated = true;
     }
 
     // Role: NetworkManager 연결 이벤트를 등록한다.
@@ -54,7 +85,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     // Role: 등록된 연결 이벤트, 입력 수신 핸들러, 스냅샷 writer를 해제한다.
     private void OnDestroy()
     {
-        UnregisterInputHandler();
+        UnregisterClientMessageHandlers();
 
         if (NetworkManager.Singleton != null)
         {
@@ -67,12 +98,24 @@ public class Server_GamePlayRunner : MonoBehaviour
             snapshotWriter.Dispose();
             snapshotWriterCreated = false;
         }
+
+        if (gameStateWriterCreated)
+        {
+            gameStateWriter.Dispose();
+            gameStateWriterCreated = false;
+        }
+
+        if (rosterWriterCreated)
+        {
+            rosterWriter.Dispose();
+            rosterWriterCreated = false;
+        }
     }
 
     // Role: 서버 상태에서 입력 수신 등록, 시뮬레이션, 스냅샷 송신을 처리한다.
     private void Update()
     {
-        TryRegisterInputHandler();
+        TryRegisterClientMessageHandlers();
 
         if (!CanRunServerLoop())
             return;
@@ -88,10 +131,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (!CanUseServerState())
             return;
 
-        gamePlay.AddPlayer(clientId);
-        SendSnapshotToAllClients();
-
-        Debug.Log($"[Server_GamePlayRunner] Client connected: {clientId}");
+        Debug.Log($"[Server_GamePlayRunner] Client connected: {clientId}. Waiting for join profile.");
     }
 
     // Role: 클라이언트 연결 해제 시 서버 시뮬레이션에서 플레이어 상태를 제거한다.
@@ -104,14 +144,16 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         gamePlay.RemovePlayer(clientId);
         SendSnapshotToAllClients();
+        SendGameStateToAllClients(isFullSync: true);
+        SendRosterToAllClients();
 
         Debug.Log($"[Server_GamePlayRunner] Client disconnected: {clientId}");
     }
 
     // Role: CustomMessagingManager가 준비된 뒤 입력 수신 핸들러를 등록한다.
-    private void TryRegisterInputHandler()
+    private void TryRegisterClientMessageHandlers()
     {
-        if (isInputHandlerRegistered)
+        if (areClientMessageHandlersRegistered)
             return;
 
         if (NetworkManager.Singleton == null)
@@ -127,17 +169,22 @@ public class Server_GamePlayRunner : MonoBehaviour
             return;
 
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+            GameNetMessages.ClientJoinProfile,
+            OnClientJoinProfileReceived
+        );
+
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
             GameNetMessages.ClientInput,
             OnClientInputReceived
         );
 
-        isInputHandlerRegistered = true;
+        areClientMessageHandlersRegistered = true;
     }
 
     // Role: 클라이언트 입력 수신 핸들러를 해제한다.
-    private void UnregisterInputHandler()
+    private void UnregisterClientMessageHandlers()
     {
-        if (!isInputHandlerRegistered)
+        if (!areClientMessageHandlersRegistered)
             return;
 
         if (NetworkManager.Singleton == null)
@@ -147,10 +194,44 @@ public class Server_GamePlayRunner : MonoBehaviour
             return;
 
         NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(
+            GameNetMessages.ClientJoinProfile
+        );
+
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(
             GameNetMessages.ClientInput
         );
 
-        isInputHandlerRegistered = false;
+        areClientMessageHandlersRegistered = false;
+    }
+
+    private void OnClientJoinProfileReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (!ClientJoinProfilePacket.TryRead(ref reader, out ClientJoinProfilePacket packet))
+            return;
+
+        bool added = gamePlay.AddPlayer(
+            senderClientId,
+            packet.NicknameText,
+            packet.characterId,
+            packet.skillId);
+
+        if (!added)
+        {
+            SendRosterToClient(senderClientId);
+            return;
+        }
+
+        SendSnapshotToAllClients();
+        SendGameStateToAllClients(isFullSync: true);
+        SendRosterToAllClients();
+
+        Debug.Log(
+            $"[Server_GamePlayRunner] Join profile accepted: " +
+            $"clientId={senderClientId}, nickname={packet.NicknameText}, " +
+            $"characterId={packet.characterId}, skillId={packet.skillId}");
     }
 
     // Role: 클라이언트 입력 패킷을 읽고 서버 게임플레이 상태에 반영한다.
@@ -183,6 +264,8 @@ public class Server_GamePlayRunner : MonoBehaviour
         {
             tickTimer -= serverDeltaTime;
             snapshotTimer += serverDeltaTime;
+            gameStateTimer += serverDeltaTime;
+            fullGameStateTimer += serverDeltaTime;
 
             gamePlay.Simulate(serverDeltaTime);
 
@@ -190,6 +273,18 @@ public class Server_GamePlayRunner : MonoBehaviour
             {
                 snapshotTimer -= snapshotSendInterval;
                 SendSnapshotToAllClients();
+            }
+
+            if (ShouldSendFullGameState())
+            {
+                gameStateTimer = 0f;
+                fullGameStateTimer = 0f;
+                SendGameStateToAllClients(isFullSync: true);
+            }
+            else if (ShouldSendPartialGameState())
+            {
+                gameStateTimer = 0f;
+                SendGameStateToAllClients(isFullSync: false);
             }
         }
     }
@@ -263,6 +358,161 @@ public class Server_GamePlayRunner : MonoBehaviour
                 NetworkDelivery.UnreliableSequenced
             );
         }
+    }
+
+    private bool ShouldSendFullGameState()
+    {
+        float interval = Mathf.Max(1f, fullGameStateSendInterval);
+        return fullGameStateTimer >= interval
+            || gamePlay.GameStateVersion != lastSentGameStateVersion;
+    }
+
+    private bool ShouldSendPartialGameState()
+    {
+        float interval = Mathf.Max(0.1f, gameStateSendInterval);
+        return gameStateTimer >= interval;
+    }
+
+    private void SendGameStateToAllClients(bool isFullSync)
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (NetworkManager.Singleton.CustomMessagingManager == null)
+            return;
+
+        if (NetworkManager.Singleton.ConnectedClientsList.Count == 0)
+            return;
+
+        if (!gameStateWriterCreated)
+            return;
+
+        gameStateWriter.Truncate(0);
+        gamePlay.CopyGameStateEntriesTo(gameStateEntries, taggersOnly: !isFullSync);
+
+        int entryCount = Mathf.Min(gameStateEntries.Count, GameNetProtocol.MaxPlayers);
+        for (int i = 0; i < entryCount; i++)
+        {
+            gameStateEntryBuffer[i] = gameStateEntries[i];
+        }
+
+        GameStateSnapshotPacket packet = new GameStateSnapshotPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            gameStateSeq = gameStateSeq,
+            serverTick = gamePlay.Tick,
+            serverTime = (float)NetworkManager.Singleton.ServerTime.Time,
+            remainingSeconds = (ushort)Mathf.Clamp(
+                Mathf.CeilToInt(gamePlay.RemainingSeconds),
+                0,
+                ushort.MaxValue),
+            isGameStarted = gamePlay.IsGameStarted,
+            isGameEnded = gamePlay.IsGameEnded,
+            isFullSync = isFullSync,
+            entryCount = (ushort)entryCount,
+            entries = gameStateEntryBuffer
+        };
+
+        packet.Write(ref gameStateWriter);
+        gameStateSeq++;
+        lastSentGameStateVersion = gamePlay.GameStateVersion;
+        NetworkDelivery delivery = isFullSync
+            ? NetworkDelivery.ReliableSequenced
+            : NetworkDelivery.UnreliableSequenced;
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                GameNetMessages.ServerGameState,
+                client.ClientId,
+                gameStateWriter,
+                delivery
+            );
+        }
+    }
+
+    private void SendRosterToAllClients()
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (NetworkManager.Singleton.CustomMessagingManager == null)
+            return;
+
+        if (NetworkManager.Singleton.ConnectedClientsList.Count == 0)
+            return;
+
+        if (!rosterWriterCreated)
+            return;
+
+        rosterWriter.Truncate(0);
+        gamePlay.CopyRosterEntriesTo(rosterEntries);
+
+        int entryCount = Mathf.Min(rosterEntries.Count, GameNetProtocol.MaxPlayers);
+        for (int i = 0; i < entryCount; i++)
+        {
+            rosterEntryBuffer[i] = rosterEntries[i];
+        }
+
+        ServerRosterSnapshotPacket packet = new ServerRosterSnapshotPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            rosterSeq = rosterSeq,
+            entryCount = (ushort)entryCount,
+            entries = rosterEntryBuffer
+        };
+
+        packet.Write(ref rosterWriter);
+        rosterSeq++;
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                GameNetMessages.ServerRoster,
+                client.ClientId,
+                rosterWriter,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+    }
+
+    private void SendRosterToClient(ulong clientId)
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (NetworkManager.Singleton.CustomMessagingManager == null)
+            return;
+
+        if (!rosterWriterCreated)
+            return;
+
+        rosterWriter.Truncate(0);
+        gamePlay.CopyRosterEntriesTo(rosterEntries);
+
+        int entryCount = Mathf.Min(rosterEntries.Count, GameNetProtocol.MaxPlayers);
+        for (int i = 0; i < entryCount; i++)
+        {
+            rosterEntryBuffer[i] = rosterEntries[i];
+        }
+
+        ServerRosterSnapshotPacket packet = new ServerRosterSnapshotPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            rosterSeq = rosterSeq,
+            entryCount = (ushort)entryCount,
+            entries = rosterEntryBuffer
+        };
+
+        packet.Write(ref rosterWriter);
+        rosterSeq++;
+
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ServerRoster,
+            clientId,
+            rosterWriter,
+            NetworkDelivery.ReliableSequenced
+        );
     }
 
     // Role: 서버 루프를 실행할 수 있는 네트워크 상태인지 판단한다.

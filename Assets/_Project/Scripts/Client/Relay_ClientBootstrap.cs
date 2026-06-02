@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
@@ -14,10 +15,20 @@ using UnityEngine.UI;
 public class Relay_ClientBootstrap : MonoBehaviour
 {
     private const string RELAY_PROTOCOL = "dtls";
+    private const int JoinProfileMaxSendAttempts = 8;
+    private const float JoinProfileRetryInterval = 0.5f;
+    private const int MaxNicknameLength = 16;
+    private const string DefaultNickname = "NoName";
+    private const byte DefaultCharacterId = 0;
+    private const byte DefaultSkillId = 1;
 
     [Header("Connection UI References")]
+    [SerializeField] private GameObject HudPanel;
     [SerializeField] private GameObject connectionPanel;
     [SerializeField] private TMP_InputField joinCodeInput;
+    [SerializeField] private TMP_InputField nicknameInput;
+    [SerializeField] private TMP_InputField characterIdInput;
+    [SerializeField] private TMP_InputField skillIdInput;
     [SerializeField] private Button connectButton;
 
     [Header("Network Delay UI References")]
@@ -27,17 +38,37 @@ public class Relay_ClientBootstrap : MonoBehaviour
     [SerializeField] private TMP_Text delayValueText;
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
 
+
     private bool isProcessing;
     private bool isConnected;
     private bool hasWarnedMissingConnectionUi;
     private bool hasWarnedMissingDelayUi;
     private bool hasWarnedMissingDelaySimulator;
+    private FastBufferWriter joinProfileWriter;
+    private bool joinProfileWriterCreated;
+    private ClientJoinProfilePacket pendingJoinProfile;
+    private bool hasPendingJoinProfile;
+    private float joinProfileRetryTimer;
+    private int joinProfileSendAttempts;
+
+    private void Awake()
+    {
+        joinProfileWriter = new FastBufferWriter(
+            GameNetProtocol.ClientJoinProfilePacketBufferSize,
+            Allocator.Persistent);
+        joinProfileWriterCreated = true;
+    }
 
     private async void Start()
     {
         await InitializeUnityServices();
         PrepareUI();
         BindUIEvents();
+    }
+
+    private void Update()
+    {
+        SendPendingJoinProfileIfNeeded();
     }
 
     private void OnDestroy()
@@ -52,6 +83,21 @@ public class Relay_ClientBootstrap : MonoBehaviour
             joinCodeInput.onSubmit.RemoveListener(OnJoinCodeSubmitted);
         }
 
+        if (nicknameInput != null)
+        {
+            nicknameInput.onSubmit.RemoveListener(OnJoinCodeSubmitted);
+        }
+
+        if (characterIdInput != null)
+        {
+            characterIdInput.onSubmit.RemoveListener(OnJoinCodeSubmitted);
+        }
+
+        if (skillIdInput != null)
+        {
+            skillIdInput.onSubmit.RemoveListener(OnJoinCodeSubmitted);
+        }
+
         if (delayModeToggle != null)
         {
             delayModeToggle.onValueChanged.RemoveListener(OnNetworkDelayModeChanged);
@@ -63,10 +109,14 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
 
         if (NetworkManager.Singleton == null)
+        {
+            DisposeJoinProfileWriter();
             return;
+        }
 
         NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
         NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        DisposeJoinProfileWriter();
     }
 
     private async Task InitializeUnityServices()
@@ -111,6 +161,10 @@ public class Relay_ClientBootstrap : MonoBehaviour
             joinCodeInput.onSubmit.AddListener(OnJoinCodeSubmitted);
         }
 
+        BindConnectionInputSubmit(nicknameInput);
+        BindConnectionInputSubmit(characterIdInput);
+        BindConnectionInputSubmit(skillIdInput);
+
         if (delayModeToggle != null)
         {
             delayModeToggle.onValueChanged.RemoveListener(OnNetworkDelayModeChanged);
@@ -136,6 +190,20 @@ public class Relay_ClientBootstrap : MonoBehaviour
             return;
 
         string joinCode = joinCodeInput.text.Trim();
+        if (string.IsNullOrWhiteSpace(joinCode))
+        {
+            Debug.LogWarning("[Relay_ClientBootstrap] JoinCode is required.");
+            return;
+        }
+
+        if (!TryBuildJoinProfile(out pendingJoinProfile))
+        {
+            return;
+        }
+
+        hasPendingJoinProfile = true;
+        joinProfileSendAttempts = 0;
+        joinProfileRetryTimer = 0f;
         _ = StartClientAsync(joinCode);
     }
 
@@ -145,6 +213,84 @@ public class Relay_ClientBootstrap : MonoBehaviour
             return;
 
         OnConnectButtonClicked();
+    }
+
+    private void BindConnectionInputSubmit(TMP_InputField inputField)
+    {
+        if (inputField == null)
+        {
+            return;
+        }
+
+        inputField.lineType = TMP_InputField.LineType.SingleLine;
+        inputField.onSubmit.RemoveListener(OnJoinCodeSubmitted);
+        inputField.onSubmit.AddListener(OnJoinCodeSubmitted);
+    }
+
+    private bool TryBuildJoinProfile(out ClientJoinProfilePacket packet)
+    {
+        packet = default;
+
+        if (!TryReadByteInput(characterIdInput, DefaultCharacterId, "CharacterId", out byte characterId))
+        {
+            return false;
+        }
+
+        if (!TryReadByteInput(skillIdInput, DefaultSkillId, "SkillId", out byte skillId))
+        {
+            return false;
+        }
+
+        FixedString64Bytes nickname = default;
+        nickname.CopyFromTruncated(SanitizeNickname(nicknameInput != null ? nicknameInput.text : null));
+
+        packet = new ClientJoinProfilePacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            nickname = nickname,
+            characterId = characterId,
+            skillId = skillId
+        };
+
+        return true;
+    }
+
+    private bool TryReadByteInput(
+        TMP_InputField inputField,
+        byte fallbackValue,
+        string fieldName,
+        out byte value)
+    {
+        value = fallbackValue;
+
+        if (inputField == null || string.IsNullOrWhiteSpace(inputField.text))
+        {
+            return true;
+        }
+
+        if (byte.TryParse(inputField.text.Trim(), out value))
+        {
+            return true;
+        }
+
+        Debug.LogWarning($"[Relay_ClientBootstrap] {fieldName} must be a number from 0 to 255.");
+        return false;
+    }
+
+    private string SanitizeNickname(string nickname)
+    {
+        if (string.IsNullOrWhiteSpace(nickname))
+        {
+            return DefaultNickname;
+        }
+
+        string trimmedNickname = nickname.Trim();
+        if (trimmedNickname.Length > MaxNicknameLength)
+        {
+            return trimmedNickname.Substring(0, MaxNicknameLength);
+        }
+
+        return trimmedNickname;
     }
 
     public async Task StartClientAsync(string joinCode)
@@ -194,6 +340,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
             if (!started)
             {
                 isProcessing = false;
+                ClearPendingJoinProfile();
                 SetConnectionUIInteractable(true);
                 ApplyPanelVisibility();
             }
@@ -202,6 +349,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         {
             Debug.LogError($"[Relay_ClientBootstrap] Client join failed: {e.Message}");
             isProcessing = false;
+            ClearPendingJoinProfile();
             SetConnectionUIInteractable(true);
             ApplyPanelVisibility();
         }
@@ -222,6 +370,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         ApplyNetworkDelaySettings();
         ApplyNetworkDelayUIState();
         ApplyPanelVisibility();
+        SendJoinProfileNow();
     }
 
     private void OnClientDisconnected(ulong clientId)
@@ -234,10 +383,82 @@ public class Relay_ClientBootstrap : MonoBehaviour
 
         isConnected = false;
         isProcessing = false;
+        ClearPendingJoinProfile();
 
         SetConnectionUIInteractable(true);
         ApplyNetworkDelayUIState();
         ApplyPanelVisibility();
+    }
+
+    private void SendPendingJoinProfileIfNeeded()
+    {
+        if (!hasPendingJoinProfile)
+            return;
+
+        if (!isConnected)
+            return;
+
+        if (joinProfileSendAttempts >= JoinProfileMaxSendAttempts)
+        {
+            ClearPendingJoinProfile();
+            return;
+        }
+
+        joinProfileRetryTimer -= Time.deltaTime;
+        if (joinProfileRetryTimer > 0f)
+            return;
+
+        SendJoinProfileNow();
+    }
+
+    private void SendJoinProfileNow()
+    {
+        if (!CanSendJoinProfile())
+            return;
+
+        joinProfileWriter.Truncate(0);
+        pendingJoinProfile.Write(ref joinProfileWriter);
+
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ClientJoinProfile,
+            NetworkManager.ServerClientId,
+            joinProfileWriter,
+            NetworkDelivery.ReliableSequenced
+        );
+
+        joinProfileSendAttempts++;
+        joinProfileRetryTimer = JoinProfileRetryInterval;
+    }
+
+    private bool CanSendJoinProfile()
+    {
+        if (!hasPendingJoinProfile)
+            return false;
+
+        if (!joinProfileWriterCreated)
+            return false;
+
+        if (NetworkManager.Singleton == null)
+            return false;
+
+        if (!NetworkManager.Singleton.IsClient)
+            return false;
+
+        if (!NetworkManager.Singleton.IsConnectedClient)
+            return false;
+
+        if (NetworkManager.Singleton.IsServer)
+            return false;
+
+        return NetworkManager.Singleton.CustomMessagingManager != null;
+    }
+
+    private void ClearPendingJoinProfile()
+    {
+        hasPendingJoinProfile = false;
+        joinProfileSendAttempts = 0;
+        joinProfileRetryTimer = 0f;
+        pendingJoinProfile = default;
     }
 
     private void SetConnectionUIInteractable(bool interactable)
@@ -245,6 +466,21 @@ public class Relay_ClientBootstrap : MonoBehaviour
         if (joinCodeInput != null)
         {
             joinCodeInput.interactable = interactable;
+        }
+
+        if (nicknameInput != null)
+        {
+            nicknameInput.interactable = interactable;
+        }
+
+        if (characterIdInput != null)
+        {
+            characterIdInput.interactable = interactable;
+        }
+
+        if (skillIdInput != null)
+        {
+            skillIdInput.interactable = interactable;
         }
 
         if (connectButton != null)
@@ -256,11 +492,16 @@ public class Relay_ClientBootstrap : MonoBehaviour
     private void ConfigureConnectionUI()
     {
         if (!hasWarnedMissingConnectionUi
-            && (connectionPanel == null || joinCodeInput == null || connectButton == null))
+            && (connectionPanel == null
+                || joinCodeInput == null
+                || nicknameInput == null
+                || characterIdInput == null
+                || skillIdInput == null
+                || connectButton == null))
         {
             hasWarnedMissingConnectionUi = true;
             Debug.LogWarning(
-                "[Relay_ClientBootstrap] Assign Panel_Connection, JoinCode InputField, and Connect Button " +
+                "[Relay_ClientBootstrap] Assign Panel_Connection, JoinCode, NickName, CharacterId, SkillId InputFields, and Connect Button " +
                 "to the connection UI fields in the inspector."
             );
         }
@@ -321,6 +562,11 @@ public class Relay_ClientBootstrap : MonoBehaviour
         {
             delayPanel.SetActive(isConnected);
         }
+
+        if(HudPanel != null)
+        {
+            HudPanel.SetActive(isConnected);
+        }
     }
 
     private void OnNetworkDelayModeChanged(bool _)
@@ -380,5 +626,14 @@ public class Relay_ClientBootstrap : MonoBehaviour
             : Client_NetworkDelaySimulator.MinRoundTripDelayMilliseconds;
 
         delayValueText.text = $"RTT: {delayMilliseconds} ms";
+    }
+
+    private void DisposeJoinProfileWriter()
+    {
+        if (!joinProfileWriterCreated)
+            return;
+
+        joinProfileWriter.Dispose();
+        joinProfileWriterCreated = false;
     }
 }

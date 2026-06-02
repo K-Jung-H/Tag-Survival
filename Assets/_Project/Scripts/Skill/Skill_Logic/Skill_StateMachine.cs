@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class Skill_StateMachine
@@ -43,6 +44,10 @@ public abstract class Skill_StateMachine
     // Parameters:
     // - snapshot: 생성된 스킬 스냅샷
     public abstract bool TryGetSnapshot(out SkillSnapshotPacket snapshot);
+
+    public virtual void CopyActivePortalEndpoints(List<PortalEndpointState> target)
+    {
+    }
 
     protected void TickCooldown(float deltaTime)
     {

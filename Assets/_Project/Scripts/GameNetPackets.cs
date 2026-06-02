@@ -471,6 +471,7 @@ public struct ClientGameStateSnapshotState
 public struct SkillObjectSnapshotPacket
 {
     public byte skillObjectId;
+    public SkillObjectState skillObjectState;
     public Vector2 position;
     public float rotation;
     public Vector2 velocity;
@@ -481,6 +482,7 @@ public struct SkillObjectSnapshotPacket
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(skillObjectId);
+        writer.WriteValueSafe((byte)skillObjectState);
         writer.WriteValueSafe(position.x);
         writer.WriteValueSafe(position.y);
         writer.WriteValueSafe(rotation);
@@ -497,6 +499,7 @@ public struct SkillObjectSnapshotPacket
         packet = default;
 
         reader.ReadValueSafe(out byte skillObjectId);
+        reader.ReadValueSafe(out byte skillObjectState);
         reader.ReadValueSafe(out float positionX);
         reader.ReadValueSafe(out float positionY);
         reader.ReadValueSafe(out float rotation);
@@ -506,6 +509,7 @@ public struct SkillObjectSnapshotPacket
         packet = new SkillObjectSnapshotPacket
         {
             skillObjectId = skillObjectId,
+            skillObjectState = (SkillObjectState)skillObjectState,
             position = new Vector2(positionX, positionY),
             rotation = rotation,
             velocity = new Vector2(velocityX, velocityY)

@@ -285,7 +285,7 @@ GameObject:
   - component: {fileID: 7380552999120060239}
   - component: {fileID: 3971605534301880689}
   m_Layer: 0
-  m_Name: PlayerView_Frog
+  m_Name: PlayerView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -331,7 +331,6 @@ MonoBehaviour:
   playerSize: {x: 0.8, y: 0.8}
   aimLineLength: 1.8
   aimLineWidth: 0.05
-  skillIndicatorRadius: 0.12
 --- !u!61 &3971605534301880689
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -491,7 +490,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -6367560908665664636, guid: cd947491a13509945aa1b644f9db3ef2, type: 3}
+  m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -499,7 +498,7 @@ SpriteRenderer:
   m_Size: {x: 0.32, y: 0.32}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
 --- !u!95 &8102185092793086562
 Animator:
@@ -511,7 +510,7 @@ Animator:
   m_GameObject: {fileID: 8315889187239747242}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 7742324d15531ca4da949f74dd30f5ed, type: 2}
+  m_Controller: {fileID: 0}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0

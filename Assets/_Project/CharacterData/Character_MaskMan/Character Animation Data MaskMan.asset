@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e670f942b5404e43b20196d33f89fc3d, type: 3}
+  m_Name: Character Animation Data MaskMan
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
+  animatorController: {fileID: 9100000, guid: 343c6dd85553ff346bb7ab8985acc8af, type: 2}
+  idleClip: {fileID: 7400000, guid: f5065e9e2e671aa48860d86a2bc9454f, type: 2}
+  runClip: {fileID: 7400000, guid: d7610bc0a83ef8741804862bc5e27aa8, type: 2}
+  jumpClip: {fileID: 7400000, guid: b59996b294f72154b814fb5a98aa71ae, type: 2}
+  fallClip: {fileID: 7400000, guid: f0081f66dfb941e4aaa344c25c100866, type: 2}
+  wallStickClip: {fileID: 7400000, guid: 44c9c15f4aad9014694edfa47da662c4, type: 2}
+  deathClip: {fileID: 7400000, guid: bc453d0fc5eaf8641ae2f9acc08311d1, type: 2}

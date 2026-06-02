@@ -17,6 +17,9 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     private Vector3[] baseLocalScale;
     private float[] baseVisualLengthX;
     private SpriteRenderer[] spriteRenderers;
+    private Animator[] animators;
+    private SkillObjectState[] currentObjectStates;
+    private bool[] hasCurrentObjectState;
 
     public byte SkillId => definition != null ? definition.SkillId : (byte)0;
     private SkillType EffectiveSkillType => skillType != SkillType.None ? skillType : definition != null ? definition.SkillType : SkillType.None;
@@ -59,6 +62,9 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         baseLocalScale = new Vector3[skillObjects.Count];
         baseVisualLengthX = new float[skillObjects.Count];
         spriteRenderers = new SpriteRenderer[skillObjects.Count];
+        animators = new Animator[skillObjects.Count];
+        currentObjectStates = new SkillObjectState[skillObjects.Count];
+        hasCurrentObjectState = new bool[skillObjects.Count];
 
         for (int i = 0; i < skillObjects.Count; i++)
         {
@@ -73,6 +79,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
 
             SpriteRenderer spriteRenderer = skillObject.GetComponent<SpriteRenderer>();
             spriteRenderers[i] = spriteRenderer;
+            animators[i] = skillObject.GetComponent<Animator>();
             baseVisualLengthX[i] = GetSpriteWorldLengthX(skillObject, spriteRenderer);
         }
     }
@@ -88,6 +95,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         skillObject.gameObject.SetActive(true);
         skillObject.position = new Vector3(snapshot.position.x, snapshot.position.y, skillObject.position.z);
         skillObject.rotation = Quaternion.Euler(0f, 0f, snapshot.rotation + GetBaseRotationZ(snapshot.skillObjectId) + entry.rotationOffset);
+        ApplySkillObjectAnimation(snapshot.skillObjectId, snapshot.skillObjectState);
         activeObjectIds.Add(snapshot.skillObjectId);
     }
 
@@ -163,6 +171,11 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             {
                 skillObject.gameObject.SetActive(false);
             }
+
+            if (hasCurrentObjectState != null && i < hasCurrentObjectState.Length)
+            {
+                hasCurrentObjectState[i] = false;
+            }
         }
     }
 
@@ -174,7 +187,48 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             if (skillObject != null && !activeObjectIds.Contains((byte)i))
             {
                 skillObject.gameObject.SetActive(false);
+                if (hasCurrentObjectState != null && i < hasCurrentObjectState.Length)
+                {
+                    hasCurrentObjectState[i] = false;
+                }
             }
+        }
+    }
+
+    private void ApplySkillObjectAnimation(byte skillObjectIndex, SkillObjectState state)
+    {
+        if (animators == null || skillObjectIndex >= animators.Length)
+        {
+            return;
+        }
+
+        Animator animator = animators[skillObjectIndex];
+        if (animator == null || animator.runtimeAnimatorController == null)
+        {
+            return;
+        }
+
+        if (hasCurrentObjectState != null
+            && currentObjectStates != null
+            && skillObjectIndex < hasCurrentObjectState.Length
+            && hasCurrentObjectState[skillObjectIndex]
+            && currentObjectStates[skillObjectIndex] == state)
+        {
+            return;
+        }
+
+        string stateName = state.ToString();
+        int stateHash = Animator.StringToHash(stateName);
+        if (!animator.HasState(0, stateHash))
+        {
+            return;
+        }
+
+        animator.Play(stateHash, 0, 0f);
+        if (hasCurrentObjectState != null && skillObjectIndex < hasCurrentObjectState.Length)
+        {
+            hasCurrentObjectState[skillObjectIndex] = true;
+            currentObjectStates[skillObjectIndex] = state;
         }
     }
 

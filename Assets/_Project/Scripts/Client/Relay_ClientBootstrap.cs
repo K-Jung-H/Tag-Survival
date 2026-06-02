@@ -252,6 +252,10 @@ public class Relay_ClientBootstrap : MonoBehaviour
             skillId = skillId
         };
 
+        Debug.Log(
+            $"[Relay_ClientBootstrap] Join profile prepared: " +
+            $"nickname={packet.NicknameText}, characterId={packet.characterId}, skillId={packet.skillId}");
+
         return true;
     }
 

@@ -16,7 +16,7 @@ MonoBehaviour:
   playerViewPrefab: {fileID: 6471373974344987701, guid: 29bdc0cbea57efe4ba5bf4e34bede596, type: 3}
   animationData: {fileID: 11400000, guid: 77b4645983754d047878fb2818d63824, type: 2}
   moveSpeed: 7
-  jumpHeight: 3
+  jumpHeight: 5
   timeToApex: 0.35
   timeToFall: 0.28
   maxFallSpeed: 24

@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a2b4cbc9a2586e6419cbb498c41dc7f0, type: 3}
-  m_Name: Skill Definition_Hook
+  m_Name: Skill Definition_Portal
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
-  skillId: 1
-  skillType: 1
+  skillId: 2
+  skillType: 2
   cooldown: 0.5
-  skillObjectViewPrefab: {fileID: 1423317497419455560, guid: 66ee0ab3cd9203946b94dfdd3758b62a, type: 3}
-  config: {fileID: 11400000, guid: 93ce5b501c13ceb40b510c1ebd1f5d24, type: 2}
+  skillObjectViewPrefab: {fileID: 8151316722904010301, guid: 6452e3191cbb45e8ad80201e6fd79fc8, type: 3}
+  config: {fileID: 11400000, guid: 9abf496b18d84dc09bc1077ad58714a4, type: 2}

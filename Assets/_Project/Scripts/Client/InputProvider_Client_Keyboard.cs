@@ -4,18 +4,19 @@ using UnityEngine.InputSystem;
 public class InputProvider_Client_Keyboard : InputProvider_Client_Base
 {
     [SerializeField] private Vector2 defaultAim = Vector2.right;
+    [SerializeField] private float skillFireHoldSeconds = 0.08f;
 
     private InputAction moveAction;
     private InputAction aimAction;
-    private InputAction skillAction;
     private InputAction dashAction;
 
     private Vector2 lastAim;
+    private float skillFireTimer;
+    private bool wasAimControlActive;
 
-    // Role: 키보드, 게임패드 입력 액션을 생성한다.
     private void Awake()
     {
-        lastAim = defaultAim.normalized;
+        lastAim = NormalizeOrDefault(defaultAim, Vector2.right);
 
         moveAction = new InputAction("Move", InputActionType.Value);
 
@@ -37,43 +38,35 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
 
         aimAction.AddBinding("<Gamepad>/rightStick");
 
-        skillAction = new InputAction("Skill", InputActionType.Button);
-        skillAction.AddBinding("<Keyboard>/space");
-        skillAction.AddBinding("<Gamepad>/buttonSouth");
-
         dashAction = new InputAction("Dash", InputActionType.Button);
         dashAction.AddBinding("<Keyboard>/leftShift");
         dashAction.AddBinding("<Gamepad>/buttonEast");
     }
 
-    // Role: 입력 액션을 활성화한다.
     private void OnEnable()
     {
         moveAction.Enable();
         aimAction.Enable();
-        skillAction.Enable();
         dashAction.Enable();
     }
 
-    // Role: 입력 액션을 비활성화한다.
     private void OnDisable()
     {
         moveAction.Disable();
         aimAction.Disable();
-        skillAction.Disable();
         dashAction.Disable();
+        skillFireTimer = 0f;
+        wasAimControlActive = false;
     }
 
-    // Role: 입력 액션 리소스를 해제한다.
     private void OnDestroy()
     {
         moveAction?.Dispose();
         aimAction?.Dispose();
-        skillAction?.Dispose();
         dashAction?.Dispose();
     }
 
-    // Role: 현재 키보드/게임패드 입력 상태를 반환한다.
+    // Role: Returns keyboard and gamepad input for movement, skill aim, and skill fire.
     public override ClientInputState GetInputState()
     {
         Vector2 move = moveAction.ReadValue<Vector2>();
@@ -89,27 +82,41 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
             aim.Normalize();
         }
 
-        if (aim.sqrMagnitude > 0.0001f)
+        bool isAimControlActive = aim.sqrMagnitude > 0.0001f;
+        if (isAimControlActive)
         {
             lastAim = aim.normalized;
         }
+
+        PlayerInputButtons buttons = GetInputButtons(isAimControlActive);
+        wasAimControlActive = isAimControlActive;
 
         return new ClientInputState
         {
             move = move,
             aim = lastAim,
-            buttons = GetInputButtons()
+            buttons = buttons
         };
     }
 
-    // Role: 현재 버튼 입력을 비트 플래그로 변환한다.
-    private PlayerInputButtons GetInputButtons()
+    private PlayerInputButtons GetInputButtons(bool isAimControlActive)
     {
         PlayerInputButtons buttons = PlayerInputButtons.None;
 
-        if (skillAction.IsPressed())
+        if (isAimControlActive)
+        {
+            buttons |= PlayerInputButtons.SkillAim;
+        }
+
+        if (wasAimControlActive && !isAimControlActive)
+        {
+            skillFireTimer = Mathf.Max(skillFireTimer, Mathf.Max(Time.deltaTime, skillFireHoldSeconds));
+        }
+
+        if (skillFireTimer > 0f)
         {
             buttons |= PlayerInputButtons.Skill1;
+            skillFireTimer = Mathf.Max(0f, skillFireTimer - Time.deltaTime);
         }
 
         if (dashAction.IsPressed())
@@ -118,5 +125,16 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         }
 
         return buttons;
+    }
+
+    private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 fallback)
+    {
+        if (value.sqrMagnitude > 0.0001f)
+            return value.normalized;
+
+        if (fallback.sqrMagnitude > 0.0001f)
+            return fallback.normalized;
+
+        return Vector2.right;
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
@@ -39,6 +40,45 @@ public class Server_GamePlay
         public PlayerInputButtons buttons;
     }
 
+    private readonly struct PortalTeleportCooldownKey : IEquatable<PortalTeleportCooldownKey>
+    {
+        private readonly ulong playerClientId;
+        private readonly ulong portalOwnerClientId;
+
+        public PortalTeleportCooldownKey(ulong playerClientId, ulong portalOwnerClientId)
+        {
+            this.playerClientId = playerClientId;
+            this.portalOwnerClientId = portalOwnerClientId;
+        }
+
+        public bool ContainsClient(ulong clientId)
+        {
+            return playerClientId == clientId || portalOwnerClientId == clientId;
+        }
+
+        public bool Equals(PortalTeleportCooldownKey other)
+        {
+            return playerClientId == other.playerClientId
+                && portalOwnerClientId == other.portalOwnerClientId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PortalTeleportCooldownKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + playerClientId.GetHashCode();
+                hash = hash * 31 + portalOwnerClientId.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
     public struct PlayerState
     {
         public ulong clientId;
@@ -71,7 +111,10 @@ public class Server_GamePlay
     private readonly Dictionary<ulong, PlayerState> players = new();
     private readonly Dictionary<ulong, PlayerInputCommand> pendingInputs = new();
     private readonly Dictionary<ulong, ushort> latestReceivedInputSeqs = new();
+    private readonly Dictionary<PortalTeleportCooldownKey, float> portalTeleportCooldowns = new();
     private readonly List<ulong> simulationTargets = new();
+    private readonly List<PortalEndpointState> activePortalEndpoints = new();
+    private readonly List<PortalTeleportCooldownKey> portalTeleportCooldownKeys = new();
     private readonly StageCollisionSystem collisionSystem;
     private readonly StageDefinition stageDefinition;
     private readonly CharacterCatalog characterCatalog;
@@ -246,6 +289,7 @@ public class Server_GamePlay
         players.Remove(clientId);
         pendingInputs.Remove(clientId);
         latestReceivedInputSeqs.Remove(clientId);
+        RemovePortalTeleportCooldownsForClient(clientId);
 
         if (removedTagger)
         {
@@ -311,6 +355,7 @@ public class Server_GamePlay
     public void Simulate(float deltaTime)
     {
         Tick++;
+        TickPortalTeleportCooldowns(deltaTime);
         UpdateGameTimerAndTaggerTimes(deltaTime);
         ApplyQueuedInputsForTick();
 
@@ -320,6 +365,7 @@ public class Server_GamePlay
         for (int i = 0; i < subSteps; i++)
         {
             SimulateMovementStep(stepDeltaTime);
+            ResolvePortalTeleports();
             ResolvePlayerCollisions();
         }
     }
@@ -513,6 +559,170 @@ public class Server_GamePlay
 
             players[clientId] = player;
         }
+    }
+
+    private void ResolvePortalTeleports()
+    {
+        activePortalEndpoints.Clear();
+        foreach (var pair in players)
+        {
+            pair.Value.skillStateMachine?.CopyActivePortalEndpoints(activePortalEndpoints);
+        }
+
+        if (activePortalEndpoints.Count < 2)
+        {
+            return;
+        }
+
+        simulationTargets.Clear();
+        foreach (ulong clientId in players.Keys)
+        {
+            simulationTargets.Add(clientId);
+        }
+
+        for (int i = 0; i < simulationTargets.Count; i++)
+        {
+            ulong clientId = simulationTargets[i];
+            PlayerState player = players[clientId];
+            if (TryTeleportPlayerThroughPortal(ref player))
+            {
+                UpdateCharacterStateMachine(ref player);
+                players[clientId] = player;
+            }
+        }
+    }
+
+    private void TickPortalTeleportCooldowns(float deltaTime)
+    {
+        if (portalTeleportCooldowns.Count <= 0)
+        {
+            return;
+        }
+
+        float safeDeltaTime = Mathf.Max(0f, deltaTime);
+        if (safeDeltaTime <= 0f)
+        {
+            return;
+        }
+
+        portalTeleportCooldownKeys.Clear();
+        foreach (var pair in portalTeleportCooldowns)
+        {
+            portalTeleportCooldownKeys.Add(pair.Key);
+        }
+
+        for (int i = 0; i < portalTeleportCooldownKeys.Count; i++)
+        {
+            PortalTeleportCooldownKey key = portalTeleportCooldownKeys[i];
+            float remaining = portalTeleportCooldowns[key] - safeDeltaTime;
+            if (remaining <= 0f)
+            {
+                portalTeleportCooldowns.Remove(key);
+                continue;
+            }
+
+            portalTeleportCooldowns[key] = remaining;
+        }
+    }
+
+    private void RemovePortalTeleportCooldownsForClient(ulong clientId)
+    {
+        if (portalTeleportCooldowns.Count <= 0)
+        {
+            return;
+        }
+
+        portalTeleportCooldownKeys.Clear();
+        foreach (var pair in portalTeleportCooldowns)
+        {
+            if (pair.Key.ContainsClient(clientId))
+            {
+                portalTeleportCooldownKeys.Add(pair.Key);
+            }
+        }
+
+        for (int i = 0; i < portalTeleportCooldownKeys.Count; i++)
+        {
+            portalTeleportCooldowns.Remove(portalTeleportCooldownKeys[i]);
+        }
+    }
+
+    private bool TryTeleportPlayerThroughPortal(ref PlayerState player)
+    {
+        for (int i = 0; i < activePortalEndpoints.Count; i++)
+        {
+            PortalEndpointState source = activePortalEndpoints[i];
+            PortalTeleportCooldownKey cooldownKey = new PortalTeleportCooldownKey(
+                player.clientId,
+                source.ownerClientId);
+
+            if (portalTeleportCooldowns.ContainsKey(cooldownKey))
+            {
+                continue;
+            }
+
+            if (!IsPlayerOverlappingPortal(player, source))
+            {
+                continue;
+            }
+
+            if (!TryFindPairedPortal(source, out PortalEndpointState target))
+            {
+                continue;
+            }
+
+            TeleportPlayerToPortal(ref player, target);
+            float cooldownSeconds = Mathf.Max(0f, source.teleportCooldownSeconds);
+            if (cooldownSeconds > 0f)
+            {
+                portalTeleportCooldowns[cooldownKey] = cooldownSeconds;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryFindPairedPortal(PortalEndpointState source, out PortalEndpointState target)
+    {
+        target = default;
+
+        for (int i = 0; i < activePortalEndpoints.Count; i++)
+        {
+            PortalEndpointState candidate = activePortalEndpoints[i];
+            if (candidate.ownerClientId != source.ownerClientId
+                || candidate.skillObjectId == source.skillObjectId)
+            {
+                continue;
+            }
+
+            target = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsPlayerOverlappingPortal(PlayerState player, PortalEndpointState portal)
+    {
+        Vector2 playerCenter = player.position + player.collisionOffset;
+        Vector2 delta = playerCenter - portal.position;
+        return Mathf.Abs(delta.x) <= player.collisionHalfExtent.x + portal.halfExtent.x
+            && Mathf.Abs(delta.y) <= player.collisionHalfExtent.y + portal.halfExtent.y;
+    }
+
+    private void TeleportPlayerToPortal(ref PlayerState player, PortalEndpointState target)
+    {
+        StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
+            target.position,
+            Vector2.zero,
+            player.collisionHalfExtent);
+
+        player.position = moveResult.position - player.collisionOffset;
+        player.isGrounded = moveResult.isGrounded;
+        player.isWallSticking = false;
+        player.wallNormalX = 0;
     }
 
     // Role: 플레이어끼리 겹친 경우 SAT 결과로 위치와 속도를 보정한다.
@@ -1199,8 +1409,16 @@ public class Server_GamePlay
             return null;
         }
 
+        if (characterCatalog.TryGetById(characterId, out CharacterDefinition exactDefinition))
+        {
+            return exactDefinition;
+        }
+
         if (characterCatalog.TryGet(characterId, out CharacterDefinition definition))
         {
+            Debug.LogWarning(
+                $"[Server_GamePlay] CharacterDefinition for characterId {characterId} is not found. " +
+                $"Using fallback characterId {definition.CharacterId}.");
             return definition;
         }
 

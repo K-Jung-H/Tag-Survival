@@ -14,6 +14,8 @@ public static class SkillStateMachineFactory
         {
             case SkillType.HookGrappling:
                 return new Hook_SkillStateMachine(definition);
+            case SkillType.Portal:
+                return new Portal_SkillStateMachine(definition);
             default:
                 return null;
         }

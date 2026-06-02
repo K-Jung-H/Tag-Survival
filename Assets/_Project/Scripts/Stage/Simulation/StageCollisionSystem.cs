@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,6 +7,18 @@ public sealed class StageCollisionSystem
     private readonly HashSet<int> candidateSet = new HashSet<int>();
     private readonly List<int> candidateBuffer = new List<int>();
     private readonly Dictionary<Vector2Int, int> bucketIndexByCoord = new Dictionary<Vector2Int, int>();
+    private readonly Dictionary<Vector2Int, StageTileCellData> stageCellByCoord = new Dictionary<Vector2Int, StageTileCellData>();
+    private static readonly Vector2Int[] NeighborCellOffsets =
+    {
+        new Vector2Int(1, 0),
+        new Vector2Int(1, 1),
+        new Vector2Int(0, 1),
+        new Vector2Int(-1, 1),
+        new Vector2Int(-1, 0),
+        new Vector2Int(-1, -1),
+        new Vector2Int(0, -1),
+        new Vector2Int(1, -1),
+    };
 
     private StageBakeData stageBakeData;
     private Vector2 defaultPlayerHalfExtent;
@@ -37,7 +50,7 @@ public sealed class StageCollisionSystem
         this.stageBakeData = stageBakeData;
         this.defaultPlayerHalfExtent = ClampHalfExtent(playerHalfExtent);
         this.skinWidth = Mathf.Max(0f, skinWidth);
-        RebuildBucketLookup();
+        RebuildLookups();
     }
 
     public StageBakeData StageBakeData => stageBakeData;
@@ -48,7 +61,108 @@ public sealed class StageCollisionSystem
     public void SetStageBakeData(StageBakeData newStageBakeData)
     {
         stageBakeData = newStageBakeData;
-        RebuildBucketLookup();
+        RebuildLookups();
+    }
+
+    public float CellSize => stageBakeData != null ? Mathf.Max(0.0001f, stageBakeData.CellSize) : 1f;
+
+    public bool TryFindPortalPlacementCell(
+        Vector2 playerCenter,
+        Vector2 playerHalfExtent,
+        Vector2 aim,
+        out Vector2Int placementCell,
+        out Vector2 placementCenter,
+        Func<Vector2Int, bool> isCellBlocked = null)
+    {
+        placementCell = default;
+        placementCenter = default;
+
+        if (stageBakeData == null)
+        {
+            return false;
+        }
+
+        if (!TryResolvePlayerOccupiedCell(playerCenter, playerHalfExtent, out Vector2Int originCell))
+        {
+            return false;
+        }
+
+        Vector2 aimDirection = aim.sqrMagnitude > 0.0001f ? aim.normalized : Vector2.right;
+        bool[] tested = new bool[NeighborCellOffsets.Length];
+
+        for (int i = 0; i < NeighborCellOffsets.Length; i++)
+        {
+            int bestIndex = -1;
+            float bestScore = float.NegativeInfinity;
+            int bestDistanceSqr = int.MaxValue;
+
+            for (int j = 0; j < NeighborCellOffsets.Length; j++)
+            {
+                if (tested[j])
+                {
+                    continue;
+                }
+
+                Vector2 offsetDirection = ((Vector2)NeighborCellOffsets[j]).normalized;
+                float score = Vector2.Dot(aimDirection, offsetDirection);
+                int distanceSqr = NeighborCellOffsets[j].sqrMagnitude;
+                if (score > bestScore + 0.000001f
+                    || (Mathf.Abs(score - bestScore) <= 0.000001f && distanceSqr < bestDistanceSqr))
+                {
+                    bestIndex = j;
+                    bestScore = score;
+                    bestDistanceSqr = distanceSqr;
+                }
+            }
+
+            if (bestIndex < 0)
+            {
+                break;
+            }
+
+            tested[bestIndex] = true;
+            Vector2Int candidateCell = originCell + NeighborCellOffsets[bestIndex];
+            if (!IsCellInsideStageBounds(candidateCell)
+                || IsCellSolid(candidateCell)
+                || (isCellBlocked != null && isCellBlocked(candidateCell)))
+            {
+                continue;
+            }
+
+            placementCell = candidateCell;
+            placementCenter = GetCellCenter(candidateCell);
+            return true;
+        }
+
+        return false;
+    }
+
+    public Vector2 GetCellCenter(Vector2Int cell)
+    {
+        float cellSize = CellSize;
+        return new Vector2(
+            (cell.x + 0.5f) * cellSize,
+            (cell.y + 0.5f) * cellSize);
+    }
+
+    public bool IsCellInsideStageBounds(Vector2Int cell)
+    {
+        if (stageBakeData == null)
+        {
+            return false;
+        }
+
+        Vector2Int sizeInCells = stageBakeData.Bounds.sizeInCells;
+        return cell.x >= 0
+            && cell.y >= 0
+            && cell.x < sizeInCells.x
+            && cell.y < sizeInCells.y;
+    }
+
+    public bool IsCellSolid(Vector2Int cell)
+    {
+        return stageCellByCoord.TryGetValue(cell, out StageTileCellData data)
+            && (data.flags & StageTileFlags.Solid) != 0;
     }
 
     // Role: Stage bounds 기준 중앙 위치를 반환한다.
@@ -542,6 +656,97 @@ public sealed class StageCollisionSystem
         {
             bucketIndexByCoord[buckets[i].coord] = i;
         }
+    }
+
+    private void RebuildCellLookup()
+    {
+        stageCellByCoord.Clear();
+
+        if (stageBakeData == null || stageBakeData.Cells == null)
+        {
+            return;
+        }
+
+        StageTileCellData[] cells = stageBakeData.Cells;
+        for (int i = 0; i < cells.Length; i++)
+        {
+            stageCellByCoord[cells[i].cell] = cells[i];
+        }
+    }
+
+    private void RebuildLookups()
+    {
+        RebuildBucketLookup();
+        RebuildCellLookup();
+    }
+
+    private bool TryResolvePlayerOccupiedCell(
+        Vector2 playerCenter,
+        Vector2 playerHalfExtent,
+        out Vector2Int occupiedCell)
+    {
+        occupiedCell = default;
+
+        if (stageBakeData == null)
+        {
+            return false;
+        }
+
+        Vector2 halfExtent = ClampHalfExtent(playerHalfExtent);
+        Rect bounds = Rect.MinMaxRect(
+            playerCenter.x - halfExtent.x,
+            playerCenter.y - halfExtent.y,
+            playerCenter.x + halfExtent.x,
+            playerCenter.y + halfExtent.y);
+
+        float cellSize = CellSize;
+        int xMin = Mathf.FloorToInt(bounds.xMin / cellSize);
+        int yMin = Mathf.FloorToInt(bounds.yMin / cellSize);
+        int xMax = Mathf.FloorToInt((bounds.xMax - 0.0001f) / cellSize);
+        int yMax = Mathf.FloorToInt((bounds.yMax - 0.0001f) / cellSize);
+
+        float bestArea = float.NegativeInfinity;
+        Vector2Int bestCell = default;
+        bool hasCell = false;
+
+        for (int y = yMin; y <= yMax; y++)
+        {
+            for (int x = xMin; x <= xMax; x++)
+            {
+                Vector2Int cell = new Vector2Int(x, y);
+                if (!IsCellInsideStageBounds(cell))
+                {
+                    continue;
+                }
+
+                Rect cellRect = new Rect(x * cellSize, y * cellSize, cellSize, cellSize);
+                float overlapArea = GetOverlapArea(bounds, cellRect);
+                if (overlapArea > bestArea)
+                {
+                    bestArea = overlapArea;
+                    bestCell = cell;
+                    hasCell = true;
+                }
+            }
+        }
+
+        occupiedCell = bestCell;
+        return hasCell;
+    }
+
+    private static float GetOverlapArea(Rect first, Rect second)
+    {
+        float xMin = Mathf.Max(first.xMin, second.xMin);
+        float xMax = Mathf.Min(first.xMax, second.xMax);
+        float yMin = Mathf.Max(first.yMin, second.yMin);
+        float yMax = Mathf.Min(first.yMax, second.yMax);
+
+        if (xMax <= xMin || yMax <= yMin)
+        {
+            return 0f;
+        }
+
+        return (xMax - xMin) * (yMax - yMin);
     }
 
     // Role: 플레이어 위치를 기준으로 충돌 검사 사각형을 만든다.

@@ -2,7 +2,7 @@ using System;
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 15;
+    public const ushort ProtocolVersion = 17;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -32,7 +32,8 @@ public enum PlayerInputButtons : ushort
     Attack = 1 << 0,
     Dash = 1 << 1,
     Skill1 = 1 << 2,
-    Skill2 = 1 << 3
+    Skill2 = 1 << 3,
+    SkillAim = 1 << 4
 }
 
 // Role: 서버가 결정한 플레이어 이동 상태를 클라이언트 표현에 전달한다.

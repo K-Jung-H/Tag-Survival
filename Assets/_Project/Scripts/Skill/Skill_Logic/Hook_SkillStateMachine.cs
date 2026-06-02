@@ -130,6 +130,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         snapshotObjects[0] = new SkillObjectSnapshotPacket
         {
             skillObjectId = HookObjectIndex,
+            skillObjectState = State,
             position = hookPosition,
             rotation = Mathf.Atan2(hookDirection.y, hookDirection.x) * Mathf.Rad2Deg,
             velocity = hookVelocity

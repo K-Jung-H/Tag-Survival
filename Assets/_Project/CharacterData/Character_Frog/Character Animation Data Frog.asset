@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e670f942b5404e43b20196d33f89fc3d, type: 3}
   m_Name: Character Animation Data Frog
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
+  animatorController: {fileID: 9100000, guid: 7742324d15531ca4da949f74dd30f5ed, type: 2}
   idleClip: {fileID: 7400000, guid: 35cf6efd589680f4582f5e7643334103, type: 2}
   runClip: {fileID: 7400000, guid: 14df7aa41895d8e4f9b83ffaed8817ea, type: 2}
   jumpClip: {fileID: 7400000, guid: 537cd1bb7791ab84093d26c9f2d23eb2, type: 2}

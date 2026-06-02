@@ -12,7 +12,6 @@ public sealed class Client_CharacterView : MonoBehaviour
     [SerializeField] private Vector2 playerSize = new Vector2(0.8f, 0.8f);
     [SerializeField] private float aimLineLength = 1.8f;
     [SerializeField] private float aimLineWidth = 0.05f;
-    [SerializeField] private float skillIndicatorRadius = 0.12f;
 
     private ICharacterStateMachine stateMachine;
     private CharacterAnimationData animationData;
@@ -25,6 +24,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     private bool hasMissingAnimationDataWarning;
     private bool hasMissingClipWarning;
     private Color defaultBodyColor = Color.white;
+    private RuntimeAnimatorController currentAnimatorController;
 
     public ICharacterStateMachine StateMachine => stateMachine;
     public CharacterAnimationData AnimationData => animationData;
@@ -71,6 +71,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     {
         byte characterId = definition != null ? definition.CharacterId : (byte)0;
         animationData = definition != null ? definition.AnimationData : null;
+        ApplyAnimatorController(animationData);
         stateMachine = CharacterStateMachineFactory.Create(characterId);
         stateMachine.ApplyState(new CharacterRuntimeState
         {
@@ -131,8 +132,8 @@ public sealed class Client_CharacterView : MonoBehaviour
 
         transform.position = new Vector3(renderPosition.x, renderPosition.y, transform.position.z);
         UpdateFacing(stateMachine.State);
-        UpdateAimLine(snapshotState.aim);
-        UpdateSkillIndicator(snapshotState.aim, snapshotState.buttons);
+        UpdateAimLine(snapshotState.aim, snapshotState.buttons);
+        UpdateSkillIndicator();
         PlayLocomotionClip(stateMachine.State.locomotionState);
     }
 
@@ -178,14 +179,15 @@ public sealed class Client_CharacterView : MonoBehaviour
     // Role: 조준 방향 선을 갱신한다.
     // Parameters:
     // - aim: 표시할 조준 방향
-    private void UpdateAimLine(Vector2 aim)
+    private void UpdateAimLine(Vector2 aim, PlayerInputButtons buttons)
     {
         if (aimLine == null)
         {
             return;
         }
 
-        if (aim.sqrMagnitude < 0.0001f)
+        bool isSkillAimActive = (buttons & PlayerInputButtons.SkillAim) != 0;
+        if (!isSkillAimActive || aim.sqrMagnitude < 0.0001f)
         {
             aimLine.enabled = false;
             return;
@@ -215,42 +217,46 @@ public sealed class Client_CharacterView : MonoBehaviour
         aimLine.enabled = true;
     }
 
-    // Role: 입력 버튼 상태에 따라 스킬 조준 표시자를 갱신한다.
-    // Parameters:
-    // - aim: 표시 기준 조준 방향
-    // - buttons: 입력 버튼 플래그
-    private void UpdateSkillIndicator(Vector2 aim, PlayerInputButtons buttons)
+    // Role: SkillIndicator is no longer used and stays hidden.
+    private void UpdateSkillIndicator()
     {
         if (skillIndicator == null)
         {
             return;
         }
 
-        bool isSkillPressed = (buttons & PlayerInputButtons.Skill1) != 0;
-        if (!isSkillPressed || aim.sqrMagnitude < 0.0001f)
+        skillIndicator.enabled = false;
+    }
+
+    // Role: CharacterAnimationData에 연결된 AnimatorController를 Body Animator에 반영한다.
+    // Parameters:
+    // - data: 캐릭터별 애니메이션 데이터
+    private void ApplyAnimatorController(CharacterAnimationData data)
+    {
+        if (animator == null)
         {
-            skillIndicator.enabled = false;
             return;
         }
 
-        aim.Normalize();
+        RuntimeAnimatorController nextController = data != null ? data.AnimatorController : null;
+        if (currentAnimatorController == nextController
+            && animator.runtimeAnimatorController == nextController)
+        {
+            return;
+        }
 
-        float scaleX = playerSize.x != 0f ? playerSize.x : 1f;
-        float scaleY = playerSize.y != 0f ? playerSize.y : 1f;
-        float diameter = skillIndicatorRadius * 2f;
-        Transform indicatorTransform = skillIndicator.transform;
+        if (animationGraph.IsValid())
+        {
+            animationGraph.Stop();
+        }
 
-        indicatorTransform.localPosition = new Vector3(
-            aim.x * aimLineLength / scaleX,
-            aim.y * aimLineLength / scaleY,
-            0f);
-        indicatorTransform.localRotation = Quaternion.identity;
-        indicatorTransform.localScale = new Vector3(
-            diameter / scaleX,
-            diameter / scaleY,
-            1f);
-
-        skillIndicator.enabled = true;
+        animator.runtimeAnimatorController = nextController;
+        animator.Rebind();
+        animator.Update(0f);
+        currentAnimatorController = nextController;
+        hasCurrentClipState = false;
+        hasMissingAnimationDataWarning = false;
+        hasMissingClipWarning = false;
     }
 
     // Role: 서버에서 전달된 바라보는 방향을 Body 스프라이트에 반영한다.

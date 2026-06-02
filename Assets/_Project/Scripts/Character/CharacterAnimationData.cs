@@ -3,6 +3,7 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Tag Survival/Character/Character Animation Data")]
 public sealed class CharacterAnimationData : ScriptableObject
 {
+    [SerializeField] private RuntimeAnimatorController animatorController;
     [SerializeField] private AnimationClip idleClip;
     [SerializeField] private AnimationClip runClip;
     [SerializeField] private AnimationClip jumpClip;
@@ -10,6 +11,7 @@ public sealed class CharacterAnimationData : ScriptableObject
     [SerializeField] private AnimationClip wallStickClip;
     [SerializeField] private AnimationClip deathClip;
 
+    public RuntimeAnimatorController AnimatorController => animatorController;
     public AnimationClip IdleClip => idleClip;
     public AnimationClip RunClip => runClip;
     public AnimationClip JumpClip => jumpClip;

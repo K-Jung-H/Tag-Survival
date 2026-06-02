@@ -15,3 +15,4 @@ MonoBehaviour:
   fallbackDefinition: {fileID: 11400000, guid: 5fc79ef610a812a47a4eeb541ecedfd5, type: 2}
   definitions:
   - {fileID: 11400000, guid: 5fc79ef610a812a47a4eeb541ecedfd5, type: 2}
+  - {fileID: 11400000, guid: ccdc4af81daa39b478697690521127ed, type: 2}

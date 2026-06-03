@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8b90729f8f1ab5d40a854891bf835edd
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Materials/Galaxy/Base/BaseDistortion.mat
+  uploadId: 808794

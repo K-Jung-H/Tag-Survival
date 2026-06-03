@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ff20638fbb6d6a24595d1fac3dc71cab
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Shaders/TwirlDistortion/TwirlDistortionFullProperties.shader
+  uploadId: 808794

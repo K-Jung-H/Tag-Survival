@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 9db004e5e281e4c42affaec02635b589
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Shaders/DistortionTwirlEnvironment/DistortionTwirlEnvironmentColor.shader
+  uploadId: 808794

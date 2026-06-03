@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
   skillId: 2
   skillType: 2
-  cooldown: 0.5
+  cooldown: 10
   skillObjectViewPrefab: {fileID: 8151316722904010301, guid: 6452e3191cbb45e8ad80201e6fd79fc8, type: 3}
   config: {fileID: 11400000, guid: 9abf496b18d84dc09bc1077ad58714a4, type: 2}

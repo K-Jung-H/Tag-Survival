@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b895193a2c146794ea1434f21b91f1e3
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Demo.unity
+  uploadId: 808794

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class Skill_StateMachine
@@ -45,7 +44,10 @@ public abstract class Skill_StateMachine
     // - snapshot: 생성된 스킬 스냅샷
     public abstract bool TryGetSnapshot(out SkillSnapshotPacket snapshot);
 
-    public virtual void CopyActivePortalEndpoints(List<PortalEndpointState> target)
+    // Role: 서버 월드에서 처리해야 할 스킬 상호작용 정보를 collector에 등록한다.
+    // Parameters:
+    // - collector: 스킬 월드 상호작용 정보를 수집하는 객체
+    public virtual void CollectWorldContributions(SkillWorldContributionCollector collector)
     {
     }
 

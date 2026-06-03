@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 5d1705e0c5d4cf3448e74d80347bca71
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Shaders/Base/BaseDistortion.shader
+  uploadId: 808794

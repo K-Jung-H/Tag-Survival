@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 23ebfcf48ff1c1742a3c062aa90f485e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Materials/Galaxy/TwirlDistortionTex/TwirlDistortion.mat
+  uploadId: 808794

@@ -113,7 +113,7 @@ public class Server_GamePlay
     private readonly Dictionary<ulong, ushort> latestReceivedInputSeqs = new();
     private readonly Dictionary<PortalTeleportCooldownKey, float> portalTeleportCooldowns = new();
     private readonly List<ulong> simulationTargets = new();
-    private readonly List<PortalEndpointState> activePortalEndpoints = new();
+    private readonly SkillWorldContributionCollector skillWorldContributions = new();
     private readonly List<PortalTeleportCooldownKey> portalTeleportCooldownKeys = new();
     private readonly StageCollisionSystem collisionSystem;
     private readonly StageDefinition stageDefinition;
@@ -563,13 +563,8 @@ public class Server_GamePlay
 
     private void ResolvePortalTeleports()
     {
-        activePortalEndpoints.Clear();
-        foreach (var pair in players)
-        {
-            pair.Value.skillStateMachine?.CopyActivePortalEndpoints(activePortalEndpoints);
-        }
-
-        if (activePortalEndpoints.Count < 2)
+        CollectSkillWorldContributions();
+        if (skillWorldContributions.PortalPairCount <= 0)
         {
             return;
         }
@@ -589,6 +584,16 @@ public class Server_GamePlay
                 UpdateCharacterStateMachine(ref player);
                 players[clientId] = player;
             }
+        }
+    }
+
+    private void CollectSkillWorldContributions()
+    {
+        skillWorldContributions.Clear();
+
+        foreach (var pair in players)
+        {
+            pair.Value.skillStateMachine?.CollectWorldContributions(skillWorldContributions);
         }
     }
 
@@ -649,62 +654,47 @@ public class Server_GamePlay
 
     private bool TryTeleportPlayerThroughPortal(ref PlayerState player)
     {
-        for (int i = 0; i < activePortalEndpoints.Count; i++)
+        int portalPairCount = skillWorldContributions.PortalPairCount;
+        for (int i = 0; i < portalPairCount; i++)
         {
-            PortalEndpointState source = activePortalEndpoints[i];
+            PortalPairWorldContribution pair = skillWorldContributions.GetPortalPair(i);
             PortalTeleportCooldownKey cooldownKey = new PortalTeleportCooldownKey(
                 player.clientId,
-                source.ownerClientId);
+                pair.ownerClientId);
 
             if (portalTeleportCooldowns.ContainsKey(cooldownKey))
             {
                 continue;
             }
 
-            if (!IsPlayerOverlappingPortal(player, source))
+            if (IsPlayerOverlappingPortal(player, pair.first))
             {
-                continue;
+                TeleportPlayerToPortal(ref player, pair.second);
+                StartPortalTeleportCooldown(cooldownKey, pair.first.teleportCooldownSeconds);
+                return true;
             }
 
-            if (!TryFindPairedPortal(source, out PortalEndpointState target))
+            if (IsPlayerOverlappingPortal(player, pair.second))
             {
-                continue;
+                TeleportPlayerToPortal(ref player, pair.first);
+                StartPortalTeleportCooldown(cooldownKey, pair.second.teleportCooldownSeconds);
+                return true;
             }
-
-            TeleportPlayerToPortal(ref player, target);
-            float cooldownSeconds = Mathf.Max(0f, source.teleportCooldownSeconds);
-            if (cooldownSeconds > 0f)
-            {
-                portalTeleportCooldowns[cooldownKey] = cooldownSeconds;
-            }
-
-            return true;
         }
 
         return false;
     }
 
-    private bool TryFindPairedPortal(PortalEndpointState source, out PortalEndpointState target)
+    private void StartPortalTeleportCooldown(PortalTeleportCooldownKey cooldownKey, float cooldownSeconds)
     {
-        target = default;
-
-        for (int i = 0; i < activePortalEndpoints.Count; i++)
+        float safeCooldownSeconds = Mathf.Max(0f, cooldownSeconds);
+        if (safeCooldownSeconds > 0f)
         {
-            PortalEndpointState candidate = activePortalEndpoints[i];
-            if (candidate.ownerClientId != source.ownerClientId
-                || candidate.skillObjectId == source.skillObjectId)
-            {
-                continue;
-            }
-
-            target = candidate;
-            return true;
+            portalTeleportCooldowns[cooldownKey] = safeCooldownSeconds;
         }
-
-        return false;
     }
 
-    private bool IsPlayerOverlappingPortal(PlayerState player, PortalEndpointState portal)
+    private bool IsPlayerOverlappingPortal(PlayerState player, PortalEndpointWorldContribution portal)
     {
         Vector2 playerCenter = player.position + player.collisionOffset;
         Vector2 delta = playerCenter - portal.position;
@@ -712,7 +702,7 @@ public class Server_GamePlay
             && Mathf.Abs(delta.y) <= player.collisionHalfExtent.y + portal.halfExtent.y;
     }
 
-    private void TeleportPlayerToPortal(ref PlayerState player, PortalEndpointState target)
+    private void TeleportPlayerToPortal(ref PlayerState player, PortalEndpointWorldContribution target)
     {
         StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
             target.position,

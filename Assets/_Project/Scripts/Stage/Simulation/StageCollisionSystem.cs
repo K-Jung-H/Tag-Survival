@@ -88,7 +88,7 @@ public sealed class StageCollisionSystem
         }
 
         Vector2 aimDirection = aim.sqrMagnitude > 0.0001f ? aim.normalized : Vector2.right;
-        bool[] tested = new bool[NeighborCellOffsets.Length];
+        int testedMask = 0;
 
         for (int i = 0; i < NeighborCellOffsets.Length; i++)
         {
@@ -98,7 +98,8 @@ public sealed class StageCollisionSystem
 
             for (int j = 0; j < NeighborCellOffsets.Length; j++)
             {
-                if (tested[j])
+                int testBit = 1 << j;
+                if ((testedMask & testBit) != 0)
                 {
                     continue;
                 }
@@ -120,7 +121,7 @@ public sealed class StageCollisionSystem
                 break;
             }
 
-            tested[bestIndex] = true;
+            testedMask |= 1 << bestIndex;
             Vector2Int candidateCell = originCell + NeighborCellOffsets[bestIndex];
             if (!IsCellInsideStageBounds(candidateCell)
                 || IsCellSolid(candidateCell)

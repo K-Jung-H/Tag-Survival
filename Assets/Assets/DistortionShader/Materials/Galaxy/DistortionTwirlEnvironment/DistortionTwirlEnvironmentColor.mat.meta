@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 80311c777e284a94895dabb1da8f604e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Materials/Galaxy/DistortionTwirlEnvironment/DistortionTwirlEnvironmentColor.mat
+  uploadId: 808794

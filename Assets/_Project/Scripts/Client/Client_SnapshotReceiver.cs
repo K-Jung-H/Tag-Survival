@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -20,7 +21,10 @@ public class Client_SnapshotReceiver : MonoBehaviour
     private readonly HashSet<ulong> receivedSkillOwnerIds = new();
     private readonly List<ulong> removeTargets = new();
     private readonly List<QueuedServerSnapshot> delayedSnapshots = new();
+    private readonly Dictionary<ulong, SkillObjectSnapshotPacket[]> reusableSkillObjectBuffers = new();
 
+    private PlayerSnapshotPacket[] reusablePlayerBuffer = Array.Empty<PlayerSnapshotPacket>();
+    private SkillSnapshotPacket[] reusableSkillBuffer = Array.Empty<SkillSnapshotPacket>();
     private bool isRegistered;
     private bool hasAppliedSnapshot;
 
@@ -104,6 +108,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         receivedSkillOwnerIds.Clear();
         removeTargets.Clear();
         delayedSnapshots.Clear();
+        reusableSkillObjectBuffers.Clear();
 
         LastSnapshotSeq = 0;
         LastServerTick = 0;
@@ -169,16 +174,18 @@ public class Client_SnapshotReceiver : MonoBehaviour
         if (!CanReceiveSnapshot())
             return;
 
+        float delaySeconds = GetNetworkDelaySeconds();
+        bool canReuseReadBuffers = delaySeconds <= 0f;
+
         if (!TryReadSnapshot(
             ref reader,
+            canReuseReadBuffers,
             out ServerSnapshotHeaderPacket header,
             out PlayerSnapshotPacket[] players,
             out SkillSnapshotPacket[] skills))
         {
             return;
         }
-
-        float delaySeconds = GetNetworkDelaySeconds();
 
         if (delaySeconds > 0f)
         {
@@ -198,6 +205,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
 
     private bool TryReadSnapshot(
         ref FastBufferReader reader,
+        bool canReuseReadBuffers,
         out ServerSnapshotHeaderPacket header,
         out PlayerSnapshotPacket[] players,
         out SkillSnapshotPacket[] skills
@@ -209,7 +217,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         if (!ServerSnapshotHeaderPacket.TryRead(ref reader, out header))
             return false;
 
-        players = new PlayerSnapshotPacket[header.playerCount];
+        players = GetPlayerReadBuffer(header.playerCount, canReuseReadBuffers);
 
         for (int i = 0; i < header.playerCount; i++)
         {
@@ -219,16 +227,61 @@ public class Client_SnapshotReceiver : MonoBehaviour
             players[i] = packet;
         }
 
-        skills = new SkillSnapshotPacket[header.skillCount];
+        skills = GetSkillReadBuffer(header.skillCount, canReuseReadBuffers);
         for (int i = 0; i < header.skillCount; i++)
         {
-            if (!SkillSnapshotPacket.TryRead(ref reader, out SkillSnapshotPacket packet))
+            SkillSnapshotPacket packet;
+            bool didRead = canReuseReadBuffers
+                ? SkillSnapshotPacket.TryRead(ref reader, out packet, reusableSkillObjectBuffers)
+                : SkillSnapshotPacket.TryRead(ref reader, out packet);
+
+            if (!didRead)
                 return false;
 
             skills[i] = packet;
         }
 
         return true;
+    }
+
+    private PlayerSnapshotPacket[] GetPlayerReadBuffer(ushort playerCount, bool canReuseReadBuffers)
+    {
+        if (playerCount <= 0)
+        {
+            return Array.Empty<PlayerSnapshotPacket>();
+        }
+
+        if (!canReuseReadBuffers)
+        {
+            return new PlayerSnapshotPacket[playerCount];
+        }
+
+        if (reusablePlayerBuffer.Length != playerCount)
+        {
+            reusablePlayerBuffer = new PlayerSnapshotPacket[playerCount];
+        }
+
+        return reusablePlayerBuffer;
+    }
+
+    private SkillSnapshotPacket[] GetSkillReadBuffer(ushort skillCount, bool canReuseReadBuffers)
+    {
+        if (skillCount <= 0)
+        {
+            return Array.Empty<SkillSnapshotPacket>();
+        }
+
+        if (!canReuseReadBuffers)
+        {
+            return new SkillSnapshotPacket[skillCount];
+        }
+
+        if (reusableSkillBuffer.Length != skillCount)
+        {
+            reusableSkillBuffer = new SkillSnapshotPacket[skillCount];
+        }
+
+        return reusableSkillBuffer;
     }
 
     private void ApplyServerSnapshot(
@@ -379,6 +432,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         foreach (ulong ownerClientId in removeTargets)
         {
             skillSnapshots.Remove(ownerClientId);
+            reusableSkillObjectBuffers.Remove(ownerClientId);
         }
     }
 

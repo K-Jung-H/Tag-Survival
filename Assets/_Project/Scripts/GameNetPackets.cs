@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -533,17 +535,19 @@ public struct SkillSnapshotPacket
     // - writer: 패킷 데이터를 기록할 writer
     public void Write(ref FastBufferWriter writer)
     {
+        byte actualObjectCount = 0;
+        if (skillObjects != null)
+        {
+            actualObjectCount = (byte)Mathf.Min(skillObjectCount, skillObjects.Length);
+        }
+
         writer.WriteValueSafe(ownerClientId);
         writer.WriteValueSafe(skillId);
         writer.WriteValueSafe((byte)skillType);
         writer.WriteValueSafe((byte)skillState);
-        writer.WriteValueSafe(skillObjectCount);
+        writer.WriteValueSafe(actualObjectCount);
 
-        int count = skillObjects != null
-            ? Mathf.Min(skillObjectCount, skillObjects.Length)
-            : 0;
-
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < actualObjectCount; i++)
         {
             skillObjects[i].Write(ref writer);
         }
@@ -555,6 +559,14 @@ public struct SkillSnapshotPacket
     // - packet: 읽은 스킬 스냅샷
     public static bool TryRead(ref FastBufferReader reader, out SkillSnapshotPacket packet)
     {
+        return TryRead(ref reader, out packet, null);
+    }
+
+    public static bool TryRead(
+        ref FastBufferReader reader,
+        out SkillSnapshotPacket packet,
+        Dictionary<ulong, SkillObjectSnapshotPacket[]> reusableSkillObjectBuffers)
+    {
         packet = default;
 
         reader.ReadValueSafe(out ulong ownerClientId);
@@ -563,7 +575,11 @@ public struct SkillSnapshotPacket
         reader.ReadValueSafe(out byte skillState);
         reader.ReadValueSafe(out byte skillObjectCount);
 
-        SkillObjectSnapshotPacket[] skillObjects = new SkillObjectSnapshotPacket[skillObjectCount];
+        SkillObjectSnapshotPacket[] skillObjects = GetSkillObjectReadBuffer(
+            ownerClientId,
+            skillObjectCount,
+            reusableSkillObjectBuffers);
+
         for (int i = 0; i < skillObjectCount; i++)
         {
             if (!SkillObjectSnapshotPacket.TryRead(ref reader, out skillObjects[i]))
@@ -583,6 +599,32 @@ public struct SkillSnapshotPacket
         };
 
         return true;
+    }
+
+    private static SkillObjectSnapshotPacket[] GetSkillObjectReadBuffer(
+        ulong ownerClientId,
+        byte skillObjectCount,
+        Dictionary<ulong, SkillObjectSnapshotPacket[]> reusableSkillObjectBuffers)
+    {
+        if (skillObjectCount <= 0)
+        {
+            return Array.Empty<SkillObjectSnapshotPacket>();
+        }
+
+        if (reusableSkillObjectBuffers == null)
+        {
+            return new SkillObjectSnapshotPacket[skillObjectCount];
+        }
+
+        if (!reusableSkillObjectBuffers.TryGetValue(ownerClientId, out SkillObjectSnapshotPacket[] buffer)
+            || buffer == null
+            || buffer.Length != skillObjectCount)
+        {
+            buffer = new SkillObjectSnapshotPacket[skillObjectCount];
+            reusableSkillObjectBuffers[ownerClientId] = buffer;
+        }
+
+        return buffer;
     }
 }
 

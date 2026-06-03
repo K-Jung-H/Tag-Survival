@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2b9c934fb91925841871d48b23931149
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 341124
+  packageName: Distortion Portal
+  packageVersion: 1.0
+  assetPath: Assets/DistortionShader/Shaders/DistortionTwirlEnvironment/DistortionTwirlEnvironmentScale.shader
+  uploadId: 808794

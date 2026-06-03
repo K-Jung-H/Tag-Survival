@@ -1,14 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-
-public struct PortalEndpointState
-{
-    public ulong ownerClientId;
-    public byte skillObjectId;
-    public Vector2 position;
-    public Vector2 halfExtent;
-    public float teleportCooldownSeconds;
-}
 
 public sealed class Portal_SkillStateMachine : Skill_StateMachine
 {
@@ -91,43 +81,48 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
         return true;
     }
 
-    public override void CopyActivePortalEndpoints(List<PortalEndpointState> target)
+    public override void CollectWorldContributions(SkillWorldContributionCollector collector)
     {
-        if (target == null)
+        if (collector == null)
         {
             return;
         }
 
-        int activeCount = 0;
+        int firstActiveIndex = -1;
+        int secondActiveIndex = -1;
         for (int i = 0; i < portals.Length; i++)
         {
             if (portals[i].exists && portals[i].state == SkillObjectState.Active)
             {
-                activeCount++;
+                if (firstActiveIndex < 0)
+                {
+                    firstActiveIndex = i;
+                    continue;
+                }
+
+                secondActiveIndex = i;
+                break;
             }
         }
 
-        if (activeCount < MaxPortalCount)
+        if (firstActiveIndex < 0 || secondActiveIndex < 0)
         {
             return;
         }
 
-        for (int i = 0; i < portals.Length; i++)
-        {
-            if (!portals[i].exists || portals[i].state != SkillObjectState.Active)
-            {
-                continue;
-            }
+        collector.AddPortalPair(
+            CreatePortalEndpointContribution(portals[firstActiveIndex]),
+            CreatePortalEndpointContribution(portals[secondActiveIndex]));
+    }
 
-            target.Add(new PortalEndpointState
-            {
-                ownerClientId = ownerClientId,
-                skillObjectId = portals[i].skillObjectId,
-                position = portals[i].position,
-                halfExtent = portals[i].halfExtent,
-                teleportCooldownSeconds = PortalTeleportCooldown
-            });
-        }
+    private PortalEndpointWorldContribution CreatePortalEndpointContribution(PortalEndpoint portal)
+    {
+        return new PortalEndpointWorldContribution(
+            ownerClientId,
+            portal.skillObjectId,
+            portal.position,
+            portal.halfExtent,
+            PortalTeleportCooldown);
     }
 
     private void TryPlacePortal(

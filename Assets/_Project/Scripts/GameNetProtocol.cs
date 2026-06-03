@@ -2,7 +2,7 @@ using System;
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 17;
+    public const ushort ProtocolVersion = 18;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -12,8 +12,10 @@ public static class GameNetProtocol
     public const int ClientJoinProfilePacketBufferSize = 128;
     public const int SnapshotPacketBufferSize = 8192;
     public const int GameStatePacketBufferSize = 1024;
+    public const int GameEventPacketBufferSize = 2048;
     public const int RosterPacketBufferSize = 2048;
     public const int MaxPlayers = 10;
+    public const int MaxGameEventsPerBatch = 32;
 }
 
 public static class GameNetMessages
@@ -22,6 +24,7 @@ public static class GameNetMessages
     public const string ClientInput = "client_input";
     public const string ServerSnapshot = "server_snapshot";
     public const string ServerGameState = "server_game_state";
+    public const string ServerGameEvent = "server_game_event";
     public const string ServerRoster = "server_roster";
 }
 
@@ -62,4 +65,21 @@ public enum SkillObjectState : byte
     Spawning = 1,
     Active = 2,
     Destroying = 3
+}
+
+public enum GameEventType : byte
+{
+    None = 0,
+    GameStarted = 1,
+    GameEnded = 2,
+    TaggerChanged = 3,
+    SpawnVfx = 4
+}
+
+public enum GameVfxType : byte
+{
+    None = 0,
+    TaggerTransfer = 1,
+    GameStart = 2,
+    GameEnd = 3
 }

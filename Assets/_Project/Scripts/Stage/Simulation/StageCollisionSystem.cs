@@ -352,7 +352,7 @@ public sealed class StageCollisionSystem
             return ResolveStageOverlaps(startPosition + delta, playerHalfExtent, ref result);
         }
 
-        AddContactNormal(hit.normal, ref result);
+        AddContactNormal(hit.normal, hit.surfacePhysicType, ref result);
         Vector2 resolvedPosition = startPosition + delta * hit.fraction;
         resolvedPosition = ResolveStageOverlaps(resolvedPosition, playerHalfExtent, ref result);
 
@@ -413,16 +413,50 @@ public sealed class StageCollisionSystem
                 continue;
             }
 
+            Vector2 contactPosition = startPosition + delta * hit.fraction;
+            if (IsTopSurfaceApproachHit(collider, hit, startPosition, delta, playerHalfExtent))
+            {
+                continue;
+            }
+
+            if (IsInternalHorizontalFaceHit(collider, hit, contactPosition, playerHalfExtent))
+            {
+                continue;
+            }
+
             if (hit.fraction >= closestHit.fraction)
             {
                 continue;
             }
 
+            hit.surfacePhysicType = collider.surfacePhysicType;
             closestHit = hit;
             hasHit = true;
         }
 
         return hasHit;
+    }
+
+    private bool IsTopSurfaceApproachHit(
+        StageColliderData collider,
+        StageSweepHit hit,
+        Vector2 startPosition,
+        Vector2 delta,
+        Vector2 playerHalfExtent)
+    {
+        if (Mathf.Abs(hit.normal.x) <= 0.5f)
+        {
+            return false;
+        }
+
+        if (delta.y > 0.000001f)
+        {
+            return false;
+        }
+
+        float footTolerance = Mathf.Max(skinWidth * 2f, 0.001f);
+        float playerBottomAtStart = startPosition.y - playerHalfExtent.y;
+        return playerBottomAtStart >= collider.rect.yMax - footTolerance;
     }
 
     // Role: 이동하는 점과 확장된 사각형 충돌체의 Sweep 충돌을 계산한다.
@@ -431,6 +465,76 @@ public sealed class StageCollisionSystem
     // - delta: 이번 이동량
     // - colliderRect: 검사할 원본 충돌체 사각형
     // - hit: Sweep 충돌 결과
+    private bool IsInternalHorizontalFaceHit(
+        StageColliderData collider,
+        StageSweepHit hit,
+        Vector2 contactPosition,
+        Vector2 playerHalfExtent)
+    {
+        if (Mathf.Abs(hit.normal.x) <= 0.5f)
+        {
+            return false;
+        }
+
+        float cellSize = CellSize;
+        float epsilon = 0.0001f;
+        bool hitLeftFace = hit.normal.x < 0f;
+        int insideX = hitLeftFace
+            ? Mathf.FloorToInt((collider.rect.xMin + epsilon) / cellSize)
+            : Mathf.FloorToInt((collider.rect.xMax - epsilon) / cellSize);
+        int outsideX = insideX + (hitLeftFace ? -1 : 1);
+
+        float contactBottom = contactPosition.y - playerHalfExtent.y - skinWidth;
+        float contactTop = contactPosition.y + playerHalfExtent.y + skinWidth;
+        float faceBottom = Mathf.Max(collider.rect.yMin, contactBottom);
+        float faceTop = Mathf.Min(collider.rect.yMax, contactTop);
+
+        if (faceTop < faceBottom)
+        {
+            return false;
+        }
+
+        int yMin = Mathf.FloorToInt((faceBottom + epsilon) / cellSize);
+        int yMax = Mathf.FloorToInt((faceTop - epsilon) / cellSize);
+        bool checkedAnyFaceCell = false;
+
+        for (int y = yMin; y <= yMax; y++)
+        {
+            Vector2Int insideCell = new Vector2Int(insideX, y);
+            if (!IsCellSolid(insideCell))
+            {
+                continue;
+            }
+
+            checkedAnyFaceCell = true;
+            Vector2Int outsideCell = new Vector2Int(outsideX, y);
+            if (!IsCellSolid(outsideCell))
+            {
+                return false;
+            }
+        }
+
+        return checkedAnyFaceCell;
+    }
+
+    private bool IsInternalHorizontalPush(
+        StageColliderData collider,
+        Vector2 push,
+        Vector2 position,
+        Vector2 playerHalfExtent)
+    {
+        if (Mathf.Abs(push.x) <= 0.000001f)
+        {
+            return false;
+        }
+
+        StageSweepHit hit = new StageSweepHit
+        {
+            normal = push.x > 0f ? Vector2.right : Vector2.left,
+        };
+        return IsInternalHorizontalFaceHit(collider, hit, position, playerHalfExtent);
+    }
+
     private bool TrySweepPointAgainstExpandedRect(
         Vector2 startPosition,
         Vector2 delta,
@@ -546,8 +650,17 @@ public sealed class StageCollisionSystem
                 }
 
                 Vector2 push = GetSmallestPushOut(resolvedPosition, expandedRect);
+                if (IsTopSurfaceOverlap(collider, resolvedPosition, playerHalfExtent))
+                {
+                    push = GetTopSurfacePushOut(resolvedPosition, expandedRect);
+                }
+                else if (IsInternalHorizontalPush(collider, push, resolvedPosition, playerHalfExtent))
+                {
+                    push = GetSmallestVerticalPushOut(resolvedPosition, expandedRect);
+                }
+
                 resolvedPosition += push;
-                AddPushContact(push, ref result);
+                AddPushContact(push, collider.surfacePhysicType, ref result);
                 resolvedAny = true;
             }
 
@@ -558,6 +671,16 @@ public sealed class StageCollisionSystem
         }
 
         return resolvedPosition;
+    }
+
+    private bool IsTopSurfaceOverlap(
+        StageColliderData collider,
+        Vector2 position,
+        Vector2 playerHalfExtent)
+    {
+        float footTolerance = Mathf.Max(skinWidth * 2f, 0.001f);
+        float playerBottom = position.y - playerHalfExtent.y;
+        return playerBottom >= collider.rect.yMax - footTolerance;
     }
 
     // Role: queryRect와 겹칠 수 있는 Stage 충돌체 후보 목록을 수집한다.
@@ -822,6 +945,19 @@ public sealed class StageCollisionSystem
     }
 
     // Role: 현재 StageBakeData에 사용할 수 있는 충돌체가 있는지 판단한다.
+    private Vector2 GetSmallestVerticalPushOut(Vector2 position, Rect expandedRect)
+    {
+        float bottom = Mathf.Abs(position.y - expandedRect.yMin);
+        float top = Mathf.Abs(expandedRect.yMax - position.y);
+        return bottom < top ? Vector2.down * bottom : Vector2.up * top;
+    }
+
+    private Vector2 GetTopSurfacePushOut(Vector2 position, Rect expandedRect)
+    {
+        float top = expandedRect.yMax - position.y;
+        return top > 0f ? Vector2.up * top : Vector2.zero;
+    }
+
     private bool HasStageCollision()
     {
         return stageBakeData != null
@@ -876,6 +1012,7 @@ public sealed class StageCollisionSystem
             if (clampedY > resolvedPosition.y)
             {
                 result.isGrounded = true;
+                result.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
             }
 
             resolvedPosition.y = clampedY;
@@ -887,6 +1024,7 @@ public sealed class StageCollisionSystem
             if (clampedY < resolvedPosition.y)
             {
                 result.hitCeiling = true;
+                result.ceilingSurfacePhysicType = StageSurfacePhysicType.Normal;
             }
 
             resolvedPosition.y = clampedY;
@@ -939,21 +1077,27 @@ public sealed class StageCollisionSystem
     // Parameters:
     // - normal: 충돌 표면이 플레이어를 밀어내는 방향
     // - result: 갱신할 이동 결과
-    private static void AddContactNormal(Vector2 normal, ref StageCollisionMoveResult result)
+    private static void AddContactNormal(
+        Vector2 normal,
+        StageSurfacePhysicType surfacePhysicType,
+        ref StageCollisionMoveResult result)
     {
         if (normal.y > 0.5f)
         {
             result.isGrounded = true;
+            result.groundSurfacePhysicType = surfacePhysicType;
         }
         else if (normal.y < -0.5f)
         {
             result.hitCeiling = true;
+            result.ceilingSurfacePhysicType = surfacePhysicType;
         }
 
         if (Mathf.Abs(normal.x) > 0.5f)
         {
             result.hitWall = true;
             result.wallNormalX = normal.x > 0f ? (sbyte)1 : (sbyte)-1;
+            result.wallSurfacePhysicType = surfacePhysicType;
         }
     }
 
@@ -961,21 +1105,27 @@ public sealed class StageCollisionSystem
     // Parameters:
     // - push: 겹침을 해소하기 위해 플레이어에 적용한 이동량
     // - result: 갱신할 이동 결과
-    private static void AddPushContact(Vector2 push, ref StageCollisionMoveResult result)
+    private static void AddPushContact(
+        Vector2 push,
+        StageSurfacePhysicType surfacePhysicType,
+        ref StageCollisionMoveResult result)
     {
         if (push.y > 0.000001f)
         {
             result.isGrounded = true;
+            result.groundSurfacePhysicType = surfacePhysicType;
         }
         else if (push.y < -0.000001f)
         {
             result.hitCeiling = true;
+            result.ceilingSurfacePhysicType = surfacePhysicType;
         }
 
         if (Mathf.Abs(push.x) > 0.000001f)
         {
             result.hitWall = true;
             result.wallNormalX = push.x > 0f ? (sbyte)1 : (sbyte)-1;
+            result.wallSurfacePhysicType = surfacePhysicType;
         }
     }
 
@@ -983,6 +1133,7 @@ public sealed class StageCollisionSystem
     {
         public float fraction;
         public Vector2 normal;
+        public StageSurfacePhysicType surfacePhysicType;
     }
 }
 
@@ -993,4 +1144,7 @@ public struct StageCollisionMoveResult
     public bool hitCeiling;
     public bool hitWall;
     public sbyte wallNormalX;
+    public StageSurfacePhysicType groundSurfacePhysicType;
+    public StageSurfacePhysicType wallSurfacePhysicType;
+    public StageSurfacePhysicType ceilingSurfacePhysicType;
 }

@@ -18,15 +18,20 @@ public class Server_GamePlayRunner : MonoBehaviour
 
     private FastBufferWriter snapshotWriter;
     private FastBufferWriter gameStateWriter;
+    private FastBufferWriter gameEventWriter;
     private FastBufferWriter rosterWriter;
     private bool snapshotWriterCreated;
     private bool gameStateWriterCreated;
+    private bool gameEventWriterCreated;
     private bool rosterWriterCreated;
     private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
     private readonly System.Collections.Generic.List<GameStateEntryPacket> gameStateEntries = new();
+    private readonly System.Collections.Generic.List<GameEventEntryPacket> gameEvents = new();
     private readonly System.Collections.Generic.List<RosterEntryPacket> rosterEntries = new();
     private readonly GameStateEntryPacket[] gameStateEntryBuffer =
         new GameStateEntryPacket[GameNetProtocol.MaxPlayers];
+    private readonly GameEventEntryPacket[] gameEventBuffer =
+        new GameEventEntryPacket[GameNetProtocol.MaxGameEventsPerBatch];
     private readonly RosterEntryPacket[] rosterEntryBuffer =
         new RosterEntryPacket[GameNetProtocol.MaxPlayers];
 
@@ -58,6 +63,11 @@ public class Server_GamePlayRunner : MonoBehaviour
             Allocator.Persistent
         );
 
+        gameEventWriter = new FastBufferWriter(
+            GameNetProtocol.GameEventPacketBufferSize,
+            Allocator.Persistent
+        );
+
         rosterWriter = new FastBufferWriter(
             GameNetProtocol.RosterPacketBufferSize,
             Allocator.Persistent
@@ -65,6 +75,7 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         snapshotWriterCreated = true;
         gameStateWriterCreated = true;
+        gameEventWriterCreated = true;
         rosterWriterCreated = true;
     }
 
@@ -103,6 +114,12 @@ public class Server_GamePlayRunner : MonoBehaviour
         {
             gameStateWriter.Dispose();
             gameStateWriterCreated = false;
+        }
+
+        if (gameEventWriterCreated)
+        {
+            gameEventWriter.Dispose();
+            gameEventWriterCreated = false;
         }
 
         if (rosterWriterCreated)
@@ -146,6 +163,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         SendSnapshotToAllClients();
         SendGameStateToAllClients(isFullSync: true);
         SendRosterToAllClients();
+        SendGameEventsToAllClients();
 
         Debug.Log($"[Server_GamePlayRunner] Client disconnected: {clientId}");
     }
@@ -227,6 +245,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         SendSnapshotToAllClients();
         SendGameStateToAllClients(isFullSync: true);
         SendRosterToAllClients();
+        SendGameEventsToAllClients();
 
         Debug.Log(
             $"[Server_GamePlayRunner] Join profile accepted: " +
@@ -268,6 +287,7 @@ public class Server_GamePlayRunner : MonoBehaviour
             fullGameStateTimer += serverDeltaTime;
 
             gamePlay.Simulate(serverDeltaTime);
+            SendGameEventsToAllClients();
 
             if (snapshotTimer >= snapshotSendInterval)
             {
@@ -429,6 +449,56 @@ public class Server_GamePlayRunner : MonoBehaviour
                 delivery
             );
         }
+    }
+
+    private void SendGameEventsToAllClients()
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (gamePlay.PendingGameEventCount <= 0)
+            return;
+
+        if (NetworkManager.Singleton.CustomMessagingManager == null)
+            return;
+
+        if (NetworkManager.Singleton.ConnectedClientsList.Count == 0)
+            return;
+
+        if (!gameEventWriterCreated)
+            return;
+
+        gameEventWriter.Truncate(0);
+        gamePlay.CopyPendingGameEventsTo(gameEvents);
+        int eventCount = Mathf.Min(gameEvents.Count, GameNetProtocol.MaxGameEventsPerBatch);
+        if (eventCount <= 0)
+            return;
+
+        for (int i = 0; i < eventCount; i++)
+        {
+            gameEventBuffer[i] = gameEvents[i];
+        }
+
+        GameEventBatchPacket packet = new GameEventBatchPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            eventCount = (ushort)eventCount,
+            events = gameEventBuffer
+        };
+
+        packet.Write(ref gameEventWriter);
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                GameNetMessages.ServerGameEvent,
+                client.ClientId,
+                gameEventWriter,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+
+        gamePlay.ClearPendingGameEvents(eventCount);
     }
 
     private void SendRosterToAllClients()

@@ -470,6 +470,122 @@ public struct ClientGameStateSnapshotState
     public float lastReceivedTime;
 }
 
+public struct GameEventEntryPacket
+{
+    public uint eventSeq;
+    public uint serverTick;
+    public float serverTime;
+    public GameEventType eventType;
+    public ulong subjectClientId;
+    public ulong targetClientId;
+    public GameVfxType vfxType;
+    public Vector2 position;
+    public float rotation;
+
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(eventSeq);
+        writer.WriteValueSafe(serverTick);
+        writer.WriteValueSafe(serverTime);
+        writer.WriteValueSafe((byte)eventType);
+        writer.WriteValueSafe(subjectClientId);
+        writer.WriteValueSafe(targetClientId);
+        writer.WriteValueSafe((byte)vfxType);
+        writer.WriteValueSafe(position.x);
+        writer.WriteValueSafe(position.y);
+        writer.WriteValueSafe(rotation);
+    }
+
+    public static bool TryRead(ref FastBufferReader reader, out GameEventEntryPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out uint eventSeq);
+        reader.ReadValueSafe(out uint serverTick);
+        reader.ReadValueSafe(out float serverTime);
+        reader.ReadValueSafe(out byte eventType);
+        reader.ReadValueSafe(out ulong subjectClientId);
+        reader.ReadValueSafe(out ulong targetClientId);
+        reader.ReadValueSafe(out byte vfxType);
+        reader.ReadValueSafe(out float positionX);
+        reader.ReadValueSafe(out float positionY);
+        reader.ReadValueSafe(out float rotation);
+
+        packet = new GameEventEntryPacket
+        {
+            eventSeq = eventSeq,
+            serverTick = serverTick,
+            serverTime = serverTime,
+            eventType = (GameEventType)eventType,
+            subjectClientId = subjectClientId,
+            targetClientId = targetClientId,
+            vfxType = (GameVfxType)vfxType,
+            position = new Vector2(positionX, positionY),
+            rotation = rotation
+        };
+
+        return true;
+    }
+}
+
+public struct GameEventBatchPacket
+{
+    public ushort protocolVersion;
+    public ushort eventCount;
+    public GameEventEntryPacket[] events;
+
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+        int count = events != null
+            ? Mathf.Min(eventCount, events.Length, GameNetProtocol.MaxGameEventsPerBatch)
+            : 0;
+
+        writer.WriteValueSafe((ushort)count);
+
+        for (int i = 0; i < count; i++)
+        {
+            events[i].Write(ref writer);
+        }
+    }
+
+    public static bool TryRead(ref FastBufferReader reader, out GameEventBatchPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        reader.ReadValueSafe(out ushort eventCount);
+
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        if (eventCount > GameNetProtocol.MaxGameEventsPerBatch)
+        {
+            return false;
+        }
+
+        GameEventEntryPacket[] events = new GameEventEntryPacket[eventCount];
+        for (int i = 0; i < eventCount; i++)
+        {
+            if (!GameEventEntryPacket.TryRead(ref reader, out events[i]))
+            {
+                return false;
+            }
+        }
+
+        packet = new GameEventBatchPacket
+        {
+            protocolVersion = protocolVersion,
+            eventCount = eventCount,
+            events = events
+        };
+
+        return true;
+    }
+}
+
 public struct SkillObjectSnapshotPacket
 {
     public byte skillObjectId;

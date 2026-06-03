@@ -96,8 +96,10 @@ public class Server_GamePlay
         public Vector2 collisionHalfExtent;
         public Vector2 collisionOffset;
         public bool isGrounded;
+        public StageSurfacePhysicType groundSurfacePhysicType;
         public bool isWallSticking;
         public sbyte wallNormalX;
+        public StageSurfacePhysicType wallSurfacePhysicType;
         public bool isJumpPressed;
         public bool jumpQueued;
         public bool isSkillPressed;
@@ -113,6 +115,7 @@ public class Server_GamePlay
     private readonly Dictionary<ulong, ushort> latestReceivedInputSeqs = new();
     private readonly Dictionary<PortalTeleportCooldownKey, float> portalTeleportCooldowns = new();
     private readonly List<ulong> simulationTargets = new();
+    private readonly List<GameEventEntryPacket> pendingGameEvents = new();
     private readonly SkillWorldContributionCollector skillWorldContributions = new();
     private readonly List<PortalTeleportCooldownKey> portalTeleportCooldownKeys = new();
     private readonly StageCollisionSystem collisionSystem;
@@ -123,6 +126,7 @@ public class Server_GamePlay
     private float gameElapsedSeconds;
     private bool isGameStarted;
     private bool isGameEnded;
+    private uint nextGameEventSeq;
 
     // Role: StageBakeData 없이 서버 게임플레이 시뮬레이션을 생성한다.
     public Server_GamePlay()
@@ -202,6 +206,7 @@ public class Server_GamePlay
     public float RemainingSeconds => Mathf.Max(0f, gameDurationSeconds - gameElapsedSeconds);
     public bool IsGameStarted => isGameStarted;
     public bool IsGameEnded => isGameEnded;
+    public int PendingGameEventCount => pendingGameEvents.Count;
 
     public void SetGameDurationSeconds(float durationSeconds)
     {
@@ -258,8 +263,10 @@ public class Server_GamePlay
             collisionHalfExtent = collisionHalfExtent,
             collisionOffset = collisionOffset,
             isGrounded = false,
+            groundSurfacePhysicType = StageSurfacePhysicType.Normal,
             isWallSticking = false,
             wallNormalX = 0,
+            wallSurfacePhysicType = StageSurfacePhysicType.Normal,
             isJumpPressed = false,
             jumpQueued = false,
             isSkillPressed = false,
@@ -273,7 +280,7 @@ public class Server_GamePlay
 
         players.Add(clientId, player);
         latestReceivedInputSeqs.Add(clientId, NoReceivedInputSeq);
-        StartGameIfNeeded();
+        StartGameIfNeeded(clientId);
         MarkGameStateChanged();
         return true;
     }
@@ -293,7 +300,7 @@ public class Server_GamePlay
 
         if (removedTagger)
         {
-            AssignFallbackTagger();
+            AssignFallbackTagger(clientId);
         }
 
         MarkGameStateChanged();
@@ -424,6 +431,33 @@ public class Server_GamePlay
         target.Sort(CompareLeaderboardEntries);
     }
 
+    public void CopyPendingGameEventsTo(List<GameEventEntryPacket> target)
+    {
+        target.Clear();
+
+        int count = Mathf.Min(pendingGameEvents.Count, GameNetProtocol.MaxGameEventsPerBatch);
+        for (int i = 0; i < count; i++)
+        {
+            target.Add(pendingGameEvents[i]);
+        }
+    }
+
+    public void ClearPendingGameEvents(int eventCount)
+    {
+        if (eventCount <= 0 || pendingGameEvents.Count == 0)
+        {
+            return;
+        }
+
+        if (eventCount >= pendingGameEvents.Count)
+        {
+            pendingGameEvents.Clear();
+            return;
+        }
+
+        pendingGameEvents.RemoveRange(0, eventCount);
+    }
+
     public void CopyRosterEntriesTo(List<RosterEntryPacket> target)
     {
         target.Clear();
@@ -540,6 +574,10 @@ public class Server_GamePlay
 
             player.position = moveResult.position - player.collisionOffset;
             player.isGrounded = moveResult.isGrounded;
+            if (moveResult.isGrounded)
+            {
+                player.groundSurfacePhysicType = moveResult.groundSurfacePhysicType;
+            }
 
             if (moveResult.isGrounded && player.velocity.y < 0f)
             {
@@ -552,7 +590,7 @@ public class Server_GamePlay
                 player.velocity.y = 0f;
             }
 
-            UpdateWallStickAfterStageMove(ref player, moveResult, horizontalInput, verticalInput);
+            UpdateWallStickAfterStageMove(ref player, moveResult, horizontalInput, verticalInput, deltaTime);
             SimulateSkill(ref player, deltaTime);
             UpdatePlayerPresentationState(ref player);
             UpdateCharacterStateMachine(ref player);
@@ -711,8 +749,13 @@ public class Server_GamePlay
 
         player.position = moveResult.position - player.collisionOffset;
         player.isGrounded = moveResult.isGrounded;
+        if (moveResult.isGrounded)
+        {
+            player.groundSurfacePhysicType = moveResult.groundSurfacePhysicType;
+        }
         player.isWallSticking = false;
         player.wallNormalX = 0;
+        player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
     }
 
     // Role: 플레이어끼리 겹친 경우 SAT 결과로 위치와 속도를 보정한다.
@@ -757,7 +800,8 @@ public class Server_GamePlay
                 second.velocity = collisionSystem.RemoveVelocityIntoNormal(second.velocity, -normal);
 
                 ApplyPlayerGroundContact(ref first, ref second, normal);
-                TryResolveTaggerCollision(ref first, ref second);
+                Vector2 taggerCollisionPoint = (first.position + second.position) * 0.5f;
+                TryResolveTaggerCollision(ref first, ref second, taggerCollisionPoint);
                 UpdatePlayerPresentationState(ref first);
                 UpdateCharacterStateMachine(ref first);
                 UpdatePlayerPresentationState(ref second);
@@ -782,8 +826,10 @@ public class Server_GamePlay
         if (normal.y > 0.5f)
         {
             second.isGrounded = true;
+            second.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
             second.isWallSticking = false;
             second.wallNormalX = 0;
+            second.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
             second.coyoteTimeRemaining = second.movementStats.coyoteTime;
             if (second.velocity.y < 0f)
             {
@@ -793,8 +839,10 @@ public class Server_GamePlay
         else if (normal.y < -0.5f)
         {
             first.isGrounded = true;
+            first.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
             first.isWallSticking = false;
             first.wallNormalX = 0;
+            first.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
             first.coyoteTimeRemaining = first.movementStats.coyoteTime;
             if (first.velocity.y < 0f)
             {
@@ -901,17 +949,20 @@ public class Server_GamePlay
         player.skillQueued = false;
     }
 
-    private void TryResolveTaggerCollision(ref PlayerState first, ref PlayerState second)
+    private void TryResolveTaggerCollision(
+        ref PlayerState first,
+        ref PlayerState second,
+        Vector2 collisionPoint)
     {
         if (CanTagPlayer(first, second))
         {
-            TransferTagger(ref first, ref second);
+            TransferTagger(ref first, ref second, collisionPoint);
             return;
         }
 
         if (CanTagPlayer(second, first))
         {
-            TransferTagger(ref second, ref first);
+            TransferTagger(ref second, ref first, collisionPoint);
         }
     }
 
@@ -924,18 +975,35 @@ public class Server_GamePlay
             && target.deathTimer <= 0f;
     }
 
-    private void TransferTagger(ref PlayerState oldTagger, ref PlayerState newTagger)
+    private void TransferTagger(
+        ref PlayerState oldTagger,
+        ref PlayerState newTagger,
+        Vector2 transferPosition)
     {
         oldTagger.isTagger = false;
         newTagger.isTagger = true;
         newTagger.deathTimer = DeathInputLockSeconds;
         newTagger.isWallSticking = false;
         newTagger.wallNormalX = 0;
+        newTagger.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
         ClearPlayerInput(ref newTagger);
+        QueueGameEvent(
+            GameEventType.TaggerChanged,
+            oldTagger.clientId,
+            newTagger.clientId,
+            GameVfxType.None,
+            transferPosition,
+            0f);
+        QueueSpawnVfx(
+            GameVfxType.TaggerTransfer,
+            oldTagger.clientId,
+            newTagger.clientId,
+            transferPosition,
+            0f);
         MarkGameStateChanged();
     }
 
-    private void AssignFallbackTagger()
+    private void AssignFallbackTagger(ulong previousTaggerClientId)
     {
         ulong fallbackClientId = 0;
         bool hasFallback = false;
@@ -956,11 +1024,18 @@ public class Server_GamePlay
         player.isTagger = true;
         player.deathTimer = 0f;
         players[fallbackClientId] = player;
+        QueueGameEvent(
+            GameEventType.TaggerChanged,
+            previousTaggerClientId,
+            fallbackClientId,
+            GameVfxType.None,
+            player.position,
+            0f);
         MarkGameStateChanged();
     }
 
     // Role: 첫 플레이어가 등록되면 게임 타이머를 시작한다.
-    private void StartGameIfNeeded()
+    private void StartGameIfNeeded(ulong starterClientId)
     {
         if (isGameStarted)
         {
@@ -970,6 +1045,25 @@ public class Server_GamePlay
         isGameStarted = true;
         isGameEnded = gameDurationSeconds <= 0f;
         gameElapsedSeconds = isGameEnded ? gameDurationSeconds : 0f;
+        QueueGameEvent(
+            GameEventType.GameStarted,
+            starterClientId,
+            starterClientId,
+            GameVfxType.None,
+            collisionSystem.GetStageCenterPosition(),
+            0f);
+
+        if (isGameEnded)
+        {
+            QueueGameEvent(
+                GameEventType.GameEnded,
+                0,
+                0,
+                GameVfxType.None,
+                collisionSystem.GetStageCenterPosition(),
+                0f);
+        }
+
         MarkGameStateChanged();
     }
 
@@ -1010,8 +1104,59 @@ public class Server_GamePlay
         if (gameElapsedSeconds >= gameDurationSeconds)
         {
             isGameEnded = true;
+            QueueGameEvent(
+                GameEventType.GameEnded,
+                0,
+                0,
+                GameVfxType.None,
+                collisionSystem.GetStageCenterPosition(),
+                0f);
             MarkGameStateChanged();
         }
+    }
+
+    private void QueueSpawnVfx(
+        GameVfxType vfxType,
+        ulong subjectClientId,
+        ulong targetClientId,
+        Vector2 position,
+        float rotation)
+    {
+        QueueGameEvent(
+            GameEventType.SpawnVfx,
+            subjectClientId,
+            targetClientId,
+            vfxType,
+            position,
+            rotation);
+    }
+
+    private void QueueGameEvent(
+        GameEventType eventType,
+        ulong subjectClientId,
+        ulong targetClientId,
+        GameVfxType vfxType,
+        Vector2 position,
+        float rotation)
+    {
+        if (eventType == GameEventType.None)
+        {
+            return;
+        }
+
+        pendingGameEvents.Add(new GameEventEntryPacket
+        {
+            eventSeq = nextGameEventSeq,
+            serverTick = Tick,
+            serverTime = Tick / GameNetProtocol.ServerTickRate,
+            eventType = eventType,
+            subjectClientId = subjectClientId,
+            targetClientId = targetClientId,
+            vfxType = vfxType,
+            position = position,
+            rotation = rotation
+        });
+        nextGameEventSeq++;
     }
 
     private void MarkGameStateChanged()
@@ -1084,10 +1229,12 @@ public class Server_GamePlay
 
         if (wantsGroundJump || wantsCoyoteJump)
         {
-            player.velocity.y = player.movementStats.jumpVelocity;
+            StagePhysicsModifier jumpModifier = ResolveJumpPhysicsModifier(player);
+            player.velocity.y = player.movementStats.jumpVelocity * jumpModifier.JumpVelocityMultiplier;
             player.isGrounded = false;
             player.isWallSticking = false;
             player.wallNormalX = 0;
+            player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
             player.coyoteTimeRemaining = 0f;
         }
 
@@ -1097,10 +1244,11 @@ public class Server_GamePlay
             ? player.movementStats.upGravity
             : player.movementStats.downGravity;
 
-        gravity *= ResolveStageGravityScale();
+        StagePhysicsModifier airModifier = ResolveAirPhysicsModifier();
+        gravity *= airModifier.GravityScale;
         player.velocity.y += gravity * deltaTime;
 
-        float maxFallSpeed = player.movementStats.maxFallSpeed * ResolveStageMaxFallSpeedMultiplier();
+        float maxFallSpeed = player.movementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
         player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
     }
 
@@ -1126,10 +1274,12 @@ public class Server_GamePlay
                     : player.movementStats.wallMoveSpeedMultiplier;
 
                 player.velocity.x = player.wallNormalX * player.speed * wallExitSpeedMultiplier;
-                player.velocity.y = player.movementStats.jumpVelocity;
+                player.velocity.y = player.movementStats.jumpVelocity
+                    * ResolveJumpPhysicsModifier(player).JumpVelocityMultiplier;
                 player.isGrounded = false;
                 player.isWallSticking = false;
                 player.wallNormalX = 0;
+                player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
                 player.jumpQueued = false;
                 player.coyoteTimeRemaining = 0f;
                 return;
@@ -1139,9 +1289,9 @@ public class Server_GamePlay
             {
                 player.velocity.x = horizontalInput * player.speed;
                 player.velocity.y = GetWallStickVerticalSpeed(
+                    player,
                     verticalInput,
-                    player.speed,
-                    player.movementStats.wallMoveSpeedMultiplier);
+                    deltaTime);
                 player.isGrounded = false;
                 player.jumpQueued = false;
                 return;
@@ -1149,6 +1299,7 @@ public class Server_GamePlay
 
             player.isWallSticking = false;
             player.wallNormalX = 0;
+            player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
         }
 
         if (IsUsingSwingMovement(player))
@@ -1172,10 +1323,11 @@ public class Server_GamePlay
     {
         player.jumpQueued = false;
 
-        float gravity = player.movementStats.downGravity * ResolveStageGravityScale();
+        StagePhysicsModifier airModifier = ResolveAirPhysicsModifier();
+        float gravity = player.movementStats.downGravity * airModifier.GravityScale;
         player.velocity.y += gravity * deltaTime;
 
-        float maxFallSpeed = player.movementStats.maxFallSpeed * ResolveStageMaxFallSpeedMultiplier();
+        float maxFallSpeed = player.movementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
         player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
     }
 
@@ -1184,7 +1336,13 @@ public class Server_GamePlay
         float horizontalInput,
         float deltaTime)
     {
+        StagePhysicsModifier groundModifier = ResolveGroundPhysicsModifier(player);
         float targetVelocityX = horizontalInput * player.speed;
+        if (player.isGrounded)
+        {
+            targetVelocityX *= groundModifier.MoveSpeedMultiplier;
+        }
+
         float currentVelocityX = player.velocity.x;
         float inputMagnitude = Mathf.Abs(horizontalInput);
 
@@ -1193,6 +1351,10 @@ public class Server_GamePlay
             float deceleration = player.isGrounded
                 ? player.movementStats.groundDeceleration
                 : player.movementStats.airDeceleration;
+            if (player.isGrounded)
+            {
+                deceleration *= groundModifier.GroundDecelerationMultiplier;
+            }
 
             player.velocity.x = Mathf.MoveTowards(currentVelocityX, 0f, deceleration * deltaTime);
             return;
@@ -1201,13 +1363,23 @@ public class Server_GamePlay
         float acceleration = player.isGrounded
             ? player.movementStats.groundAcceleration
             : player.movementStats.airAcceleration;
+        if (player.isGrounded)
+        {
+            acceleration *= groundModifier.GroundAccelerationMultiplier;
+        }
 
         bool sameDirection = Mathf.Sign(currentVelocityX) == Mathf.Sign(targetVelocityX);
         bool isOverTargetSpeed = sameDirection
             && Mathf.Abs(currentVelocityX) > Mathf.Abs(targetVelocityX);
 
+        float overSpeedDeceleration = player.movementStats.overSpeedDeceleration;
+        if (player.isGrounded)
+        {
+            overSpeedDeceleration *= groundModifier.OverSpeedDecelerationMultiplier;
+        }
+
         float maxDelta = isOverTargetSpeed
-            ? player.movementStats.overSpeedDeceleration * deltaTime
+            ? overSpeedDeceleration * deltaTime
             : acceleration * deltaTime;
 
         player.velocity.x = Mathf.MoveTowards(currentVelocityX, targetVelocityX, maxDelta);
@@ -1223,7 +1395,8 @@ public class Server_GamePlay
         ref PlayerState player,
         StageCollisionMoveResult moveResult,
         float horizontalInput,
-        float verticalInput)
+        float verticalInput,
+        float deltaTime)
     {
         bool canWallStick = !moveResult.isGrounded
             && !moveResult.hitCeiling
@@ -1237,6 +1410,7 @@ public class Server_GamePlay
             {
                 player.isWallSticking = false;
                 player.wallNormalX = 0;
+                player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
             }
 
             return;
@@ -1244,13 +1418,14 @@ public class Server_GamePlay
 
         player.isWallSticking = true;
         player.wallNormalX = moveResult.wallNormalX;
+        player.wallSurfacePhysicType = moveResult.wallSurfacePhysicType;
         player.isGrounded = false;
         player.coyoteTimeRemaining = 0f;
         player.velocity.x = 0f;
         player.velocity.y = GetWallStickVerticalSpeed(
+            player,
             verticalInput,
-            player.speed,
-            player.movementStats.wallMoveSpeedMultiplier);
+            deltaTime);
     }
 
     // Role: WallStick 중 벽면을 따라 이동할 수직 속도를 계산한다.
@@ -1258,21 +1433,31 @@ public class Server_GamePlay
     // - verticalInput: 플랫폼 수직 입력
     // - playerSpeed: 플레이어 기본 이동 속도
     private float GetWallStickVerticalSpeed(
+        PlayerState player,
         float verticalInput,
-        float playerSpeed,
-        float wallMoveSpeedMultiplier)
+        float deltaTime)
     {
+        StagePhysicsModifier wallModifier = ResolveWallPhysicsModifier(player);
+        float wallMoveSpeed = player.speed * player.movementStats.wallMoveSpeedMultiplier;
         if (verticalInput > JumpInputThreshold)
         {
-            return playerSpeed * wallMoveSpeedMultiplier;
+            return wallMoveSpeed * wallModifier.WallUpMoveMultiplier;
         }
 
         if (verticalInput < -JumpInputThreshold)
         {
-            return -playerSpeed * wallMoveSpeedMultiplier;
+            return -wallMoveSpeed * wallModifier.WallDownMoveMultiplier;
         }
 
-        return 0f;
+        if (wallModifier.WallIdleSlideAcceleration <= 0f || wallModifier.WallMaxSlideSpeed <= 0f)
+        {
+            return 0f;
+        }
+
+        return Mathf.MoveTowards(
+            player.velocity.y,
+            -wallModifier.WallMaxSlideSpeed,
+            wallModifier.WallIdleSlideAcceleration * Mathf.Max(0f, deltaTime));
     }
 
     // Role: 플랫폼 이동에 사용할 수평 입력값을 계산한다.
@@ -1325,21 +1510,52 @@ public class Server_GamePlay
             && Mathf.Sign(horizontalInput) == wallNormalX;
     }
 
-    // Role: StageDefinition의 전역 중력 배율을 반환한다.
-    private float ResolveStageGravityScale()
+    // StagePhysicsModifier lookup helpers.
+    private StagePhysicsModifier ResolveGroundPhysicsModifier(PlayerState player)
     {
-        return stageDefinition != null ? stageDefinition.GravityScale : 1f;
+        if (!player.isGrounded)
+        {
+            return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
+        }
+
+        return ResolveSurfacePhysicsModifier(player.groundSurfacePhysicType);
     }
 
-    // Role: StageDefinition의 전역 최대 낙하 속도 배율을 반환한다.
-    private float ResolveStageMaxFallSpeedMultiplier()
+    private StagePhysicsModifier ResolveJumpPhysicsModifier(PlayerState player)
     {
-        return stageDefinition != null ? stageDefinition.MaxFallSpeedMultiplier : 1f;
+        if (player.isGrounded || player.coyoteTimeRemaining > 0f)
+        {
+            return ResolveSurfacePhysicsModifier(player.groundSurfacePhysicType);
+        }
+
+        return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
     }
 
-    // Role: 캐릭터 정의에서 서버 충돌에 사용할 BoxCollider2D Extent를 조회한다.
-    // Parameters:
-    // - characterId: 조회할 캐릭터 ID
+    private StagePhysicsModifier ResolveWallPhysicsModifier(PlayerState player)
+    {
+        if (!player.isWallSticking)
+        {
+            return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
+        }
+
+        return ResolveSurfacePhysicsModifier(player.wallSurfacePhysicType);
+    }
+
+    private StagePhysicsModifier ResolveAirPhysicsModifier()
+    {
+        return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
+    }
+
+    private StagePhysicsModifier ResolveSurfacePhysicsModifier(StageSurfacePhysicType surfacePhysicType)
+    {
+        if (stageDefinition == null)
+        {
+            return StagePhysicsModifier.Normal;
+        }
+
+        return stageDefinition.ResolvePhysicsModifier(surfacePhysicType);
+    }
+
     private Vector2 ResolveCollisionHalfExtent(byte characterId)
     {
         CharacterDefinition definition = ResolveCharacterDefinition(characterId);

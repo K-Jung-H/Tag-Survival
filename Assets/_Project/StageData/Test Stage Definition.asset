@@ -13,6 +13,41 @@ MonoBehaviour:
   m_Name: Test Stage Definition
   m_EditorClassIdentifier: Assembly-CSharp::StageDefinition
   stageBakeData: {fileID: 11400000, guid: 327c8e9f47c8f654ba9a8fca35b580e1, type: 2}
-  stageGridPrefab: {fileID: 53474264060498492, guid: 1370731196e3d644f945ccfb6887374f, type: 3}
-  gravityScale: 1
-  maxFallSpeedMultiplier: 1
+  stageGridPrefab: {fileID: 7902066574065890478, guid: 28af749c383c44141b6b5ec1b2683bb2, type: 3}
+  physicsModifiers:
+  - surfacePhysicType: 1
+    moveSpeedMultiplier: 1
+    groundAccelerationMultiplier: 1
+    groundDecelerationMultiplier: 1
+    overSpeedDecelerationMultiplier: 1
+    jumpVelocityMultiplier: 1
+    gravityScale: 1
+    maxFallSpeedMultiplier: 1
+    wallUpMoveMultiplier: 1
+    wallDownMoveMultiplier: 1
+    wallIdleSlideAcceleration: 0
+    wallMaxSlideSpeed: 0
+  - surfacePhysicType: 2
+    moveSpeedMultiplier: 1
+    groundAccelerationMultiplier: 0.25
+    groundDecelerationMultiplier: 0.05
+    overSpeedDecelerationMultiplier: 0.05
+    jumpVelocityMultiplier: 1
+    gravityScale: 1
+    maxFallSpeedMultiplier: 1
+    wallUpMoveMultiplier: 0.65
+    wallDownMoveMultiplier: 1.25
+    wallIdleSlideAcceleration: 3.5
+    wallMaxSlideSpeed: 2
+  - surfacePhysicType: 3
+    moveSpeedMultiplier: 0.55
+    groundAccelerationMultiplier: 0.65
+    groundDecelerationMultiplier: 1.4
+    overSpeedDecelerationMultiplier: 2
+    jumpVelocityMultiplier: 0.9
+    gravityScale: 1
+    maxFallSpeedMultiplier: 0.85
+    wallUpMoveMultiplier: 0.45
+    wallDownMoveMultiplier: 0.6
+    wallIdleSlideAcceleration: 0
+    wallMaxSlideSpeed: 0

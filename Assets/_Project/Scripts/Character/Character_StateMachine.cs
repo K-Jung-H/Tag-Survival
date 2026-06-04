@@ -2,15 +2,15 @@ using UnityEngine;
 
 public interface ICharacterStateMachine
 {
-    CharacterRuntimeState State { get; }
-    void ApplyState(CharacterRuntimeState newState);
+    PlayerRuntimeState State { get; }
+    void ApplyState(PlayerRuntimeState newState);
     void ApplySnapshot(PlayerSnapshotPacket packet);
     void ApplySnapshotState(ClientSnapshotState snapshotState);
 }
 
 public class Character_StateMachine : ICharacterStateMachine
 {
-    private CharacterRuntimeState state;
+    private PlayerRuntimeState state;
 
     public Character_StateMachine(byte characterId)
     {
@@ -20,12 +20,10 @@ public class Character_StateMachine : ICharacterStateMachine
         state.facingSign = 1;
     }
 
-    public CharacterRuntimeState State => state;
+    public PlayerRuntimeState State => state;
 
-    // Role: 서버 계산 결과 또는 클라이언트 패킷 수신 결과를 캐릭터 상태에 반영한다.
-    // Parameters:
-    // - newState: 반영할 캐릭터 런타임 상태
-    public virtual void ApplyState(CharacterRuntimeState newState)
+    // 서버 계산 결과 또는 클라이언트 스냅샷 수신 결과를 캐릭터 상태에 반영합니다.
+    public virtual void ApplyState(PlayerRuntimeState newState)
     {
         state = newState;
 
@@ -40,12 +38,10 @@ public class Character_StateMachine : ICharacterStateMachine
         }
     }
 
-    // Role: 서버 스냅샷 패킷을 캐릭터 상태에 반영한다.
-    // Parameters:
-    // - packet: 서버에서 수신한 플레이어 스냅샷 패킷
+    // 서버에서 받은 플레이어 스냅샷 패킷을 캐릭터 상태에 반영합니다.
     public virtual void ApplySnapshot(PlayerSnapshotPacket packet)
     {
-        ApplyState(new CharacterRuntimeState
+        ApplyState(new PlayerRuntimeState
         {
             clientId = packet.clientId,
             characterId = packet.characterId,
@@ -57,12 +53,10 @@ public class Character_StateMachine : ICharacterStateMachine
         });
     }
 
-    // Role: 클라이언트가 저장한 스냅샷 상태를 캐릭터 상태에 반영한다.
-    // Parameters:
-    // - snapshotState: 클라이언트에 저장된 플레이어 스냅샷 상태
+    // 클라이언트가 캐시한 플레이어 스냅샷 상태를 캐릭터 상태에 반영합니다.
     public virtual void ApplySnapshotState(ClientSnapshotState snapshotState)
     {
-        ApplyState(new CharacterRuntimeState
+        ApplyState(new PlayerRuntimeState
         {
             clientId = snapshotState.clientId,
             characterId = snapshotState.characterId,

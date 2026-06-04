@@ -9,7 +9,6 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
     private const float DefaultSpawnDuration = 0.2f;
     private const float DefaultDestroyDuration = 0.2f;
 
-    private readonly SkillObjectSnapshotPacket[] snapshotObjects = new SkillObjectSnapshotPacket[MaxPortalCount];
     private readonly PortalEndpoint[] portals = new PortalEndpoint[MaxPortalCount];
     private readonly PortalSkillConfig config;
 
@@ -23,7 +22,7 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
     }
 
     public override void Simulate(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         StageCollisionSystem collisionSystem,
         float deltaTime,
         bool skillPressedThisTick)
@@ -40,93 +39,65 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
         RefreshState();
     }
 
-    public override bool TryGetSnapshot(out SkillSnapshotPacket snapshot)
+    public override void SyncSkillObjects(Skill skill)
     {
-        snapshot = default;
+        if (skill == null)
+        {
+            return;
+        }
 
-        int count = 0;
         for (int i = 0; i < portals.Length; i++)
         {
+            byte skillObjectId = i == 0 ? PortalObjectA : PortalObjectB;
             if (!portals[i].exists)
             {
+                skill.RemoveObject(skillObjectId);
                 continue;
             }
 
-            snapshotObjects[count] = new SkillObjectSnapshotPacket
-            {
-                skillObjectId = portals[i].skillObjectId,
-                skillObjectState = portals[i].state,
-                position = portals[i].position,
-                rotation = 0f,
-                velocity = Vector2.zero
-            };
-            count++;
+            SkillObject skillObject = skill.UpsertObject(skillObjectId);
+            skillObject.ownerId = ownerClientId;
+            skillObject.skillId = SkillId;
+            skillObject.skillType = SkillType;
+            skillObject.skillObjectId = portals[i].skillObjectId;
+            skillObject.objectState = portals[i].state;
+            skillObject.position = portals[i].position;
+            skillObject.velocity = Vector2.zero;
+            skillObject.rotation = 0f;
+            skillObject.interactionCooldownSeconds = PortalTeleportCooldown;
+            skillObject.collider = new WorldCollider(Vector2.zero, portals[i].halfExtent);
         }
 
-        if (count <= 0)
-        {
-            return false;
-        }
-
-        snapshot = new SkillSnapshotPacket
-        {
-            ownerClientId = ownerClientId,
-            skillId = SkillId,
-            skillType = SkillType,
-            skillState = State,
-            skillObjectCount = (byte)count,
-            skillObjects = snapshotObjects
-        };
-
-        return true;
+        LinkPortalPair(skill);
     }
 
-    public override void CollectWorldContributions(SkillWorldContributionCollector collector)
+    private void LinkPortalPair(Skill skill)
     {
-        if (collector == null)
+        bool hasFirst = skill.TryGetObject(PortalObjectA, out SkillObject firstPortal)
+            && firstPortal.IsActive;
+        bool hasSecond = skill.TryGetObject(PortalObjectB, out SkillObject secondPortal)
+            && secondPortal.IsActive;
+
+        if (hasFirst && hasSecond)
         {
+            firstPortal.linkedObject = secondPortal;
+            secondPortal.linkedObject = firstPortal;
             return;
         }
 
-        int firstActiveIndex = -1;
-        int secondActiveIndex = -1;
-        for (int i = 0; i < portals.Length; i++)
+        if (firstPortal != null)
         {
-            if (portals[i].exists && portals[i].state == SkillObjectState.Active)
-            {
-                if (firstActiveIndex < 0)
-                {
-                    firstActiveIndex = i;
-                    continue;
-                }
-
-                secondActiveIndex = i;
-                break;
-            }
+            firstPortal.linkedObject = null;
         }
 
-        if (firstActiveIndex < 0 || secondActiveIndex < 0)
+        if (secondPortal != null)
         {
-            return;
+            secondPortal.linkedObject = null;
         }
-
-        collector.AddPortalPair(
-            CreatePortalEndpointContribution(portals[firstActiveIndex]),
-            CreatePortalEndpointContribution(portals[secondActiveIndex]));
-    }
-
-    private PortalEndpointWorldContribution CreatePortalEndpointContribution(PortalEndpoint portal)
-    {
-        return new PortalEndpointWorldContribution(
-            ownerClientId,
-            portal.skillObjectId,
-            portal.position,
-            portal.halfExtent,
-            PortalTeleportCooldown);
     }
 
     private void TryPlacePortal(
-        Server_GamePlay.PlayerState player,
+        PlayerState player,
         StageCollisionSystem collisionSystem)
     {
         if (CooldownRemaining > 0f || collisionSystem == null)

@@ -108,7 +108,7 @@ public class Server_GameHudView : MonoBehaviour
     {
         if (gamePlayRunner != null
             && gamePlayRunner.GamePlay != null
-            && gamePlayRunner.GamePlay.TryGetPlayer(clientId, out Server_GamePlay.PlayerState player)
+            && gamePlayRunner.GamePlay.TryGetPlayer(clientId, out PlayerState player)
             && !string.IsNullOrWhiteSpace(player.nickname))
         {
             return player.nickname;

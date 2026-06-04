@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 public static class GameNetProtocol
 {
@@ -39,7 +39,7 @@ public enum PlayerInputButtons : ushort
     SkillAim = 1 << 4
 }
 
-// Role: 서버가 결정한 플레이어 이동 상태를 클라이언트 표현에 전달한다.
+// 서버가 결정해 클라이언트 렌더와 스냅샷에 전달하는 플레이어 이동 상태입니다.
 public enum PlayerLocomotionState : byte
 {
     Idle = 0,
@@ -47,7 +47,7 @@ public enum PlayerLocomotionState : byte
     Jump = 2,
     Fall = 3,
     WallStick = 4,
-    Death = 5
+    Stunned = 5
 }
 
 public enum SkillType : byte

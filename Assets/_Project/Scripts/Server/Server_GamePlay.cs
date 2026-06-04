@@ -1,19 +1,13 @@
-using System;
-using System.Collections.Generic;
-using Unity.Collections;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class Server_GamePlay
 {
-    private const ushort NoReceivedInputSeq = ushort.MaxValue;
     private const byte DefaultCharacterId = 0;
     private const byte DefaultSkillId = 1;
     private const int MaxNicknameLength = 16;
     private const string DefaultNickname = "NoName";
-    private const float MovementStateThresholdSqr = 0.0001f;
-    private const float FacingDirectionThreshold = 0.0001f;
-    private const float JumpInputThreshold = 0.5f;
-    private const float DeathInputLockSeconds = 5f;
+    private const float TagStunDurationSeconds = 5f;
     private static readonly Vector2 DefaultCollisionExtent =
         new Vector2(GameSimulationConfig.PlayerRadius, GameSimulationConfig.PlayerRadius);
     private static readonly Vector2 DefaultCollisionOffset = Vector2.zero;
@@ -32,120 +26,30 @@ public class Server_GamePlay
             GameSimulationConfig.PlayerWallMoveSpeedMultiplier,
             0.08f);
 
-    private struct PlayerInputCommand
-    {
-        public ushort inputSeq;
-        public Vector2 input;
-        public Vector2 aim;
-        public PlayerInputButtons buttons;
-    }
-
-    private readonly struct PortalTeleportCooldownKey : IEquatable<PortalTeleportCooldownKey>
-    {
-        private readonly ulong playerClientId;
-        private readonly ulong portalOwnerClientId;
-
-        public PortalTeleportCooldownKey(ulong playerClientId, ulong portalOwnerClientId)
-        {
-            this.playerClientId = playerClientId;
-            this.portalOwnerClientId = portalOwnerClientId;
-        }
-
-        public bool ContainsClient(ulong clientId)
-        {
-            return playerClientId == clientId || portalOwnerClientId == clientId;
-        }
-
-        public bool Equals(PortalTeleportCooldownKey other)
-        {
-            return playerClientId == other.playerClientId
-                && portalOwnerClientId == other.portalOwnerClientId;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is PortalTeleportCooldownKey other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 31 + playerClientId.GetHashCode();
-                hash = hash * 31 + portalOwnerClientId.GetHashCode();
-                return hash;
-            }
-        }
-    }
-
-    public struct PlayerState
-    {
-        public ulong clientId;
-        public string nickname;
-        public Vector2 position;
-        public Vector2 input;
-        public Vector2 velocity;
-        public Vector2 aim;
-        public float speed;
-        public CharacterMovementStats movementStats;
-        public PlayerInputButtons buttons;
-        public byte skillId;
-        public Skill_StateMachine skillStateMachine;
-        public ICharacterStateMachine characterStateMachine;
-        public Vector2 collisionHalfExtent;
-        public Vector2 collisionOffset;
-        public bool isGrounded;
-        public StageSurfacePhysicType groundSurfacePhysicType;
-        public bool isWallSticking;
-        public sbyte wallNormalX;
-        public StageSurfacePhysicType wallSurfacePhysicType;
-        public bool isJumpPressed;
-        public bool jumpQueued;
-        public bool isSkillPressed;
-        public bool skillQueued;
-        public float coyoteTimeRemaining;
-        public bool isTagger;
-        public float deathTimer;
-        public float taggerAccumulatedTime;
-    }
-
     private readonly Dictionary<ulong, PlayerState> players = new();
-    private readonly Dictionary<ulong, PlayerInputCommand> pendingInputs = new();
-    private readonly Dictionary<ulong, ushort> latestReceivedInputSeqs = new();
-    private readonly Dictionary<PortalTeleportCooldownKey, float> portalTeleportCooldowns = new();
-    private readonly List<ulong> simulationTargets = new();
-    private readonly List<GameEventEntryPacket> pendingGameEvents = new();
-    private readonly SkillWorldContributionCollector skillWorldContributions = new();
-    private readonly List<PortalTeleportCooldownKey> portalTeleportCooldownKeys = new();
+    private readonly List<WorldCollisionEvent> playerCollisionEvents = new();
+    private readonly ServerGameEventQueue gameEventQueue = new();
+    private readonly ServerInputBuffer inputBuffer = new();
+    private readonly ServerPlayerSystem playerSystem = new();
+    private readonly ServerSkillSystem skillSystem = new();
+    private readonly ServerWorldInteractionSystem worldInteractionSystem = new();
+    private readonly IServerGameMode gameMode = new TagGameMode(TagStunDurationSeconds);
+    private readonly ServerSnapshotBuilder snapshotBuilder = new();
     private readonly StageCollisionSystem collisionSystem;
     private readonly StageDefinition stageDefinition;
     private readonly CharacterCatalog characterCatalog;
     private readonly SkillCatalog skillCatalog;
-    private float gameDurationSeconds = 180f;
-    private float gameElapsedSeconds;
-    private bool isGameStarted;
-    private bool isGameEnded;
-    private uint nextGameEventSeq;
 
-    // Role: StageBakeData 없이 서버 게임플레이 시뮬레이션을 생성한다.
     public Server_GamePlay()
         : this((StageDefinition)null, null, null)
     {
     }
 
-    // Role: 지정된 StageBakeData를 사용하는 서버 게임플레이 시뮬레이션을 생성한다.
-    // Parameters:
-    // - stageBakeData: 서버 충돌 연산에 사용할 Bake 결과 데이터
     public Server_GamePlay(StageBakeData stageBakeData)
         : this(stageBakeData, null, null)
     {
     }
 
-    // Role: 지정된 StageBakeData와 CharacterCatalog를 사용하는 서버 게임플레이 시뮬레이션을 생성한다.
-    // Parameters:
-    // - stageBakeData: 서버 충돌 연산에 사용할 Bake 결과 데이터
-    // - characterCatalog: 캐릭터 정의와 충돌 크기를 조회할 카탈로그
     public Server_GamePlay(StageBakeData stageBakeData, CharacterCatalog characterCatalog)
         : this(null, stageBakeData, characterCatalog, null)
     {
@@ -159,10 +63,6 @@ public class Server_GamePlay
     {
     }
 
-    // Role: 지정된 StageDefinition과 CharacterCatalog를 사용하는 서버 게임플레이 시뮬레이션을 생성한다.
-    // Parameters:
-    // - stageDefinition: 서버 충돌과 전역 물리 설정을 제공할 Stage 정의
-    // - characterCatalog: 캐릭터 정의와 충돌 크기를 조회할 카탈로그
     public Server_GamePlay(StageDefinition stageDefinition, CharacterCatalog characterCatalog)
         : this(stageDefinition, characterCatalog, null)
     {
@@ -201,25 +101,19 @@ public class Server_GamePlay
 
     public IReadOnlyDictionary<ulong, PlayerState> Players => players;
     public StageCollisionSystem CollisionSystem => collisionSystem;
-    public float GameDurationSeconds => gameDurationSeconds;
-    public float GameElapsedSeconds => gameElapsedSeconds;
-    public float RemainingSeconds => Mathf.Max(0f, gameDurationSeconds - gameElapsedSeconds);
-    public bool IsGameStarted => isGameStarted;
-    public bool IsGameEnded => isGameEnded;
-    public int PendingGameEventCount => pendingGameEvents.Count;
+    public GamePhase Phase => gameMode.Phase;
+    public float GameDurationSeconds => gameMode.GameDurationSeconds;
+    public float GameElapsedSeconds => gameMode.GameElapsedSeconds;
+    public float RemainingSeconds => gameMode.RemainingSeconds;
+    public bool IsGameStarted => gameMode.IsGameStarted;
+    public bool IsGameEnded => gameMode.IsGameEnded;
+    public int PendingGameEventCount => gameEventQueue.Count;
 
     public void SetGameDurationSeconds(float durationSeconds)
     {
-        gameDurationSeconds = Mathf.Max(0f, durationSeconds);
-        if (isGameEnded)
-        {
-            gameElapsedSeconds = gameDurationSeconds;
-        }
+        gameMode.SetGameDurationSeconds(durationSeconds);
     }
 
-    // Role: 새 클라이언트의 플레이어 상태를 서버 시뮬레이션에 추가한다.
-    // Parameters:
-    // - clientId: 추가할 클라이언트 ID
     public void AddPlayer(ulong clientId)
     {
         AddPlayer(clientId, null, DefaultCharacterId, DefaultSkillId);
@@ -240,12 +134,11 @@ public class Server_GamePlay
         Vector2 collisionOffset = ResolveCollisionOffset(resolvedCharacterId);
         CharacterMovementStats movementStats = ResolveMovementStats(resolvedCharacterId);
         SkillDefinition skillDefinition = ResolveSkillDefinition(skillId);
-        Skill_StateMachine skillStateMachine = SkillStateMachineFactory.Create(skillDefinition);
+        Skill skill = skillSystem.Create(clientId, skillDefinition);
         byte resolvedSkillId = skillDefinition != null
             ? skillDefinition.SkillId
             : DefaultSkillId;
 
-        bool isFirstPlayer = players.Count == 0;
         PlayerState player = new PlayerState
         {
             clientId = clientId,
@@ -258,7 +151,7 @@ public class Server_GamePlay
             movementStats = movementStats,
             buttons = PlayerInputButtons.None,
             skillId = resolvedSkillId,
-            skillStateMachine = skillStateMachine,
+            skill = skill,
             characterStateMachine = CharacterStateMachineFactory.Create(resolvedCharacterId),
             collisionHalfExtent = collisionHalfExtent,
             collisionOffset = collisionOffset,
@@ -271,48 +164,52 @@ public class Server_GamePlay
             jumpQueued = false,
             isSkillPressed = false,
             skillQueued = false,
+            hasAimInput = false,
             coyoteTimeRemaining = 0f,
-            isTagger = isFirstPlayer,
-            deathTimer = 0f,
+            isTagger = false,
+            stunnedTimer = 0f,
             taggerAccumulatedTime = 0f,
         };
-        UpdateCharacterStateMachine(ref player);
+        ServerPlayerSystem.UpdateCharacterStateMachine(ref player);
 
         players.Add(clientId, player);
-        latestReceivedInputSeqs.Add(clientId, NoReceivedInputSeq);
-        StartGameIfNeeded(clientId);
+        inputBuffer.RegisterPlayer(clientId);
+        playerSystem.Create(clientId, resolvedCharacterId, resolvedSkillId);
+        if (gameMode.OnPlayerAdded(
+            players,
+            clientId,
+            gameEventQueue,
+            Tick,
+            collisionSystem.GetStageCenterPosition()))
+        {
+            MarkGameStateChanged();
+        }
+
         MarkGameStateChanged();
         return true;
     }
 
-    // Role: 연결 해제된 클라이언트의 플레이어 상태와 입력 기록을 제거한다.
-    // Parameters:
-    // - clientId: 제거할 클라이언트 ID
     public void RemovePlayer(ulong clientId)
     {
-        bool removedTagger = players.TryGetValue(clientId, out PlayerState removedPlayer)
-            && removedPlayer.isTagger;
+        bool hadPlayer = players.TryGetValue(clientId, out PlayerState removedPlayer);
 
         players.Remove(clientId);
-        pendingInputs.Remove(clientId);
-        latestReceivedInputSeqs.Remove(clientId);
-        RemovePortalTeleportCooldownsForClient(clientId);
+        inputBuffer.RemovePlayer(clientId);
+        playerSystem.Remove(clientId);
+        skillSystem.RemoveOwner(clientId);
+        worldInteractionSystem.RemoveClient(clientId);
 
-        if (removedTagger)
+        if (hadPlayer)
         {
-            AssignFallbackTagger(clientId);
+            if (gameMode.OnPlayerRemoved(players, removedPlayer, gameEventQueue, Tick))
+            {
+                MarkGameStateChanged();
+            }
         }
 
         MarkGameStateChanged();
     }
 
-    // Role: 클라이언트에서 받은 최신 입력을 다음 서버 tick 처리 대상으로 저장한다.
-    // Parameters:
-    // - clientId: 입력을 보낸 클라이언트 ID
-    // - inputSeq: 입력 순서를 구분하는 시퀀스 번호
-    // - input: 이동 입력 방향
-    // - aim: 조준 입력 방향
-    // - buttons: 버튼 입력 플래그
     public void SetInput(
         ulong clientId,
         ushort inputSeq,
@@ -325,1235 +222,134 @@ public class Server_GamePlay
             return;
         }
 
-        if (!latestReceivedInputSeqs.TryGetValue(clientId, out ushort latestReceivedInputSeq))
-        {
-            latestReceivedInputSeq = NoReceivedInputSeq;
-        }
-
-        if (!IsNewerInput(inputSeq, latestReceivedInputSeq))
-        {
-            return;
-        }
-
-        if (input.sqrMagnitude > 1f)
-        {
-            input.Normalize();
-        }
-
-        if (aim.sqrMagnitude > 1f)
-        {
-            aim.Normalize();
-        }
-
-        pendingInputs[clientId] = new PlayerInputCommand
-        {
-            inputSeq = inputSeq,
-            input = input,
-            aim = aim,
-            buttons = buttons,
-        };
-
-        latestReceivedInputSeqs[clientId] = inputSeq;
+        inputBuffer.SetInput(clientId, inputSeq, input, aim, buttons);
     }
 
-    // Role: 서버 tick을 진행하고 플레이어 이동과 충돌을 계산한다.
-    // Parameters:
-    // - deltaTime: 이번 tick에서 사용할 시뮬레이션 시간
     public void Simulate(float deltaTime)
     {
         Tick++;
-        TickPortalTeleportCooldowns(deltaTime);
-        UpdateGameTimerAndTaggerTimes(deltaTime);
-        ApplyQueuedInputsForTick();
+        worldInteractionSystem.TickCooldowns(deltaTime);
+        if (gameMode.Tick(
+            players,
+            deltaTime,
+            gameEventQueue,
+            Tick,
+            collisionSystem.GetStageCenterPosition()))
+        {
+            MarkGameStateChanged();
+        }
+
+        playerSystem.ApplyQueuedInputs(players, inputBuffer);
 
         int subSteps = Mathf.Max(1, GameSimulationConfig.MovementSubSteps);
         float stepDeltaTime = deltaTime / subSteps;
 
         for (int i = 0; i < subSteps; i++)
         {
-            SimulateMovementStep(stepDeltaTime);
-            ResolvePortalTeleports();
+            playerSystem.SimulatePlayers(
+                players,
+                skillSystem,
+                collisionSystem,
+                stageDefinition,
+                stepDeltaTime);
+            worldInteractionSystem.ResolvePortalInteractions(
+                players,
+                playerSystem,
+                skillSystem,
+                collisionSystem);
             ResolvePlayerCollisions();
         }
     }
 
-    // Role: 특정 클라이언트의 서버 플레이어 상태 조회를 시도한다.
-    // Parameters:
-    // - clientId: 조회할 클라이언트 ID
-    // - player: 조회된 플레이어 상태
     public bool TryGetPlayer(ulong clientId, out PlayerState player)
     {
         return players.TryGetValue(clientId, out player);
     }
 
-    // Role: 현재 활성화된 스킬 스냅샷을 target에 복사한다.
-    // Parameters:
-    // - target: 스킬 스냅샷을 받을 리스트
+    public void CopyPlayerSnapshotsTo(List<PlayerSnapshotPacket> target)
+    {
+        snapshotBuilder.CopyPlayerSnapshotsTo(players, target);
+    }
+
     public void CopySkillSnapshotsTo(List<SkillSnapshotPacket> target)
     {
-        target.Clear();
-
-        foreach (var pair in players)
-        {
-            Skill_StateMachine skillStateMachine = pair.Value.skillStateMachine;
-            if (skillStateMachine == null)
-            {
-                continue;
-            }
-
-            if (skillStateMachine.TryGetSnapshot(out SkillSnapshotPacket snapshot))
-            {
-                target.Add(snapshot);
-            }
-        }
+        snapshotBuilder.CopySkillSnapshotsTo(skillSystem, target);
     }
 
     public void CopyGameStateEntriesTo(List<GameStateEntryPacket> target, bool taggersOnly)
     {
-        target.Clear();
-
-        foreach (var pair in players)
-        {
-            PlayerState player = pair.Value;
-            if (taggersOnly && !player.isTagger)
-            {
-                continue;
-            }
-
-            target.Add(new GameStateEntryPacket
-            {
-                clientId = player.clientId,
-                taggerTimeMs = SecondsToMilliseconds(player.taggerAccumulatedTime),
-                isTagger = player.isTagger
-            });
-        }
-
-        target.Sort(CompareLeaderboardEntries);
+        snapshotBuilder.CopyGameStateEntriesTo(players, target, taggersOnly);
     }
 
     public void CopyPendingGameEventsTo(List<GameEventEntryPacket> target)
     {
-        target.Clear();
-
-        int count = Mathf.Min(pendingGameEvents.Count, GameNetProtocol.MaxGameEventsPerBatch);
-        for (int i = 0; i < count; i++)
-        {
-            target.Add(pendingGameEvents[i]);
-        }
+        gameEventQueue.CopyPendingTo(target);
     }
 
     public void ClearPendingGameEvents(int eventCount)
     {
-        if (eventCount <= 0 || pendingGameEvents.Count == 0)
-        {
-            return;
-        }
-
-        if (eventCount >= pendingGameEvents.Count)
-        {
-            pendingGameEvents.Clear();
-            return;
-        }
-
-        pendingGameEvents.RemoveRange(0, eventCount);
+        gameEventQueue.Clear(eventCount);
     }
 
     public void CopyRosterEntriesTo(List<RosterEntryPacket> target)
     {
-        target.Clear();
-
-        foreach (var pair in players)
-        {
-            PlayerState player = pair.Value;
-            FixedString64Bytes nickname = default;
-            nickname.CopyFromTruncated(player.nickname);
-            byte characterId = player.characterStateMachine != null
-                ? player.characterStateMachine.State.characterId
-                : DefaultCharacterId;
-
-            target.Add(new RosterEntryPacket
-            {
-                clientId = player.clientId,
-                nickname = nickname,
-                characterId = characterId,
-                skillId = player.skillId
-            });
-        }
-
-        target.Sort(CompareRosterEntries);
+        snapshotBuilder.CopyRosterEntriesTo(players, target, DefaultCharacterId);
     }
 
-    // Role: 대기 중인 입력을 현재 tick의 플레이어 상태에 반영한다.
-    private void ApplyQueuedInputsForTick()
-    {
-        simulationTargets.Clear();
-
-        foreach (ulong clientId in players.Keys)
-        {
-            simulationTargets.Add(clientId);
-        }
-
-        for (int i = 0; i < simulationTargets.Count; i++)
-        {
-            ulong clientId = simulationTargets[i];
-
-            if (!pendingInputs.TryGetValue(clientId, out PlayerInputCommand command))
-            {
-                continue;
-            }
-
-            pendingInputs.Remove(clientId);
-            PlayerState player = players[clientId];
-
-            if (player.deathTimer > 0f)
-            {
-                ClearPlayerInput(ref player);
-                players[clientId] = player;
-                continue;
-            }
-
-            player.input = command.input;
-            bool isJumpPressed = command.input.y > JumpInputThreshold;
-            if (isJumpPressed && !player.isJumpPressed)
-            {
-                player.jumpQueued = true;
-            }
-
-            player.isJumpPressed = isJumpPressed;
-
-            bool isSkillPressed = (command.buttons & PlayerInputButtons.Skill1) != 0;
-            if (isSkillPressed && !player.isSkillPressed)
-            {
-                player.skillQueued = true;
-            }
-
-            player.isSkillPressed = isSkillPressed;
-
-            if (command.aim.sqrMagnitude > 0.0001f)
-            {
-                player.aim = command.aim.normalized;
-            }
-
-            player.buttons = command.buttons;
-
-            players[clientId] = player;
-        }
-    }
-
-    // Role: 한 서브스텝 동안 플레이어 이동과 Stage 충돌을 처리한다.
-    // Parameters:
-    // - deltaTime: 서브스텝에 사용할 시뮬레이션 시간
-    private void SimulateMovementStep(float deltaTime)
-    {
-        simulationTargets.Clear();
-
-        foreach (ulong clientId in players.Keys)
-        {
-            simulationTargets.Add(clientId);
-        }
-
-        for (int i = 0; i < simulationTargets.Count; i++)
-        {
-            ulong clientId = simulationTargets[i];
-            PlayerState player = players[clientId];
-
-            UpdateDeathTimerBeforeMove(ref player, deltaTime);
-            UpdateCoyoteTimeBeforeMove(ref player, deltaTime);
-
-            float horizontalInput = GetPlatformerHorizontalInput(player.input);
-            float verticalInput = GetPlatformerVerticalInput(player.input);
-            ApplyPlatformerVelocity(ref player, horizontalInput, verticalInput, deltaTime);
-            PrepareSkillMovement(ref player, deltaTime);
-
-            Vector2 collisionCenter = player.position + player.collisionOffset;
-            StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
-                collisionCenter,
-                player.velocity * deltaTime,
-                player.collisionHalfExtent
-            );
-
-            player.position = moveResult.position - player.collisionOffset;
-            player.isGrounded = moveResult.isGrounded;
-            if (moveResult.isGrounded)
-            {
-                player.groundSurfacePhysicType = moveResult.groundSurfacePhysicType;
-            }
-
-            if (moveResult.isGrounded && player.velocity.y < 0f)
-            {
-                player.velocity.y = 0f;
-                player.coyoteTimeRemaining = player.movementStats.coyoteTime;
-            }
-
-            if (moveResult.hitCeiling && player.velocity.y > 0f)
-            {
-                player.velocity.y = 0f;
-            }
-
-            UpdateWallStickAfterStageMove(ref player, moveResult, horizontalInput, verticalInput, deltaTime);
-            SimulateSkill(ref player, deltaTime);
-            UpdatePlayerPresentationState(ref player);
-            UpdateCharacterStateMachine(ref player);
-
-            players[clientId] = player;
-        }
-    }
-
-    private void ResolvePortalTeleports()
-    {
-        CollectSkillWorldContributions();
-        if (skillWorldContributions.PortalPairCount <= 0)
-        {
-            return;
-        }
-
-        simulationTargets.Clear();
-        foreach (ulong clientId in players.Keys)
-        {
-            simulationTargets.Add(clientId);
-        }
-
-        for (int i = 0; i < simulationTargets.Count; i++)
-        {
-            ulong clientId = simulationTargets[i];
-            PlayerState player = players[clientId];
-            if (TryTeleportPlayerThroughPortal(ref player))
-            {
-                UpdateCharacterStateMachine(ref player);
-                players[clientId] = player;
-            }
-        }
-    }
-
-    private void CollectSkillWorldContributions()
-    {
-        skillWorldContributions.Clear();
-
-        foreach (var pair in players)
-        {
-            pair.Value.skillStateMachine?.CollectWorldContributions(skillWorldContributions);
-        }
-    }
-
-    private void TickPortalTeleportCooldowns(float deltaTime)
-    {
-        if (portalTeleportCooldowns.Count <= 0)
-        {
-            return;
-        }
-
-        float safeDeltaTime = Mathf.Max(0f, deltaTime);
-        if (safeDeltaTime <= 0f)
-        {
-            return;
-        }
-
-        portalTeleportCooldownKeys.Clear();
-        foreach (var pair in portalTeleportCooldowns)
-        {
-            portalTeleportCooldownKeys.Add(pair.Key);
-        }
-
-        for (int i = 0; i < portalTeleportCooldownKeys.Count; i++)
-        {
-            PortalTeleportCooldownKey key = portalTeleportCooldownKeys[i];
-            float remaining = portalTeleportCooldowns[key] - safeDeltaTime;
-            if (remaining <= 0f)
-            {
-                portalTeleportCooldowns.Remove(key);
-                continue;
-            }
-
-            portalTeleportCooldowns[key] = remaining;
-        }
-    }
-
-    private void RemovePortalTeleportCooldownsForClient(ulong clientId)
-    {
-        if (portalTeleportCooldowns.Count <= 0)
-        {
-            return;
-        }
-
-        portalTeleportCooldownKeys.Clear();
-        foreach (var pair in portalTeleportCooldowns)
-        {
-            if (pair.Key.ContainsClient(clientId))
-            {
-                portalTeleportCooldownKeys.Add(pair.Key);
-            }
-        }
-
-        for (int i = 0; i < portalTeleportCooldownKeys.Count; i++)
-        {
-            portalTeleportCooldowns.Remove(portalTeleportCooldownKeys[i]);
-        }
-    }
-
-    private bool TryTeleportPlayerThroughPortal(ref PlayerState player)
-    {
-        int portalPairCount = skillWorldContributions.PortalPairCount;
-        for (int i = 0; i < portalPairCount; i++)
-        {
-            PortalPairWorldContribution pair = skillWorldContributions.GetPortalPair(i);
-            PortalTeleportCooldownKey cooldownKey = new PortalTeleportCooldownKey(
-                player.clientId,
-                pair.ownerClientId);
-
-            if (portalTeleportCooldowns.ContainsKey(cooldownKey))
-            {
-                continue;
-            }
-
-            if (IsPlayerOverlappingPortal(player, pair.first))
-            {
-                TeleportPlayerToPortal(ref player, pair.second);
-                StartPortalTeleportCooldown(cooldownKey, pair.first.teleportCooldownSeconds);
-                return true;
-            }
-
-            if (IsPlayerOverlappingPortal(player, pair.second))
-            {
-                TeleportPlayerToPortal(ref player, pair.first);
-                StartPortalTeleportCooldown(cooldownKey, pair.second.teleportCooldownSeconds);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private void StartPortalTeleportCooldown(PortalTeleportCooldownKey cooldownKey, float cooldownSeconds)
-    {
-        float safeCooldownSeconds = Mathf.Max(0f, cooldownSeconds);
-        if (safeCooldownSeconds > 0f)
-        {
-            portalTeleportCooldowns[cooldownKey] = safeCooldownSeconds;
-        }
-    }
-
-    private bool IsPlayerOverlappingPortal(PlayerState player, PortalEndpointWorldContribution portal)
-    {
-        Vector2 playerCenter = player.position + player.collisionOffset;
-        Vector2 delta = playerCenter - portal.position;
-        return Mathf.Abs(delta.x) <= player.collisionHalfExtent.x + portal.halfExtent.x
-            && Mathf.Abs(delta.y) <= player.collisionHalfExtent.y + portal.halfExtent.y;
-    }
-
-    private void TeleportPlayerToPortal(ref PlayerState player, PortalEndpointWorldContribution target)
-    {
-        StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
-            target.position,
-            Vector2.zero,
-            player.collisionHalfExtent);
-
-        player.position = moveResult.position - player.collisionOffset;
-        player.isGrounded = moveResult.isGrounded;
-        if (moveResult.isGrounded)
-        {
-            player.groundSurfacePhysicType = moveResult.groundSurfacePhysicType;
-        }
-        player.isWallSticking = false;
-        player.wallNormalX = 0;
-        player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-    }
-
-    // Role: 플레이어끼리 겹친 경우 SAT 결과로 위치와 속도를 보정한다.
     private void ResolvePlayerCollisions()
     {
-        simulationTargets.Clear();
+        playerSystem.ResolvePlayerCollisions(players, collisionSystem, playerCollisionEvents);
 
-        foreach (ulong clientId in players.Keys)
+        for (int i = 0; i < playerCollisionEvents.Count; i++)
         {
-            simulationTargets.Add(clientId);
-        }
-
-        for (int i = 0; i < simulationTargets.Count; i++)
-        {
-            for (int j = i + 1; j < simulationTargets.Count; j++)
-            {
-                ulong firstId = simulationTargets[i];
-                ulong secondId = simulationTargets[j];
-
-                PlayerState first = players[firstId];
-                PlayerState second = players[secondId];
-
-                if (!collisionSystem.TryGetPlayerSatCollision(
-                    first.position + first.collisionOffset,
-                    second.position + second.collisionOffset,
-                    first.collisionHalfExtent,
-                    second.collisionHalfExtent,
-                    firstId,
-                    secondId,
-                    out Vector2 normal,
-                    out float penetration))
-                {
-                    continue;
-                }
-
-                Vector2 correction = normal * (penetration * 0.5f);
-
-                first.position -= correction;
-                second.position += correction;
-
-                first.velocity = collisionSystem.RemoveVelocityIntoNormal(first.velocity, normal);
-                second.velocity = collisionSystem.RemoveVelocityIntoNormal(second.velocity, -normal);
-
-                ApplyPlayerGroundContact(ref first, ref second, normal);
-                Vector2 taggerCollisionPoint = (first.position + second.position) * 0.5f;
-                TryResolveTaggerCollision(ref first, ref second, taggerCollisionPoint);
-                UpdatePlayerPresentationState(ref first);
-                UpdateCharacterStateMachine(ref first);
-                UpdatePlayerPresentationState(ref second);
-                UpdateCharacterStateMachine(ref second);
-
-                players[firstId] = first;
-                players[secondId] = second;
-            }
-        }
-    }
-
-    // Role: 플레이어끼리 수직으로 접촉한 경우 위쪽 플레이어의 Ground 상태를 갱신한다.
-    // Parameters:
-    // - first: 첫 번째 플레이어 데이터
-    // - second: 두 번째 플레이어 데이터
-    // - normal: 첫 번째 플레이어에서 두 번째 플레이어를 밀어내는 방향
-    private void ApplyPlayerGroundContact(
-        ref PlayerState first,
-        ref PlayerState second,
-        Vector2 normal)
-    {
-        if (normal.y > 0.5f)
-        {
-            second.isGrounded = true;
-            second.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
-            second.isWallSticking = false;
-            second.wallNormalX = 0;
-            second.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-            second.coyoteTimeRemaining = second.movementStats.coyoteTime;
-            if (second.velocity.y < 0f)
-            {
-                second.velocity.y = 0f;
-            }
-        }
-        else if (normal.y < -0.5f)
-        {
-            first.isGrounded = true;
-            first.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
-            first.isWallSticking = false;
-            first.wallNormalX = 0;
-            first.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-            first.coyoteTimeRemaining = first.movementStats.coyoteTime;
-            if (first.velocity.y < 0f)
-            {
-                first.velocity.y = 0f;
-            }
-        }
-    }
-
-    // Role: 서버 기준 플레이어 논리 상태를 클라이언트 표현용 상태값으로 갱신한다.
-    // Parameters:
-    // - player: 상태를 갱신할 플레이어 데이터
-    private void UpdatePlayerPresentationState(ref PlayerState player)
-    {
-        bool isMovingHorizontally = Mathf.Abs(player.velocity.x) > MovementStateThresholdSqr;
-        PlayerLocomotionState locomotionState;
-        if (player.deathTimer > 0f)
-        {
-            locomotionState = PlayerLocomotionState.Death;
-        }
-        else if (player.isWallSticking)
-        {
-            locomotionState = PlayerLocomotionState.WallStick;
-        }
-        else if (!player.isGrounded)
-        {
-            locomotionState = player.velocity.y > 0f
-                ? PlayerLocomotionState.Jump
-                : PlayerLocomotionState.Fall;
-        }
-        else
-        {
-            locomotionState = isMovingHorizontally ? PlayerLocomotionState.Run : PlayerLocomotionState.Idle;
-        }
-
-        CharacterRuntimeState characterState = player.characterStateMachine.State;
-        characterState.locomotionState = locomotionState;
-
-        float horizontalInput = GetPlatformerHorizontalInput(player.input);
-        if (horizontalInput > FacingDirectionThreshold)
-        {
-            characterState.facingSign = 1;
-        }
-        else if (horizontalInput < -FacingDirectionThreshold)
-        {
-            characterState.facingSign = -1;
-        }
-
-        player.characterStateMachine.ApplyState(characterState);
-    }
-
-    // Role: 플레이어에게 장착된 스킬 상태 머신을 서버 tick 기준으로 갱신한다.
-    // Parameters:
-    // - player: 스킬을 사용하는 플레이어 데이터
-    // - deltaTime: 이번 시뮬레이션에 사용할 시간
-    private void SimulateSkill(ref PlayerState player, float deltaTime)
-    {
-        if (player.skillStateMachine == null)
-        {
-            player.skillQueued = false;
-            return;
-        }
-
-        bool skillPressedThisTick = player.skillQueued;
-        player.skillQueued = false;
-
-        player.skillStateMachine.Simulate(
-            ref player,
-            collisionSystem,
-            deltaTime,
-            skillPressedThisTick);
-    }
-
-    private void PrepareSkillMovement(ref PlayerState player, float deltaTime)
-    {
-        if (player.skillStateMachine == null)
-        {
-            return;
-        }
-
-        player.skillStateMachine.PrepareMovement(
-            ref player,
-            collisionSystem,
-            deltaTime);
-    }
-
-    private void UpdateDeathTimerBeforeMove(ref PlayerState player, float deltaTime)
-    {
-        if (player.deathTimer <= 0f)
-        {
-            return;
-        }
-
-        player.deathTimer = Mathf.Max(0f, player.deathTimer - deltaTime);
-        ClearPlayerInput(ref player);
-    }
-
-    private void ClearPlayerInput(ref PlayerState player)
-    {
-        player.input = Vector2.zero;
-        player.buttons = PlayerInputButtons.None;
-        player.isJumpPressed = false;
-        player.jumpQueued = false;
-        player.isSkillPressed = false;
-        player.skillQueued = false;
-    }
-
-    private void TryResolveTaggerCollision(
-        ref PlayerState first,
-        ref PlayerState second,
-        Vector2 collisionPoint)
-    {
-        if (CanTagPlayer(first, second))
-        {
-            TransferTagger(ref first, ref second, collisionPoint);
-            return;
-        }
-
-        if (CanTagPlayer(second, first))
-        {
-            TransferTagger(ref second, ref first, collisionPoint);
-        }
-    }
-
-    private bool CanTagPlayer(PlayerState tagger, PlayerState target)
-    {
-        return !isGameEnded
-            && tagger.isTagger
-            && tagger.deathTimer <= 0f
-            && !target.isTagger
-            && target.deathTimer <= 0f;
-    }
-
-    private void TransferTagger(
-        ref PlayerState oldTagger,
-        ref PlayerState newTagger,
-        Vector2 transferPosition)
-    {
-        oldTagger.isTagger = false;
-        newTagger.isTagger = true;
-        newTagger.deathTimer = DeathInputLockSeconds;
-        newTagger.isWallSticking = false;
-        newTagger.wallNormalX = 0;
-        newTagger.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-        ClearPlayerInput(ref newTagger);
-        QueueGameEvent(
-            GameEventType.TaggerChanged,
-            oldTagger.clientId,
-            newTagger.clientId,
-            GameVfxType.None,
-            transferPosition,
-            0f);
-        QueueSpawnVfx(
-            GameVfxType.TaggerTransfer,
-            oldTagger.clientId,
-            newTagger.clientId,
-            transferPosition,
-            0f);
-        MarkGameStateChanged();
-    }
-
-    private void AssignFallbackTagger(ulong previousTaggerClientId)
-    {
-        ulong fallbackClientId = 0;
-        bool hasFallback = false;
-
-        foreach (ulong clientId in players.Keys)
-        {
-            fallbackClientId = clientId;
-            hasFallback = true;
-            break;
-        }
-
-        if (!hasFallback)
-        {
-            return;
-        }
-
-        PlayerState player = players[fallbackClientId];
-        player.isTagger = true;
-        player.deathTimer = 0f;
-        players[fallbackClientId] = player;
-        QueueGameEvent(
-            GameEventType.TaggerChanged,
-            previousTaggerClientId,
-            fallbackClientId,
-            GameVfxType.None,
-            player.position,
-            0f);
-        MarkGameStateChanged();
-    }
-
-    // Role: 첫 플레이어가 등록되면 게임 타이머를 시작한다.
-    private void StartGameIfNeeded(ulong starterClientId)
-    {
-        if (isGameStarted)
-        {
-            return;
-        }
-
-        isGameStarted = true;
-        isGameEnded = gameDurationSeconds <= 0f;
-        gameElapsedSeconds = isGameEnded ? gameDurationSeconds : 0f;
-        QueueGameEvent(
-            GameEventType.GameStarted,
-            starterClientId,
-            starterClientId,
-            GameVfxType.None,
-            collisionSystem.GetStageCenterPosition(),
-            0f);
-
-        if (isGameEnded)
-        {
-            QueueGameEvent(
-                GameEventType.GameEnded,
-                0,
-                0,
-                GameVfxType.None,
-                collisionSystem.GetStageCenterPosition(),
-                0f);
-        }
-
-        MarkGameStateChanged();
-    }
-
-    private void UpdateGameTimerAndTaggerTimes(float deltaTime)
-    {
-        if (!isGameStarted || isGameEnded)
-        {
-            return;
-        }
-
-        float safeDeltaTime = Mathf.Max(0f, deltaTime);
-        if (safeDeltaTime <= 0f)
-        {
-            return;
-        }
-
-        gameElapsedSeconds = Mathf.Min(gameDurationSeconds, gameElapsedSeconds + safeDeltaTime);
-
-        simulationTargets.Clear();
-        foreach (ulong clientId in players.Keys)
-        {
-            simulationTargets.Add(clientId);
-        }
-
-        for (int i = 0; i < simulationTargets.Count; i++)
-        {
-            ulong clientId = simulationTargets[i];
-            PlayerState player = players[clientId];
-            if (!player.isTagger)
+            if (!TryGetPlayerCollision(
+                playerCollisionEvents[i],
+                out PlayerObject firstObject,
+                out PlayerObject secondObject))
             {
                 continue;
             }
 
-            player.taggerAccumulatedTime += safeDeltaTime;
-            players[clientId] = player;
-        }
+            if (!players.TryGetValue(firstObject.playerId, out PlayerState first)
+                || !players.TryGetValue(secondObject.playerId, out PlayerState second))
+            {
+                continue;
+            }
 
-        if (gameElapsedSeconds >= gameDurationSeconds)
-        {
-            isGameEnded = true;
-            QueueGameEvent(
-                GameEventType.GameEnded,
-                0,
-                0,
-                GameVfxType.None,
-                collisionSystem.GetStageCenterPosition(),
-                0f);
-            MarkGameStateChanged();
+            Vector2 taggerCollisionPoint = (first.position + second.position) * 0.5f;
+            if (gameMode.TryResolvePlayerCollision(
+                ref first,
+                ref second,
+                taggerCollisionPoint,
+                gameEventQueue,
+                Tick))
+            {
+                MarkGameStateChanged();
+            }
+
+            ServerPlayerSystem.UpdateRenderState(ref first);
+            ServerPlayerSystem.UpdateCharacterStateMachine(ref first);
+            ServerPlayerSystem.UpdateRenderState(ref second);
+            ServerPlayerSystem.UpdateCharacterStateMachine(ref second);
+
+            players[firstObject.playerId] = first;
+            players[secondObject.playerId] = second;
         }
     }
 
-    private void QueueSpawnVfx(
-        GameVfxType vfxType,
-        ulong subjectClientId,
-        ulong targetClientId,
-        Vector2 position,
-        float rotation)
+    private static bool TryGetPlayerCollision(
+        WorldCollisionEvent collisionEvent,
+        out PlayerObject firstPlayer,
+        out PlayerObject secondPlayer)
     {
-        QueueGameEvent(
-            GameEventType.SpawnVfx,
-            subjectClientId,
-            targetClientId,
-            vfxType,
-            position,
-            rotation);
-    }
-
-    private void QueueGameEvent(
-        GameEventType eventType,
-        ulong subjectClientId,
-        ulong targetClientId,
-        GameVfxType vfxType,
-        Vector2 position,
-        float rotation)
-    {
-        if (eventType == GameEventType.None)
-        {
-            return;
-        }
-
-        pendingGameEvents.Add(new GameEventEntryPacket
-        {
-            eventSeq = nextGameEventSeq,
-            serverTick = Tick,
-            serverTime = Tick / GameNetProtocol.ServerTickRate,
-            eventType = eventType,
-            subjectClientId = subjectClientId,
-            targetClientId = targetClientId,
-            vfxType = vfxType,
-            position = position,
-            rotation = rotation
-        });
-        nextGameEventSeq++;
+        firstPlayer = collisionEvent.first as PlayerObject;
+        secondPlayer = collisionEvent.second as PlayerObject;
+        return firstPlayer != null && secondPlayer != null;
     }
 
     private void MarkGameStateChanged()
     {
         GameStateVersion++;
-    }
-
-    private static uint SecondsToMilliseconds(float seconds)
-    {
-        float milliseconds = Mathf.Max(0f, seconds) * 1000f;
-        if (milliseconds >= uint.MaxValue)
-        {
-            return uint.MaxValue;
-        }
-
-        return (uint)Mathf.Round(milliseconds);
-    }
-
-    private static int CompareLeaderboardEntries(
-        GameStateEntryPacket first,
-        GameStateEntryPacket second)
-    {
-        int timeComparison = first.taggerTimeMs.CompareTo(second.taggerTimeMs);
-        if (timeComparison != 0)
-        {
-            return timeComparison;
-        }
-
-        return first.clientId.CompareTo(second.clientId);
-    }
-
-    private static int CompareRosterEntries(
-        RosterEntryPacket first,
-        RosterEntryPacket second)
-    {
-        return first.clientId.CompareTo(second.clientId);
-    }
-
-    // Role: 이번 이동 전 사용할 coyote time을 갱신한다.
-    // Parameters:
-    // - player: coyote time을 갱신할 플레이어 데이터
-    // - deltaTime: 이번 시뮬레이션에 사용할 시간
-    private void UpdateCoyoteTimeBeforeMove(ref PlayerState player, float deltaTime)
-    {
-        if (player.isGrounded)
-        {
-            player.coyoteTimeRemaining = player.movementStats.coyoteTime;
-            return;
-        }
-
-        if (player.isWallSticking)
-        {
-            player.coyoteTimeRemaining = 0f;
-            return;
-        }
-
-        player.coyoteTimeRemaining = Mathf.Max(0f, player.coyoteTimeRemaining - deltaTime);
-    }
-
-    // Role: 점프 입력과 중력을 서버 기준 플레이어 속도에 반영한다.
-    // Parameters:
-    // - player: 속도를 갱신할 플레이어 데이터
-    // - deltaTime: 이번 시뮬레이션에 사용할 시간
-    private void ApplyJumpAndGravity(ref PlayerState player, float deltaTime)
-    {
-        bool wantsGroundJump = player.isGrounded && player.isJumpPressed;
-        bool wantsCoyoteJump = !player.isGrounded
-            && player.coyoteTimeRemaining > 0f
-            && player.jumpQueued;
-
-        if (wantsGroundJump || wantsCoyoteJump)
-        {
-            StagePhysicsModifier jumpModifier = ResolveJumpPhysicsModifier(player);
-            player.velocity.y = player.movementStats.jumpVelocity * jumpModifier.JumpVelocityMultiplier;
-            player.isGrounded = false;
-            player.isWallSticking = false;
-            player.wallNormalX = 0;
-            player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-            player.coyoteTimeRemaining = 0f;
-        }
-
-        player.jumpQueued = false;
-
-        float gravity = player.velocity.y > 0f
-            ? player.movementStats.upGravity
-            : player.movementStats.downGravity;
-
-        StagePhysicsModifier airModifier = ResolveAirPhysicsModifier();
-        gravity *= airModifier.GravityScale;
-        player.velocity.y += gravity * deltaTime;
-
-        float maxFallSpeed = player.movementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
-        player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
-    }
-
-    // Role: 플랫폼 입력 조합에 따라 일반 이동, 점프, WallStick 이동, WallStick 점프 속도를 계산한다.
-    // Parameters:
-    // - player: 속도를 갱신할 플레이어 데이터
-    // - horizontalInput: 플랫폼 수평 입력
-    // - verticalInput: 플랫폼 수직 입력
-    // - deltaTime: 이번 시뮬레이션에 사용할 시간
-    private void ApplyPlatformerVelocity(
-        ref PlayerState player,
-        float horizontalInput,
-        float verticalInput,
-        float deltaTime)
-    {
-        if (player.isWallSticking && player.wallNormalX != 0)
-        {
-            if (verticalInput > JumpInputThreshold
-                && !IsMovingIntoWall(horizontalInput, player.wallNormalX))
-            {
-                float wallExitSpeedMultiplier = IsMovingAwayFromWall(horizontalInput, player.wallNormalX)
-                    ? 1f
-                    : player.movementStats.wallMoveSpeedMultiplier;
-
-                player.velocity.x = player.wallNormalX * player.speed * wallExitSpeedMultiplier;
-                player.velocity.y = player.movementStats.jumpVelocity
-                    * ResolveJumpPhysicsModifier(player).JumpVelocityMultiplier;
-                player.isGrounded = false;
-                player.isWallSticking = false;
-                player.wallNormalX = 0;
-                player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-                player.jumpQueued = false;
-                player.coyoteTimeRemaining = 0f;
-                return;
-            }
-
-            if (IsMovingIntoWall(horizontalInput, player.wallNormalX))
-            {
-                player.velocity.x = horizontalInput * player.speed;
-                player.velocity.y = GetWallStickVerticalSpeed(
-                    player,
-                    verticalInput,
-                    deltaTime);
-                player.isGrounded = false;
-                player.jumpQueued = false;
-                return;
-            }
-
-            player.isWallSticking = false;
-            player.wallNormalX = 0;
-            player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-        }
-
-        if (IsUsingSwingMovement(player))
-        {
-            ApplySwingGravity(ref player, deltaTime);
-            return;
-        }
-
-        ApplyPlatformerHorizontalVelocity(ref player, horizontalInput, deltaTime);
-        ApplyJumpAndGravity(ref player, deltaTime);
-    }
-
-    private bool IsUsingSwingMovement(PlayerState player)
-    {
-        return !player.isGrounded
-            && player.skillStateMachine != null
-            && player.skillStateMachine.UsesSwingMovement;
-    }
-
-    private void ApplySwingGravity(ref PlayerState player, float deltaTime)
-    {
-        player.jumpQueued = false;
-
-        StagePhysicsModifier airModifier = ResolveAirPhysicsModifier();
-        float gravity = player.movementStats.downGravity * airModifier.GravityScale;
-        player.velocity.y += gravity * deltaTime;
-
-        float maxFallSpeed = player.movementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
-        player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
-    }
-
-    private void ApplyPlatformerHorizontalVelocity(
-        ref PlayerState player,
-        float horizontalInput,
-        float deltaTime)
-    {
-        StagePhysicsModifier groundModifier = ResolveGroundPhysicsModifier(player);
-        float targetVelocityX = horizontalInput * player.speed;
-        if (player.isGrounded)
-        {
-            targetVelocityX *= groundModifier.MoveSpeedMultiplier;
-        }
-
-        float currentVelocityX = player.velocity.x;
-        float inputMagnitude = Mathf.Abs(horizontalInput);
-
-        if (inputMagnitude <= FacingDirectionThreshold)
-        {
-            float deceleration = player.isGrounded
-                ? player.movementStats.groundDeceleration
-                : player.movementStats.airDeceleration;
-            if (player.isGrounded)
-            {
-                deceleration *= groundModifier.GroundDecelerationMultiplier;
-            }
-
-            player.velocity.x = Mathf.MoveTowards(currentVelocityX, 0f, deceleration * deltaTime);
-            return;
-        }
-
-        float acceleration = player.isGrounded
-            ? player.movementStats.groundAcceleration
-            : player.movementStats.airAcceleration;
-        if (player.isGrounded)
-        {
-            acceleration *= groundModifier.GroundAccelerationMultiplier;
-        }
-
-        bool sameDirection = Mathf.Sign(currentVelocityX) == Mathf.Sign(targetVelocityX);
-        bool isOverTargetSpeed = sameDirection
-            && Mathf.Abs(currentVelocityX) > Mathf.Abs(targetVelocityX);
-
-        float overSpeedDeceleration = player.movementStats.overSpeedDeceleration;
-        if (player.isGrounded)
-        {
-            overSpeedDeceleration *= groundModifier.OverSpeedDecelerationMultiplier;
-        }
-
-        float maxDelta = isOverTargetSpeed
-            ? overSpeedDeceleration * deltaTime
-            : acceleration * deltaTime;
-
-        player.velocity.x = Mathf.MoveTowards(currentVelocityX, targetVelocityX, maxDelta);
-    }
-
-    // Role: Stage 이동 결과를 바탕으로 WallStick 유지 여부와 벽 법선 방향을 갱신한다.
-    // Parameters:
-    // - player: 벽 접촉 상태를 갱신할 플레이어 데이터
-    // - moveResult: Stage 충돌 이동 결과
-    // - horizontalInput: 플랫폼 수평 입력
-    // - verticalInput: 플랫폼 수직 입력
-    private void UpdateWallStickAfterStageMove(
-        ref PlayerState player,
-        StageCollisionMoveResult moveResult,
-        float horizontalInput,
-        float verticalInput,
-        float deltaTime)
-    {
-        bool canWallStick = !moveResult.isGrounded
-            && !moveResult.hitCeiling
-            && moveResult.hitWall
-            && moveResult.wallNormalX != 0
-            && IsMovingIntoWall(horizontalInput, moveResult.wallNormalX);
-
-        if (!canWallStick)
-        {
-            if (moveResult.isGrounded || moveResult.hitCeiling || !moveResult.hitWall)
-            {
-                player.isWallSticking = false;
-                player.wallNormalX = 0;
-                player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-            }
-
-            return;
-        }
-
-        player.isWallSticking = true;
-        player.wallNormalX = moveResult.wallNormalX;
-        player.wallSurfacePhysicType = moveResult.wallSurfacePhysicType;
-        player.isGrounded = false;
-        player.coyoteTimeRemaining = 0f;
-        player.velocity.x = 0f;
-        player.velocity.y = GetWallStickVerticalSpeed(
-            player,
-            verticalInput,
-            deltaTime);
-    }
-
-    // Role: WallStick 중 벽면을 따라 이동할 수직 속도를 계산한다.
-    // Parameters:
-    // - verticalInput: 플랫폼 수직 입력
-    // - playerSpeed: 플레이어 기본 이동 속도
-    private float GetWallStickVerticalSpeed(
-        PlayerState player,
-        float verticalInput,
-        float deltaTime)
-    {
-        StagePhysicsModifier wallModifier = ResolveWallPhysicsModifier(player);
-        float wallMoveSpeed = player.speed * player.movementStats.wallMoveSpeedMultiplier;
-        if (verticalInput > JumpInputThreshold)
-        {
-            return wallMoveSpeed * wallModifier.WallUpMoveMultiplier;
-        }
-
-        if (verticalInput < -JumpInputThreshold)
-        {
-            return -wallMoveSpeed * wallModifier.WallDownMoveMultiplier;
-        }
-
-        if (wallModifier.WallIdleSlideAcceleration <= 0f || wallModifier.WallMaxSlideSpeed <= 0f)
-        {
-            return 0f;
-        }
-
-        return Mathf.MoveTowards(
-            player.velocity.y,
-            -wallModifier.WallMaxSlideSpeed,
-            wallModifier.WallIdleSlideAcceleration * Mathf.Max(0f, deltaTime));
-    }
-
-    // Role: 플랫폼 이동에 사용할 수평 입력값을 계산한다.
-    // Parameters:
-    // - input: 클라이언트에서 전달된 이동 입력
-    private float GetPlatformerHorizontalInput(Vector2 input)
-    {
-        float horizontal = Mathf.Clamp(input.x, -1f, 1f);
-        if (Mathf.Abs(horizontal) > 0.5f)
-        {
-            return Mathf.Sign(horizontal);
-        }
-
-        return horizontal;
-    }
-
-    // Role: 플랫폼 이동에 사용할 수직 입력값을 계산한다.
-    // Parameters:
-    // - input: 클라이언트에서 전달된 이동 입력
-    private float GetPlatformerVerticalInput(Vector2 input)
-    {
-        float vertical = Mathf.Clamp(input.y, -1f, 1f);
-        if (Mathf.Abs(vertical) > 0.5f)
-        {
-            return Mathf.Sign(vertical);
-        }
-
-        return vertical;
-    }
-
-    // Role: 수평 입력이 현재 벽을 향하는지 판단한다.
-    // Parameters:
-    // - horizontalInput: 플랫폼 수평 입력
-    // - wallNormalX: 벽이 플레이어를 밀어내는 X 방향
-    private bool IsMovingIntoWall(float horizontalInput, sbyte wallNormalX)
-    {
-        return wallNormalX != 0
-            && Mathf.Abs(horizontalInput) > FacingDirectionThreshold
-            && Mathf.Sign(horizontalInput) == -wallNormalX;
-    }
-
-    // Role: 수평 입력이 현재 벽 반대 방향인지 판단한다.
-    // Parameters:
-    // - horizontalInput: 플랫폼 수평 입력
-    // - wallNormalX: 벽이 플레이어를 밀어내는 X 방향
-    private bool IsMovingAwayFromWall(float horizontalInput, sbyte wallNormalX)
-    {
-        return wallNormalX != 0
-            && Mathf.Abs(horizontalInput) > FacingDirectionThreshold
-            && Mathf.Sign(horizontalInput) == wallNormalX;
-    }
-
-    // StagePhysicsModifier lookup helpers.
-    private StagePhysicsModifier ResolveGroundPhysicsModifier(PlayerState player)
-    {
-        if (!player.isGrounded)
-        {
-            return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
-        }
-
-        return ResolveSurfacePhysicsModifier(player.groundSurfacePhysicType);
-    }
-
-    private StagePhysicsModifier ResolveJumpPhysicsModifier(PlayerState player)
-    {
-        if (player.isGrounded || player.coyoteTimeRemaining > 0f)
-        {
-            return ResolveSurfacePhysicsModifier(player.groundSurfacePhysicType);
-        }
-
-        return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
-    }
-
-    private StagePhysicsModifier ResolveWallPhysicsModifier(PlayerState player)
-    {
-        if (!player.isWallSticking)
-        {
-            return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
-        }
-
-        return ResolveSurfacePhysicsModifier(player.wallSurfacePhysicType);
-    }
-
-    private StagePhysicsModifier ResolveAirPhysicsModifier()
-    {
-        return ResolveSurfacePhysicsModifier(StageSurfacePhysicType.Normal);
-    }
-
-    private StagePhysicsModifier ResolveSurfacePhysicsModifier(StageSurfacePhysicType surfacePhysicType)
-    {
-        if (stageDefinition == null)
-        {
-            return StagePhysicsModifier.Normal;
-        }
-
-        return stageDefinition.ResolvePhysicsModifier(surfacePhysicType);
     }
 
     private Vector2 ResolveCollisionHalfExtent(byte characterId)
@@ -1567,9 +363,6 @@ public class Server_GamePlay
         return DefaultCollisionExtent;
     }
 
-    // Role: 캐릭터 정의에서 서버 충돌에 사용할 BoxCollider2D Offset을 조회한다.
-    // Parameters:
-    // - characterId: 조회할 캐릭터 ID
     private Vector2 ResolveCollisionOffset(byte characterId)
     {
         CharacterDefinition definition = ResolveCharacterDefinition(characterId);
@@ -1581,9 +374,6 @@ public class Server_GamePlay
         return DefaultCollisionOffset;
     }
 
-    // Role: 캐릭터 정의에서 서버 이동 연산에 사용할 이동 스탯을 조회한다.
-    // Parameters:
-    // - characterId: 조회할 캐릭터 ID
     private CharacterMovementStats ResolveMovementStats(byte characterId)
     {
         CharacterDefinition definition = ResolveCharacterDefinition(characterId);
@@ -1595,9 +385,6 @@ public class Server_GamePlay
         return DefaultMovementStats;
     }
 
-    // Role: 스킬 ID에 맞는 SkillDefinition을 조회한다.
-    // Parameters:
-    // - skillId: 조회할 스킬 ID
     private SkillDefinition ResolveSkillDefinition(byte skillId)
     {
         if (skillCatalog != null && skillCatalog.TryGet(skillId, out SkillDefinition definition))
@@ -1647,30 +434,4 @@ public class Server_GamePlay
         return trimmedNickname;
     }
 
-    // Role: 서버 플레이어 물리 상태를 캐릭터 상태 머신에 반영한다.
-    // Parameters:
-    // - player: 상태를 반영할 플레이어 데이터
-    private void UpdateCharacterStateMachine(ref PlayerState player)
-    {
-        CharacterRuntimeState characterState = player.characterStateMachine.State;
-        characterState.clientId = player.clientId;
-        characterState.position = player.position;
-        characterState.velocity = player.velocity;
-        characterState.aim = player.aim;
-        player.characterStateMachine.ApplyState(characterState);
-    }
-
-    // Role: 입력 시퀀스 번호가 현재 기록보다 최신인지 판단한다.
-    // Parameters:
-    // - incomingSeq: 새로 수신한 입력 시퀀스
-    // - currentSeq: 현재 기록된 최신 입력 시퀀스
-    private bool IsNewerInput(ushort incomingSeq, ushort currentSeq)
-    {
-        if (incomingSeq == currentSeq)
-        {
-            return false;
-        }
-
-        return unchecked((short)(incomingSeq - currentSeq)) > 0;
-    }
 }

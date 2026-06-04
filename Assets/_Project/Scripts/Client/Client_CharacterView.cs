@@ -1,4 +1,5 @@
-using UnityEngine;
+﻿using UnityEngine;
+using PlayerRenderState = PlayerRuntimeState;
 using UnityEngine.Animations;
 using UnityEngine.Playables;
 
@@ -35,7 +36,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         ResolveNameplateAnchor();
     }
 
-    // Role: 인스펙터에서 누락된 렌더링 참조를 보조 연결한다.
     private void OnValidate()
     {
         if (animator == null)
@@ -63,17 +63,14 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
-    // Role: 캐릭터 정의와 클라이언트 ID를 사용해 View 런타임 상태를 초기화한다.
-    // Parameters:
-    // - clientId: 이 View가 표시할 클라이언트 ID
-    // - definition: 캐릭터 View와 애니메이션 데이터 정의
+    // 캐릭터 정의와 클라이언트 ID를 사용해 View 런타임 상태를 초기화합니다.
     public void Initialize(ulong clientId, CharacterDefinition definition)
     {
         byte characterId = definition != null ? definition.CharacterId : (byte)0;
         animationData = definition != null ? definition.AnimationData : null;
         ApplyAnimatorController(animationData);
         stateMachine = CharacterStateMachineFactory.Create(characterId);
-        stateMachine.ApplyState(new CharacterRuntimeState
+        stateMachine.ApplyState(new PlayerRenderState
         {
             clientId = clientId,
             characterId = characterId,
@@ -91,7 +88,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
-    // Role: 생성한 애니메이션 Playable 리소스를 해제한다.
     private void OnDestroy()
     {
         if (animationGraph.IsValid())
@@ -100,14 +96,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
-    // Role: 클라이언트 스냅샷 상태를 View 위치, 조준선, Animator에 반영한다.
-    // Parameters:
-    // - snapshotState: 서버에서 수신한 플레이어 상태
-    // - isLocalPlayer: 로컬 플레이어 여부
-    // - deltaTime: 보간에 사용할 프레임 시간
-    // - localFollowSpeed: 로컬 플레이어 위치 보간 속도
-    // - remoteFollowSpeed: 원격 플레이어 위치 보간 속도
-    // - snapDistance: 즉시 보정할 거리 기준
     public void ApplySnapshot(
         ClientSnapshotState snapshotState,
         bool isLocalPlayer,
@@ -137,10 +125,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         PlayLocomotionClip(stateMachine.State.locomotionState);
     }
 
-    // Role: Tagger 상태에 따라 Body 스프라이트 색상을 갱신한다.
-    // Parameters:
-    // - isTagger: 현재 플레이어가 Tagger인지 여부
-    // - taggerColor: Tagger에게 적용할 색상
     public void ApplyTaggerColor(bool isTagger, Color taggerColor)
     {
         if (body != null)
@@ -149,12 +133,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
-    // Role: 현재 렌더 위치를 서버 위치 쪽으로 보간한다.
-    // Parameters:
-    // - targetPosition: 최신 서버 위치
-    // - followSpeed: 위치 보간 속도
-    // - snapDistance: 즉시 보정할 거리 기준
-    // - deltaTime: 보간에 사용할 프레임 시간
     private Vector2 SmoothRenderPosition(
         Vector2 targetPosition,
         float followSpeed,
@@ -176,9 +154,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         return Vector2.Lerp(renderPosition, targetPosition, t);
     }
 
-    // Role: 조준 방향 선을 갱신한다.
-    // Parameters:
-    // - aim: 표시할 조준 방향
     private void UpdateAimLine(Vector2 aim, PlayerInputButtons buttons)
     {
         if (aimLine == null)
@@ -217,7 +192,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         aimLine.enabled = true;
     }
 
-    // Role: SkillIndicator is no longer used and stays hidden.
     private void UpdateSkillIndicator()
     {
         if (skillIndicator == null)
@@ -228,9 +202,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         skillIndicator.enabled = false;
     }
 
-    // Role: CharacterAnimationData에 연결된 AnimatorController를 Body Animator에 반영한다.
-    // Parameters:
-    // - data: 캐릭터별 애니메이션 데이터
     private void ApplyAnimatorController(CharacterAnimationData data)
     {
         if (animator == null)
@@ -259,10 +230,8 @@ public sealed class Client_CharacterView : MonoBehaviour
         hasMissingClipWarning = false;
     }
 
-    // Role: 서버에서 전달된 바라보는 방향을 Body 스프라이트에 반영한다.
-    // Parameters:
-    // - state: 반영할 캐릭터 런타임 상태
-    private void UpdateFacing(CharacterRuntimeState state)
+    // 서버에서 전달된 바라보는 방향을 Body 스프라이트에 반영합니다.
+    private void UpdateFacing(PlayerRenderState state)
     {
         if (body == null)
         {
@@ -272,9 +241,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         body.flipX = state.facingSign < 0;
     }
 
-    // Role: LocomotionState에 연결된 AnimationClip을 직접 재생한다.
-    // Parameters:
-    // - locomotionState: 재생할 이동 상태
     private void PlayLocomotionClip(PlayerLocomotionState locomotionState)
     {
         if (animator == null || animationData == null)
@@ -334,10 +300,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
-    // Role: Animator Controller에 같은 이름의 State가 있으면 해당 State를 직접 재생한다.
-    // Parameters:
-    // - stateName: 재생할 Animator State 이름
-    // - locomotionState: 현재 이동 상태
     private bool TryPlayAnimatorState(string stateName, PlayerLocomotionState locomotionState)
     {
         if (animator == null || animator.runtimeAnimatorController == null)
@@ -367,7 +329,6 @@ public sealed class Client_CharacterView : MonoBehaviour
         return true;
     }
 
-    // Role: AnimationClip 직접 재생에 사용할 PlayableGraph를 준비한다.
     private void EnsureAnimationGraph()
     {
         if (animationGraph.IsValid())

@@ -15,9 +15,10 @@
 # [attr]unity-yaml        merge=unityyamlmerge text linguist-language=yaml linguist-generated
 
 # Unity source files
+.gitattributes          text eol=lf
 *.cginc                 text
 *.compute               text linguist-language=hlsl
-*.cs                    text diff=csharp
+*.cs                    text working-tree-encoding=UTF-8 eol=lf diff=csharp
 *.hlsl                  text linguist-language=hlsl
 *.raytrace              text linguist-language=hlsl
 *.shader                text

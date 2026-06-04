@@ -1,8 +1,8 @@
+﻿using UnityEngine;
+
 public static class SkillStateMachineFactory
 {
-    // Role: SkillDefinition의 타입에 맞는 서버 스킬 상태 머신을 생성한다.
-    // Parameters:
-    // - definition: 생성에 사용할 스킬 정의
+    // SkillDefinition 타입에 맞는 서버 스킬 상태머신을 생성합니다.
     public static Skill_StateMachine Create(SkillDefinition definition)
     {
         if (definition == null)
@@ -12,11 +12,16 @@ public static class SkillStateMachineFactory
 
         switch (definition.SkillType)
         {
+            case SkillType.None:
+                return null;
             case SkillType.HookGrappling:
                 return new Hook_SkillStateMachine(definition);
             case SkillType.Portal:
                 return new Portal_SkillStateMachine(definition);
             default:
+                Debug.LogWarning(
+                    $"[SkillStateMachineFactory] SkillType {definition.SkillType} is not implemented yet. " +
+                    $"skillId={definition.SkillId}");
                 return null;
         }
     }

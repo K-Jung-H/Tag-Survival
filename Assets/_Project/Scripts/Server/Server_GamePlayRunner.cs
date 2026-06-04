@@ -24,6 +24,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     private bool gameStateWriterCreated;
     private bool gameEventWriterCreated;
     private bool rosterWriterCreated;
+    private readonly System.Collections.Generic.List<PlayerSnapshotPacket> playerSnapshots = new();
     private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
     private readonly System.Collections.Generic.List<GameStateEntryPacket> gameStateEntries = new();
     private readonly System.Collections.Generic.List<GameEventEntryPacket> gameEvents = new();
@@ -326,42 +327,25 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         snapshotWriter.Truncate(0);
 
+        gamePlay.CopyPlayerSnapshotsTo(playerSnapshots);
+        gamePlay.CopySkillSnapshotsTo(skillSnapshots);
+
         ServerSnapshotHeaderPacket header = new ServerSnapshotHeaderPacket
         {
             protocolVersion = GameNetProtocol.ProtocolVersion,
             snapshotSeq = snapshotSeq,
             serverTick = gamePlay.Tick,
             serverTime = (float)NetworkManager.Singleton.ServerTime.Time,
-            playerCount = (ushort)gamePlay.Players.Count,
-            skillCount = 0
+            playerCount = (ushort)playerSnapshots.Count,
+            skillCount = (ushort)skillSnapshots.Count
         };
-
-        gamePlay.CopySkillSnapshotsTo(skillSnapshots);
-        header.skillCount = (ushort)skillSnapshots.Count;
 
         snapshotSeq++;
         header.Write(ref snapshotWriter);
 
-        foreach (var pair in gamePlay.Players)
+        for (int i = 0; i < playerSnapshots.Count; i++)
         {
-            Server_GamePlay.PlayerState player = pair.Value;
-            CharacterRuntimeState characterState = player.characterStateMachine.State;
-
-            PlayerSnapshotPacket packet = new PlayerSnapshotPacket
-            {
-                clientId = player.clientId,
-                position = characterState.position,
-                velocity = characterState.velocity,
-                aim = characterState.aim,
-                buttons = player.buttons,
-                locomotionState = characterState.locomotionState,
-                characterId = characterState.characterId,
-                skillId = player.skillId,
-                facingSign = characterState.facingSign,
-                isTagger = player.isTagger
-            };
-
-            packet.Write(ref snapshotWriter);
+            playerSnapshots[i].Write(ref snapshotWriter);
         }
 
         for (int i = 0; i < skillSnapshots.Count; i++)

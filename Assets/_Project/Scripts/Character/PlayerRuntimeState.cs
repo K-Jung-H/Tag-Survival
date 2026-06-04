@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public struct CharacterRuntimeState
+public struct PlayerRuntimeState
 {
     public ulong clientId;
     public byte characterId;

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [CreateAssetMenu(menuName = "Tag Survival/Character/Character Animation Data")]
 public sealed class CharacterAnimationData : ScriptableObject
@@ -9,7 +10,7 @@ public sealed class CharacterAnimationData : ScriptableObject
     [SerializeField] private AnimationClip jumpClip;
     [SerializeField] private AnimationClip fallClip;
     [SerializeField] private AnimationClip wallStickClip;
-    [SerializeField] private AnimationClip deathClip;
+    [SerializeField] private AnimationClip stunClip;
 
     public RuntimeAnimatorController AnimatorController => animatorController;
     public AnimationClip IdleClip => idleClip;
@@ -17,11 +18,9 @@ public sealed class CharacterAnimationData : ScriptableObject
     public AnimationClip JumpClip => jumpClip;
     public AnimationClip FallClip => fallClip;
     public AnimationClip WallStickClip => wallStickClip;
-    public AnimationClip DeathClip => deathClip;
+    public AnimationClip StunClip => stunClip;
 
-    // Role: LocomotionState에 대응되는 캐릭터 애니메이션 클립을 반환한다.
-    // Parameters:
-    // - state: 조회할 이동 상태
+    // 이동 상태에 대응하는 캐릭터 애니메이션 클립을 반환합니다.
     public AnimationClip GetClip(PlayerLocomotionState state)
     {
         switch (state)
@@ -34,8 +33,8 @@ public sealed class CharacterAnimationData : ScriptableObject
                 return fallClip;
             case PlayerLocomotionState.WallStick:
                 return wallStickClip;
-            case PlayerLocomotionState.Death:
-                return deathClip;
+            case PlayerLocomotionState.Stunned:
+                return stunClip;
             default:
                 return idleClip;
         }

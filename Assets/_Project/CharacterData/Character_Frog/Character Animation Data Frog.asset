@@ -18,4 +18,4 @@ MonoBehaviour:
   jumpClip: {fileID: 7400000, guid: 537cd1bb7791ab84093d26c9f2d23eb2, type: 2}
   fallClip: {fileID: 7400000, guid: 5f1918c3713b07641af693ea2cb845a4, type: 2}
   wallStickClip: {fileID: 7400000, guid: 1d3460116b3603a42a4d2a7ebe18d33c, type: 2}
-  deathClip: {fileID: 7400000, guid: 64320f328d383ea4898bcc91f7cd6f76, type: 2}
+  stunClip: {fileID: 7400000, guid: 64320f328d383ea4898bcc91f7cd6f76, type: 2}

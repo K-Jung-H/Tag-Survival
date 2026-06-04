@@ -15,7 +15,6 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     private const float MovementInputThreshold = 0.0001f;
     private const float DirectionThresholdSqr = 0.000001f;
 
-    private readonly SkillObjectSnapshotPacket[] snapshotObjects = new SkillObjectSnapshotPacket[1];
     private readonly HookSkillConfig config;
 
     private ulong ownerClientId;
@@ -38,7 +37,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     public override bool UsesSwingMovement => State == SkillObjectState.Active;
 
     public override void PrepareMovement(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         StageCollisionSystem collisionSystem,
         float deltaTime)
     {
@@ -92,7 +91,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     public override void Simulate(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         StageCollisionSystem collisionSystem,
         float deltaTime,
         bool skillPressedThisTick)
@@ -119,37 +118,32 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         }
     }
 
-    public override bool TryGetSnapshot(out SkillSnapshotPacket snapshot)
+    public override void SyncSkillObjects(Skill skill)
     {
-        snapshot = default;
-        if (State == SkillObjectState.None)
+        if (skill == null)
         {
-            return false;
+            return;
         }
 
-        snapshotObjects[0] = new SkillObjectSnapshotPacket
+        if (State == SkillObjectState.None)
         {
-            skillObjectId = HookObjectIndex,
-            skillObjectState = State,
-            position = hookPosition,
-            rotation = Mathf.Atan2(hookDirection.y, hookDirection.x) * Mathf.Rad2Deg,
-            velocity = hookVelocity
-        };
+            skill.RemoveObject(HookObjectIndex);
+            return;
+        }
 
-        snapshot = new SkillSnapshotPacket
-        {
-            ownerClientId = ownerClientId,
-            skillId = SkillId,
-            skillType = SkillType,
-            skillState = State,
-            skillObjectCount = 1,
-            skillObjects = snapshotObjects
-        };
-
-        return true;
+        SkillObject skillObject = skill.UpsertObject(HookObjectIndex);
+        skillObject.ownerId = ownerClientId;
+        skillObject.skillId = SkillId;
+        skillObject.skillType = SkillType;
+        skillObject.skillObjectId = HookObjectIndex;
+        skillObject.objectState = State;
+        skillObject.position = hookPosition;
+        skillObject.velocity = hookVelocity;
+        skillObject.rotation = Mathf.Atan2(hookDirection.y, hookDirection.x) * Mathf.Rad2Deg;
+        skillObject.collider = new WorldCollider(Vector2.zero, new Vector2(HookHitHalfExtent, HookHitHalfExtent));
     }
 
-    private void HandleSkillPressed(ref Server_GamePlay.PlayerState player)
+    private void HandleSkillPressed(ref PlayerState player)
     {
         if (State == SkillObjectState.Active)
         {
@@ -209,7 +203,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private void SimulateAttached(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         StageCollisionSystem collisionSystem,
         float deltaTime)
     {
@@ -297,7 +291,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private void ApplySwingInputAcceleration(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         Vector2 radialDirection,
         float deltaTime)
     {
@@ -316,7 +310,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         player.velocity += tangent * (Mathf.Abs(horizontalInput) * SwingInputAcceleration * deltaTime);
     }
 
-    private void ApplyDetachBoost(ref Server_GamePlay.PlayerState player)
+    private void ApplyDetachBoost(ref PlayerState player)
     {
         Vector2 playerAnchor = GetPlayerAnchorPosition(player);
         Vector2 toHook = anchorPosition - playerAnchor;
@@ -335,7 +329,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private Vector2 ResolveDetachBoostDirection(
-        Server_GamePlay.PlayerState player,
+        PlayerState player,
         Vector2 toHook)
     {
         if (Mathf.Abs(player.input.x) <= MovementInputThreshold)
@@ -375,7 +369,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private void ApplySwingDamping(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         Vector2 radialDirection,
         float deltaTime)
     {
@@ -391,7 +385,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private static void RemoveRopeRadialVelocity(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         Vector2 radialDirection)
     {
         float radialVelocity = Vector2.Dot(player.velocity, radialDirection);
@@ -399,7 +393,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private static void RemoveOutwardRopeVelocity(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         Vector2 radialDirection)
     {
         float radialVelocity = Vector2.Dot(player.velocity, radialDirection);
@@ -412,7 +406,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     }
 
     private void RebuildVelocityFromConstrainedPosition(
-        ref Server_GamePlay.PlayerState player,
+        ref PlayerState player,
         float deltaTime)
     {
         if (!hasPreviousPlayerAnchor || deltaTime <= 0f)
@@ -425,7 +419,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         hasPreviousPlayerAnchor = false;
     }
 
-    private void SimulateReturning(ref Server_GamePlay.PlayerState player, float deltaTime)
+    private void SimulateReturning(ref PlayerState player, float deltaTime)
     {
         Vector2 target = GetPlayerAnchorPosition(player);
         Vector2 toTarget = target - hookPosition;
@@ -453,7 +447,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         hasPreviousPlayerAnchor = false;
     }
 
-    private static Vector2 GetPlayerAnchorPosition(Server_GamePlay.PlayerState player)
+    private static Vector2 GetPlayerAnchorPosition(PlayerState player)
     {
         return player.position + player.collisionOffset;
     }

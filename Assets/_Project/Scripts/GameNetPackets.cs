@@ -13,6 +13,7 @@ public struct ClientJoinProfilePacket
 
     public string NicknameText => nickname.ToString();
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -21,6 +22,7 @@ public struct ClientJoinProfilePacket
         writer.WriteValueSafe(skillId);
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out ClientJoinProfilePacket packet)
     {
         packet = default;
@@ -54,6 +56,7 @@ public struct RosterEntryPacket
 
     public string NicknameText => nickname.ToString();
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(clientId);
@@ -62,6 +65,7 @@ public struct RosterEntryPacket
         writer.WriteValueSafe(skillId);
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out RosterEntryPacket packet)
     {
         packet = default;
@@ -90,6 +94,7 @@ public struct ServerRosterSnapshotPacket
     public ushort entryCount;
     public RosterEntryPacket[] entries;
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -106,6 +111,7 @@ public struct ServerRosterSnapshotPacket
         }
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out ServerRosterSnapshotPacket packet)
     {
         packet = default;
@@ -149,9 +155,7 @@ public struct ClientInputPacket
     public Vector2 aim;
     public PlayerInputButtons buttons;
 
-    // Role: 클라이언트 입력 패킷을 writer에 기록한다.
-    // Parameters:
-    // - writer: 패킷 데이터를 기록할 writer
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -164,10 +168,7 @@ public struct ClientInputPacket
         writer.WriteValueSafe((ushort)buttons);
     }
 
-    // Role: reader에서 클라이언트 입력 패킷을 읽는다.
-    // Parameters:
-    // - reader: 패킷 데이터를 읽을 reader
-    // - packet: 읽은 입력 패킷
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out ClientInputPacket packet)
     {
         packet = default;
@@ -207,9 +208,7 @@ public struct ServerSnapshotHeaderPacket
     public ushort playerCount;
     public ushort skillCount;
 
-    // Role: 서버 스냅샷 헤더를 writer에 기록한다.
-    // Parameters:
-    // - writer: 패킷 데이터를 기록할 writer
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -220,10 +219,7 @@ public struct ServerSnapshotHeaderPacket
         writer.WriteValueSafe(skillCount);
     }
 
-    // Role: reader에서 서버 스냅샷 헤더를 읽는다.
-    // Parameters:
-    // - reader: 패킷 데이터를 읽을 reader
-    // - packet: 읽은 스냅샷 헤더
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out ServerSnapshotHeaderPacket packet)
     {
         packet = default;
@@ -265,9 +261,7 @@ public struct PlayerSnapshotPacket
     public sbyte facingSign;
     public bool isTagger;
 
-    // Role: 플레이어 스냅샷 데이터를 writer에 기록한다.
-    // Parameters:
-    // - writer: 패킷 데이터를 기록할 writer
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(clientId);
@@ -285,10 +279,7 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
     }
 
-    // Role: reader에서 플레이어 스냅샷 데이터를 읽는다.
-    // Parameters:
-    // - reader: 패킷 데이터를 읽을 reader
-    // - packet: 읽은 플레이어 스냅샷
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out PlayerSnapshotPacket packet)
     {
         packet = default;
@@ -349,6 +340,7 @@ public struct GameStateEntryPacket
     public uint taggerTimeMs;
     public bool isTagger;
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(clientId);
@@ -356,6 +348,7 @@ public struct GameStateEntryPacket
         writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out GameStateEntryPacket packet)
     {
         packet = default;
@@ -388,6 +381,7 @@ public struct GameStateSnapshotPacket
     public ushort entryCount;
     public GameStateEntryPacket[] entries;
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -410,6 +404,7 @@ public struct GameStateSnapshotPacket
         }
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out GameStateSnapshotPacket packet)
     {
         packet = default;
@@ -482,6 +477,7 @@ public struct GameEventEntryPacket
     public Vector2 position;
     public float rotation;
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(eventSeq);
@@ -496,6 +492,7 @@ public struct GameEventEntryPacket
         writer.WriteValueSafe(rotation);
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out GameEventEntryPacket packet)
     {
         packet = default;
@@ -534,6 +531,7 @@ public struct GameEventBatchPacket
     public ushort eventCount;
     public GameEventEntryPacket[] events;
 
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -549,6 +547,7 @@ public struct GameEventBatchPacket
         }
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out GameEventBatchPacket packet)
     {
         packet = default;
@@ -594,9 +593,7 @@ public struct SkillObjectSnapshotPacket
     public float rotation;
     public Vector2 velocity;
 
-    // Role: 스킬 내부 렌더링 객체 하나의 스냅샷을 writer에 기록한다.
-    // Parameters:
-    // - writer: 패킷 데이터를 기록할 writer
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(skillObjectId);
@@ -608,10 +605,7 @@ public struct SkillObjectSnapshotPacket
         writer.WriteValueSafe(velocity.y);
     }
 
-    // Role: reader에서 스킬 내부 렌더링 객체 스냅샷을 읽는다.
-    // Parameters:
-    // - reader: 패킷 데이터를 읽을 reader
-    // - packet: 읽은 스킬 객체 스냅샷
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out SkillObjectSnapshotPacket packet)
     {
         packet = default;
@@ -646,9 +640,7 @@ public struct SkillSnapshotPacket
     public byte skillObjectCount;
     public SkillObjectSnapshotPacket[] skillObjects;
 
-    // Role: 스킬 스냅샷을 writer에 기록한다.
-    // Parameters:
-    // - writer: 패킷 데이터를 기록할 writer
+    // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         byte actualObjectCount = 0;
@@ -669,15 +661,13 @@ public struct SkillSnapshotPacket
         }
     }
 
-    // Role: reader에서 스킬 스냅샷을 읽는다.
-    // Parameters:
-    // - reader: 패킷 데이터를 읽을 reader
-    // - packet: 읽은 스킬 스냅샷
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out SkillSnapshotPacket packet)
     {
         return TryRead(ref reader, out packet, null);
     }
 
+    // - Role: Try to read this data from the reader.
     public static bool TryRead(
         ref FastBufferReader reader,
         out SkillSnapshotPacket packet,
@@ -717,6 +707,7 @@ public struct SkillSnapshotPacket
         return true;
     }
 
+    // - Role: Get skill object read buffer.
     private static SkillObjectSnapshotPacket[] GetSkillObjectReadBuffer(
         ulong ownerClientId,
         byte skillObjectCount,

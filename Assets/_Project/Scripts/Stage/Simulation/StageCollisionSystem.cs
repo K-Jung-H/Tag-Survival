@@ -8,27 +8,11 @@ public sealed class StageCollisionSystem
     private readonly List<int> candidateBuffer = new List<int>();
     private readonly Dictionary<Vector2Int, int> bucketIndexByCoord = new Dictionary<Vector2Int, int>();
     private readonly Dictionary<Vector2Int, StageTileCellData> stageCellByCoord = new Dictionary<Vector2Int, StageTileCellData>();
-    private static readonly Vector2Int[] NeighborCellOffsets =
-    {
-        new Vector2Int(1, 0),
-        new Vector2Int(1, 1),
-        new Vector2Int(0, 1),
-        new Vector2Int(-1, 1),
-        new Vector2Int(-1, 0),
-        new Vector2Int(-1, -1),
-        new Vector2Int(0, -1),
-        new Vector2Int(1, -1),
-    };
-
     private StageBakeData stageBakeData;
     private Vector2 defaultPlayerHalfExtent;
     private float skinWidth;
 
-    // Role: StageBakeData 기반 충돌 연산 시스템을 생성한다.
-    // Parameters:
-    // - stageBakeData: 사용할 Stage Bake 결과 데이터
-    // - playerHalfExtent: 플레이어 사각형의 반지름 크기
-    // - skinWidth: 충돌 여유 폭
+    // - Role: Create stage collision system.
     public StageCollisionSystem(
         StageBakeData stageBakeData,
         float playerHalfExtent,
@@ -37,11 +21,7 @@ public sealed class StageCollisionSystem
     {
     }
 
-    // Role: StageBakeData 기반 충돌 연산 시스템을 생성한다.
-    // Parameters:
-    // - stageBakeData: 사용할 Stage Bake 결과 데이터
-    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
-    // - skinWidth: 충돌 여유 폭
+    // - Role: Create stage collision system.
     public StageCollisionSystem(
         StageBakeData stageBakeData,
         Vector2 playerHalfExtent,
@@ -55,9 +35,7 @@ public sealed class StageCollisionSystem
 
     public StageBakeData StageBakeData => stageBakeData;
 
-    // Role: 충돌 연산에 사용할 StageBakeData를 교체한다.
-    // Parameters:
-    // - newStageBakeData: 새로 사용할 Stage Bake 결과 데이터
+    // - Role: Set stage bake data.
     public void SetStageBakeData(StageBakeData newStageBakeData)
     {
         stageBakeData = newStageBakeData;
@@ -66,78 +44,60 @@ public sealed class StageCollisionSystem
 
     public float CellSize => stageBakeData != null ? Mathf.Max(0.0001f, stageBakeData.CellSize) : 1f;
 
-    public bool TryFindPortalPlacementCell(
-        Vector2 playerCenter,
-        Vector2 playerHalfExtent,
-        Vector2 aim,
-        out Vector2Int placementCell,
-        out Vector2 placementCenter,
-        Func<Vector2Int, bool> isCellBlocked = null)
+    // - Role: Try to find nearest empty tile.
+    public bool TryFindNearestEmptyTile(
+        Vector2 origin,
+        int maxSearchDistance,
+        Func<Vector2Int, bool> isCellBlocked,
+        out Vector2Int emptyCell,
+        out Vector2 emptyCellCenter)
     {
-        placementCell = default;
-        placementCenter = default;
+        emptyCell = default;
+        emptyCellCenter = default;
 
         if (stageBakeData == null)
         {
             return false;
         }
 
-        if (!TryResolvePlayerOccupiedCell(playerCenter, playerHalfExtent, out Vector2Int originCell))
+        Vector2Int originCell = GetCellFromWorldPosition(origin);
+        int searchDistance = Mathf.Max(0, maxSearchDistance);
+        bool found = false;
+        float bestDistanceSqr = float.PositiveInfinity;
+        int bestOffsetDistanceSqr = int.MaxValue;
+
+        for (int y = -searchDistance; y <= searchDistance; y++)
         {
-            return false;
-        }
-
-        Vector2 aimDirection = aim.sqrMagnitude > 0.0001f ? aim.normalized : Vector2.right;
-        int testedMask = 0;
-
-        for (int i = 0; i < NeighborCellOffsets.Length; i++)
-        {
-            int bestIndex = -1;
-            float bestScore = float.NegativeInfinity;
-            int bestDistanceSqr = int.MaxValue;
-
-            for (int j = 0; j < NeighborCellOffsets.Length; j++)
+            for (int x = -searchDistance; x <= searchDistance; x++)
             {
-                int testBit = 1 << j;
-                if ((testedMask & testBit) != 0)
+                Vector2Int candidateCell = originCell + new Vector2Int(x, y);
+                if (!IsCellInsideStageBounds(candidateCell)
+                    || IsCellSolid(candidateCell)
+                    || (isCellBlocked != null && isCellBlocked(candidateCell)))
                 {
                     continue;
                 }
 
-                Vector2 offsetDirection = ((Vector2)NeighborCellOffsets[j]).normalized;
-                float score = Vector2.Dot(aimDirection, offsetDirection);
-                int distanceSqr = NeighborCellOffsets[j].sqrMagnitude;
-                if (score > bestScore + 0.000001f
-                    || (Mathf.Abs(score - bestScore) <= 0.000001f && distanceSqr < bestDistanceSqr))
+                Vector2 candidateCenter = GetCellCenter(candidateCell);
+                float distanceSqr = (candidateCenter - origin).sqrMagnitude;
+                int offsetDistanceSqr = x * x + y * y;
+                if (distanceSqr < bestDistanceSqr - 0.000001f
+                    || (Mathf.Abs(distanceSqr - bestDistanceSqr) <= 0.000001f
+                        && offsetDistanceSqr < bestOffsetDistanceSqr))
                 {
-                    bestIndex = j;
-                    bestScore = score;
+                    emptyCell = candidateCell;
+                    emptyCellCenter = candidateCenter;
                     bestDistanceSqr = distanceSqr;
+                    bestOffsetDistanceSqr = offsetDistanceSqr;
+                    found = true;
                 }
             }
-
-            if (bestIndex < 0)
-            {
-                break;
-            }
-
-            testedMask |= 1 << bestIndex;
-            Vector2Int candidateCell = originCell + NeighborCellOffsets[bestIndex];
-            if (!IsCellInsideStageBounds(candidateCell)
-                || IsCellSolid(candidateCell)
-                || (isCellBlocked != null && isCellBlocked(candidateCell)))
-            {
-                continue;
-            }
-
-            placementCell = candidateCell;
-            placementCenter = GetCellCenter(candidateCell);
-            return true;
         }
 
-        return false;
+        return found;
     }
 
+    // - Role: Get cell center.
     public Vector2 GetCellCenter(Vector2Int cell)
     {
         float cellSize = CellSize;
@@ -146,6 +106,7 @@ public sealed class StageCollisionSystem
             (cell.y + 0.5f) * cellSize);
     }
 
+    // - Role: Check if cell inside stage bounds is true.
     public bool IsCellInsideStageBounds(Vector2Int cell)
     {
         if (stageBakeData == null)
@@ -160,13 +121,14 @@ public sealed class StageCollisionSystem
             && cell.y < sizeInCells.y;
     }
 
+    // - Role: Check if cell solid is true.
     public bool IsCellSolid(Vector2Int cell)
     {
         return stageCellByCoord.TryGetValue(cell, out StageTileCellData data)
             && (data.flags & StageTileFlags.Solid) != 0;
     }
 
-    // Role: Stage bounds 기준 중앙 위치를 반환한다.
+    // - Role: Get stage center position.
     public Vector2 GetStageCenterPosition()
     {
         if (stageBakeData == null)
@@ -180,30 +142,19 @@ public sealed class StageCollisionSystem
             sizeInCells.y * stageBakeData.CellSize * 0.5f);
     }
 
-    // Role: 플레이어 이동을 Stage 충돌과 경계 조건에 맞게 보정한다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
+    // - Role: Move a player with stage collision.
     public Vector2 MovePlayerWithStageCollision(Vector2 startPosition, Vector2 delta)
     {
         return MovePlayerWithStageCollision(startPosition, delta, defaultPlayerHalfExtent);
     }
 
-    // Role: 플레이어 이동을 Stage 충돌과 경계 조건에 맞게 보정한다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
-    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
+    // - Role: Move a player with stage collision.
     public Vector2 MovePlayerWithStageCollision(Vector2 startPosition, Vector2 delta, Vector2 playerHalfExtent)
     {
         return MovePlayerWithStageCollisionDetailed(startPosition, delta, playerHalfExtent).position;
     }
 
-    // Role: 플레이어 이동 결과와 Stage 접촉 방향을 함께 반환한다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
-    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
+    // - Role: Move a player and return collision details.
     public StageCollisionMoveResult MovePlayerWithStageCollisionDetailed(
         Vector2 startPosition,
         Vector2 delta,
@@ -226,14 +177,7 @@ public sealed class StageCollisionSystem
         return result;
     }
 
-    // Role: 두 플레이어 사각형의 SAT 충돌 여부와 보정 방향을 계산한다.
-    // Parameters:
-    // - firstPosition: 첫 번째 플레이어 위치
-    // - secondPosition: 두 번째 플레이어 위치
-    // - firstId: 첫 번째 플레이어 클라이언트 ID
-    // - secondId: 두 번째 플레이어 클라이언트 ID
-    // - normal: 첫 번째 플레이어에서 두 번째 플레이어로 향하는 보정 방향
-    // - penetration: 겹친 깊이
+    // - Role: Try to get player SAT collision.
     public bool TryGetPlayerSatCollision(
         Vector2 firstPosition,
         Vector2 secondPosition,
@@ -253,16 +197,7 @@ public sealed class StageCollisionSystem
             out penetration);
     }
 
-    // Role: 두 플레이어 사각형의 SAT 충돌 여부와 보정 방향을 계산한다.
-    // Parameters:
-    // - firstPosition: 첫 번째 플레이어 위치
-    // - secondPosition: 두 번째 플레이어 위치
-    // - firstHalfExtent: 첫 번째 플레이어 사각형의 X/Y 반지름 크기
-    // - secondHalfExtent: 두 번째 플레이어 사각형의 X/Y 반지름 크기
-    // - firstId: 첫 번째 플레이어 클라이언트 ID
-    // - secondId: 두 번째 플레이어 클라이언트 ID
-    // - normal: 첫 번째 플레이어에서 두 번째 플레이어로 향하는 보정 방향
-    // - penetration: 겹친 깊이
+    // - Role: Try to get player SAT collision.
     public bool TryGetPlayerSatCollision(
         Vector2 firstPosition,
         Vector2 secondPosition,
@@ -312,10 +247,7 @@ public sealed class StageCollisionSystem
         return true;
     }
 
-    // Role: 충돌 법선 방향으로 파고드는 속도 성분을 제거한다.
-    // Parameters:
-    // - velocity: 보정할 속도
-    // - normal: 제거 기준이 되는 충돌 법선
+    // - Role: Remove velocity into normal.
     public Vector2 RemoveVelocityIntoNormal(Vector2 velocity, Vector2 normal)
     {
         float intoNormal = Vector2.Dot(velocity, normal);
@@ -328,11 +260,7 @@ public sealed class StageCollisionSystem
         return velocity - normal * intoNormal;
     }
 
-    // Role: Stage 충돌체를 대상으로 이동과 슬라이딩을 처리한다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
-    // - allowSlide: 충돌 후 남은 이동량을 벽면 방향으로 미끄러뜨릴지 여부
+    // - Role: Move with stage collision.
     private Vector2 MoveWithStageCollision(
         Vector2 startPosition,
         Vector2 delta,
@@ -377,11 +305,7 @@ public sealed class StageCollisionSystem
             ref result);
     }
 
-    // Role: 이동 경로에서 가장 먼저 부딪히는 Stage 충돌체를 찾는다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
-    // - closestHit: 가장 가까운 Sweep 충돌 결과
+    // - Role: Try to sweep stage.
     private bool TrySweepStage(
         Vector2 startPosition,
         Vector2 delta,
@@ -437,6 +361,7 @@ public sealed class StageCollisionSystem
         return hasHit;
     }
 
+    // - Role: Check if top surface approach hit is true.
     private bool IsTopSurfaceApproachHit(
         StageColliderData collider,
         StageSweepHit hit,
@@ -459,12 +384,7 @@ public sealed class StageCollisionSystem
         return playerBottomAtStart >= collider.rect.yMax - footTolerance;
     }
 
-    // Role: 이동하는 점과 확장된 사각형 충돌체의 Sweep 충돌을 계산한다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
-    // - colliderRect: 검사할 원본 충돌체 사각형
-    // - hit: Sweep 충돌 결과
+    // - Role: Check if internal horizontal face hit is true.
     private bool IsInternalHorizontalFaceHit(
         StageColliderData collider,
         StageSweepHit hit,
@@ -517,6 +437,7 @@ public sealed class StageCollisionSystem
         return checkedAnyFaceCell;
     }
 
+    // - Role: Check if internal horizontal push is true.
     private bool IsInternalHorizontalPush(
         StageColliderData collider,
         Vector2 push,
@@ -535,6 +456,7 @@ public sealed class StageCollisionSystem
         return IsInternalHorizontalFaceHit(collider, hit, position, playerHalfExtent);
     }
 
+    // - Role: Try to sweep point against expanded rect.
     private bool TrySweepPointAgainstExpandedRect(
         Vector2 startPosition,
         Vector2 delta,
@@ -621,9 +543,7 @@ public sealed class StageCollisionSystem
         return true;
     }
 
-    // Role: 이미 Stage 충돌체 안에 들어간 위치를 가장 가까운 바깥 방향으로 밀어낸다.
-    // Parameters:
-    // - position: 보정할 플레이어 위치
+    // - Role: Find stage overlaps.
     private Vector2 ResolveStageOverlaps(
         Vector2 position,
         Vector2 playerHalfExtent,
@@ -673,6 +593,7 @@ public sealed class StageCollisionSystem
         return resolvedPosition;
     }
 
+    // - Role: Check if top surface overlap is true.
     private bool IsTopSurfaceOverlap(
         StageColliderData collider,
         Vector2 position,
@@ -683,9 +604,7 @@ public sealed class StageCollisionSystem
         return playerBottom >= collider.rect.yMax - footTolerance;
     }
 
-    // Role: queryRect와 겹칠 수 있는 Stage 충돌체 후보 목록을 수집한다.
-    // Parameters:
-    // - queryRect: 후보를 찾을 월드 사각형 범위
+    // - Role: Collect possible colliders.
     private void CollectCandidateColliders(Rect queryRect)
     {
         candidateSet.Clear();
@@ -729,10 +648,7 @@ public sealed class StageCollisionSystem
         }
     }
 
-    // Role: 특정 Uniform Grid 버킷에 등록된 충돌체 후보를 추가한다.
-    // Parameters:
-    // - bucketCoord: 조회할 버킷 좌표
-    // - buckets: StageBakeData에 저장된 공간 분할 버킷 목록
+    // - Role: Add bucket collider candidates.
     private void AddBucketColliderCandidates(Vector2Int bucketCoord, StageSpatialBucketData[] buckets)
     {
         if (!bucketIndexByCoord.TryGetValue(bucketCoord, out int bucketIndex))
@@ -761,6 +677,7 @@ public sealed class StageCollisionSystem
         }
     }
 
+    // - Role: Rebuild the bucket lookup.
     private void RebuildBucketLookup()
     {
         bucketIndexByCoord.Clear();
@@ -782,6 +699,7 @@ public sealed class StageCollisionSystem
         }
     }
 
+    // - Role: Rebuild the cell lookup.
     private void RebuildCellLookup()
     {
         stageCellByCoord.Clear();
@@ -798,84 +716,23 @@ public sealed class StageCollisionSystem
         }
     }
 
+    // - Role: Rebuild all lookups.
     private void RebuildLookups()
     {
         RebuildBucketLookup();
         RebuildCellLookup();
     }
 
-    private bool TryResolvePlayerOccupiedCell(
-        Vector2 playerCenter,
-        Vector2 playerHalfExtent,
-        out Vector2Int occupiedCell)
+    // - Role: Get cell from world position.
+    private Vector2Int GetCellFromWorldPosition(Vector2 worldPosition)
     {
-        occupiedCell = default;
-
-        if (stageBakeData == null)
-        {
-            return false;
-        }
-
-        Vector2 halfExtent = ClampHalfExtent(playerHalfExtent);
-        Rect bounds = Rect.MinMaxRect(
-            playerCenter.x - halfExtent.x,
-            playerCenter.y - halfExtent.y,
-            playerCenter.x + halfExtent.x,
-            playerCenter.y + halfExtent.y);
-
         float cellSize = CellSize;
-        int xMin = Mathf.FloorToInt(bounds.xMin / cellSize);
-        int yMin = Mathf.FloorToInt(bounds.yMin / cellSize);
-        int xMax = Mathf.FloorToInt((bounds.xMax - 0.0001f) / cellSize);
-        int yMax = Mathf.FloorToInt((bounds.yMax - 0.0001f) / cellSize);
-
-        float bestArea = float.NegativeInfinity;
-        Vector2Int bestCell = default;
-        bool hasCell = false;
-
-        for (int y = yMin; y <= yMax; y++)
-        {
-            for (int x = xMin; x <= xMax; x++)
-            {
-                Vector2Int cell = new Vector2Int(x, y);
-                if (!IsCellInsideStageBounds(cell))
-                {
-                    continue;
-                }
-
-                Rect cellRect = new Rect(x * cellSize, y * cellSize, cellSize, cellSize);
-                float overlapArea = GetOverlapArea(bounds, cellRect);
-                if (overlapArea > bestArea)
-                {
-                    bestArea = overlapArea;
-                    bestCell = cell;
-                    hasCell = true;
-                }
-            }
-        }
-
-        occupiedCell = bestCell;
-        return hasCell;
+        return new Vector2Int(
+            Mathf.FloorToInt(worldPosition.x / cellSize),
+            Mathf.FloorToInt(worldPosition.y / cellSize));
     }
 
-    private static float GetOverlapArea(Rect first, Rect second)
-    {
-        float xMin = Mathf.Max(first.xMin, second.xMin);
-        float xMax = Mathf.Min(first.xMax, second.xMax);
-        float yMin = Mathf.Max(first.yMin, second.yMin);
-        float yMax = Mathf.Min(first.yMax, second.yMax);
-
-        if (xMax <= xMin || yMax <= yMin)
-        {
-            return 0f;
-        }
-
-        return (xMax - xMin) * (yMax - yMin);
-    }
-
-    // Role: 플레이어 위치를 기준으로 충돌 검사 사각형을 만든다.
-    // Parameters:
-    // - position: 플레이어 중심 위치
+    // - Role: Create player bounds.
     private Rect CreatePlayerBounds(Vector2 position, Vector2 playerHalfExtent)
     {
         Vector2 extent = playerHalfExtent + new Vector2(skinWidth, skinWidth);
@@ -886,10 +743,7 @@ public sealed class StageCollisionSystem
             extent.y * 2f);
     }
 
-    // Role: 이동 시작과 끝 위치를 모두 포함하는 Sweep 검사 범위를 만든다.
-    // Parameters:
-    // - startPosition: 이동 시작 위치
-    // - delta: 이번 이동량
+    // - Role: Create player sweep rect.
     private Rect CreatePlayerSweepRect(Vector2 startPosition, Vector2 delta, Vector2 playerHalfExtent)
     {
         Rect startBounds = CreatePlayerBounds(startPosition, playerHalfExtent);
@@ -901,10 +755,7 @@ public sealed class StageCollisionSystem
         return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
     }
 
-    // Role: 사각형을 지정한 크기만큼 바깥으로 확장한다.
-    // Parameters:
-    // - rect: 확장할 사각형
-    // - amount: 각 방향으로 확장할 크기
+    // - Role: Expand a rectangle.
     private Rect ExpandRect(Rect rect, Vector2 amount)
     {
         return Rect.MinMaxRect(
@@ -914,10 +765,7 @@ public sealed class StageCollisionSystem
             rect.yMax + amount.y);
     }
 
-    // Role: 확장된 사각형 내부의 점을 가장 짧은 방향으로 밖으로 밀어낼 벡터를 구한다.
-    // Parameters:
-    // - position: 사각형 내부의 위치
-    // - expandedRect: 충돌 여유가 반영된 사각형
+    // - Role: Get smallest push out.
     private Vector2 GetSmallestPushOut(Vector2 position, Rect expandedRect)
     {
         float left = Mathf.Abs(position.x - expandedRect.xMin);
@@ -944,7 +792,7 @@ public sealed class StageCollisionSystem
         return Vector2.up * top;
     }
 
-    // Role: 현재 StageBakeData에 사용할 수 있는 충돌체가 있는지 판단한다.
+    // - Role: Get smallest vertical push out.
     private Vector2 GetSmallestVerticalPushOut(Vector2 position, Rect expandedRect)
     {
         float bottom = Mathf.Abs(position.y - expandedRect.yMin);
@@ -952,12 +800,14 @@ public sealed class StageCollisionSystem
         return bottom < top ? Vector2.down * bottom : Vector2.up * top;
     }
 
+    // - Role: Get top surface push out.
     private Vector2 GetTopSurfacePushOut(Vector2 position, Rect expandedRect)
     {
         float top = expandedRect.yMax - position.y;
         return top > 0f ? Vector2.up * top : Vector2.zero;
     }
 
+    // - Role: Check if stage collision exists.
     private bool HasStageCollision()
     {
         return stageBakeData != null
@@ -965,20 +815,14 @@ public sealed class StageCollisionSystem
             && stageBakeData.Colliders.Length > 0;
     }
 
-    // Role: Stage 경계 설정에 따라 플레이어 위치를 제한한다.
-    // Parameters:
-    // - position: 경계 보정을 적용할 위치
+    // - Role: Find stage boundaries.
     private Vector2 ResolveStageBoundaries(Vector2 position, Vector2 playerHalfExtent)
     {
         StageCollisionMoveResult result = default;
         return ResolveStageBoundaries(position, playerHalfExtent, ref result);
     }
 
-    // Role: Stage 경계 보정 결과를 접촉 상태에 반영한다.
-    // Parameters:
-    // - position: 경계 보정 전 위치
-    // - playerHalfExtent: 플레이어 사각형의 X/Y 반지름 크기
-    // - result: 갱신할 이동 결과
+    // - Role: Find stage boundaries.
     private Vector2 ResolveStageBoundaries(
         Vector2 position,
         Vector2 playerHalfExtent,
@@ -1033,9 +877,7 @@ public sealed class StageCollisionSystem
         return resolvedPosition;
     }
 
-    // Role: 충돌 반지름 값이 너무 작아지지 않도록 보정한다.
-    // Parameters:
-    // - halfExtent: 보정할 X/Y 반지름 크기
+    // - Role: Clamp the half size.
     private static Vector2 ClampHalfExtent(Vector2 halfExtent)
     {
         return new Vector2(
@@ -1043,20 +885,14 @@ public sealed class StageCollisionSystem
             Mathf.Max(0.0001f, halfExtent.y));
     }
 
-    // Role: StageColliderData가 플레이어를 막는 충돌체인지 판단한다.
-    // Parameters:
-    // - collider: 검사할 Stage 충돌체 데이터
+    // - Role: Check if blocking collider is true.
     private bool IsBlockingCollider(StageColliderData collider)
     {
         return collider.type == StageColliderType.Rect
             && (collider.flags & StageTileFlags.Solid) != 0;
     }
 
-    // Role: SAT 축이 완전히 같은 경우 안정적인 기본 보정 방향을 만든다.
-    // Parameters:
-    // - delta: 두 플레이어 위치 차이
-    // - firstId: 첫 번째 플레이어 클라이언트 ID
-    // - secondId: 두 번째 플레이어 클라이언트 ID
+    // - Role: Get fallback SAT normal.
     private Vector2 GetFallbackSatNormal(Vector2 delta, ulong firstId, ulong secondId)
     {
         if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
@@ -1073,10 +909,7 @@ public sealed class StageCollisionSystem
         return (hash & 1u) == 0u ? Vector2.right : Vector2.up;
     }
 
-    // Role: Sweep 충돌 법선으로 바닥, 천장, 벽 접촉 상태를 갱신한다.
-    // Parameters:
-    // - normal: 충돌 표면이 플레이어를 밀어내는 방향
-    // - result: 갱신할 이동 결과
+    // - Role: Add contact normal.
     private static void AddContactNormal(
         Vector2 normal,
         StageSurfacePhysicType surfacePhysicType,
@@ -1101,10 +934,7 @@ public sealed class StageCollisionSystem
         }
     }
 
-    // Role: Overlap 보정 방향으로 바닥, 천장, 벽 접촉 상태를 갱신한다.
-    // Parameters:
-    // - push: 겹침을 해소하기 위해 플레이어에 적용한 이동량
-    // - result: 갱신할 이동 결과
+    // - Role: Add push contact.
     private static void AddPushContact(
         Vector2 push,
         StageSurfacePhysicType surfacePhysicType,

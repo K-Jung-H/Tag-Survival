@@ -31,7 +31,7 @@ public class Client_InputSender : MonoBehaviour
     private bool hasLastSentInputState;
     private ClientInputState lastSentInputState;
 
-    // Role: 입력 기록, 입력 Provider, 입력 패킷 writer를 준비한다.
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         if (inputProvider == null)
@@ -56,15 +56,12 @@ public class Client_InputSender : MonoBehaviour
             Debug.LogWarning("[Client_InputSender] NetworkDelaySimulator is not assigned. Network delay is disabled.", this);
         }
 
-        inputWriter = new FastBufferWriter(
-            GameNetProtocol.InputPacketBufferSize,
-            Allocator.Persistent
-        );
+        inputWriter = new FastBufferWriter(GameNetProtocol.InputPacketBufferSize, Allocator.Persistent);
 
         inputWriterCreated = true;
     }
 
-    // Role: 입력 패킷 writer 리소스를 해제한다.
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (inputWriterCreated)
@@ -76,7 +73,7 @@ public class Client_InputSender : MonoBehaviour
         delayedInputPackets.Clear();
     }
 
-    // Role: 클라이언트 연결 상태에서 서버 tick 기준 입력 패킷을 생성하고 서버에 전송한다.
+    // - Role: Update this object each frame.
     private void Update()
     {
         if (!CanSendInput())
@@ -113,9 +110,7 @@ public class Client_InputSender : MonoBehaviour
         }
     }
 
-    // Role: 입력 상태가 바뀐 경우 정기 전송을 기다리지 않고 즉시 전송할지 판단한다.
-    // Parameters:
-    // - inputState: 현재 프레임의 입력 상태
+    // - Role: Check if send immediately should happen.
     private bool ShouldSendImmediately(ClientInputState inputState)
     {
         if (!sendImmediatelyOnInputChanged)
@@ -136,7 +131,7 @@ public class Client_InputSender : MonoBehaviour
         return inputState.buttons != lastSentInputState.buttons;
     }
 
-    // Role: 현재 인스턴스가 서버로 입력 패킷을 보낼 수 있는 상태인지 판단한다.
+    // - Role: Check if send input can happen.
     private bool CanSendInput()
     {
         if (NetworkManager.Singleton == null)
@@ -163,9 +158,7 @@ public class Client_InputSender : MonoBehaviour
         return true;
     }
 
-    // Role: Provider에서 입력 상태를 받아 패킷으로 구성하고 서버에 전송한다.
-    // Parameters:
-    // - inputState: 전송할 입력 상태
+    // - Role: Send input packet.
     private void SendInputPacket(ClientInputState inputState)
     {
         ClientInputPacket packet = new ClientInputPacket
@@ -187,9 +180,7 @@ public class Client_InputSender : MonoBehaviour
         QueueOrSendInputPacket(packet);
     }
 
-    // Role: 지연 테스트 설정에 따라 입력 패킷을 즉시 전송하거나 지연 큐에 넣는다.
-    // Parameters:
-    // - packet: 전송할 클라이언트 입력 패킷
+    // - Role: Queue or send input packet.
     private void QueueOrSendInputPacket(ClientInputPacket packet)
     {
         float delaySeconds = GetNetworkDelaySeconds();
@@ -207,7 +198,7 @@ public class Client_InputSender : MonoBehaviour
         });
     }
 
-    // Role: 지연 시간이 지난 입력 패킷을 실제 네트워크로 전송한다.
+    // - Role: Flush delayed input packets.
     private void FlushDelayedInputPackets()
     {
         if (delayedInputPackets.Count == 0)
@@ -228,9 +219,7 @@ public class Client_InputSender : MonoBehaviour
         }
     }
 
-    // Role: 입력 패킷을 버퍼에 기록하고 서버로 즉시 전송한다.
-    // Parameters:
-    // - packet: 실제 전송할 클라이언트 입력 패킷
+    // - Role: Send input packet now.
     private void SendInputPacketNow(ClientInputPacket packet)
     {
         inputWriter.Truncate(0);
@@ -244,7 +233,7 @@ public class Client_InputSender : MonoBehaviour
         );
     }
 
-    // Role: 현재 클라이언트에 적용된 네트워크 지연 시간을 초 단위로 반환한다.
+    // - Role: Get network delay seconds.
     private float GetNetworkDelaySeconds()
     {
         if (networkDelaySimulator == null)

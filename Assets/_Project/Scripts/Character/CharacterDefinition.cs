@@ -38,7 +38,7 @@ public sealed class CharacterDefinition : ScriptableObject
         wallMoveSpeedMultiplier,
         coyoteTime);
 
-    // Role: PlayerView 프리팹 루트의 BoxCollider2D 기준 충돌 반경을 반환한다.
+    // - Role: Get the player collision size from the view prefab.
     public Vector2 CollisionExtent
     {
         get
@@ -60,7 +60,7 @@ public sealed class CharacterDefinition : ScriptableObject
         }
     }
 
-    // Role: PlayerView 프리팹 루트의 BoxCollider2D 기준 충돌 중심 오프셋을 반환한다.
+    // - Role: Get the player collision offset from the view prefab.
     public Vector2 CollisionOffset
     {
         get

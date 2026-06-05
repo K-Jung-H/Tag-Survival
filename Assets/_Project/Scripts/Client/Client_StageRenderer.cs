@@ -7,7 +7,7 @@ public sealed class Client_StageRenderer : MonoBehaviour
 
     private Grid runtimeStageGrid;
 
-    // Role: 실행 시 렌더링에 사용할 Grid를 준비하고 Bake 기준 좌표 보정을 적용한다.
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         EnsureRuntimeStageGrid();
@@ -15,7 +15,7 @@ public sealed class Client_StageRenderer : MonoBehaviour
         EnableTilemapRenderers();
     }
 
-    // Role: StageBakeData의 좌측 하단 기준 오프셋에 맞춰 Grid 위치를 보정한다.
+    // - Role: Apply stage offset.
     public void ApplyStageOffset()
     {
         Grid targetGrid = GetTargetGrid();
@@ -40,7 +40,7 @@ public sealed class Client_StageRenderer : MonoBehaviour
             targetGrid.transform.localPosition.z);
     }
 
-    // Role: 씬 Grid 또는 프리팹 Grid를 런타임 렌더링 대상으로 준비한다.
+    // - Role: Make sure the runtime stage grid exists.
     private void EnsureRuntimeStageGrid()
     {
         Grid stageGridPrefab = stageDefinition != null ? stageDefinition.StageGridPrefab : null;
@@ -61,7 +61,7 @@ public sealed class Client_StageRenderer : MonoBehaviour
         runtimeStageGrid.gameObject.SetActive(true);
     }
 
-    // Role: 현재 렌더링에 사용할 Grid 인스턴스를 반환한다.
+    // - Role: Get target grid.
     private Grid GetTargetGrid()
     {
         if (runtimeStageGrid != null)
@@ -72,7 +72,7 @@ public sealed class Client_StageRenderer : MonoBehaviour
         return stageDefinition != null ? stageDefinition.StageGridPrefab : null;
     }
 
-    // Role: Grid 하위 TilemapRenderer들을 활성화하여 타일맵을 화면에 표시한다.
+    // - Role: Enable tilemap renderers.
     private void EnableTilemapRenderers()
     {
         Grid targetGrid = GetTargetGrid();

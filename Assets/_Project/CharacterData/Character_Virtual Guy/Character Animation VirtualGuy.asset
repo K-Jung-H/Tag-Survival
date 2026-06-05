@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e670f942b5404e43b20196d33f89fc3d, type: 3}
+  m_Name: Character Animation VirtualGuy
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
+  animatorController: {fileID: 9100000, guid: 8b196b573d40e354694537a32ae69922, type: 2}
+  idleClip: {fileID: 7400000, guid: e0dda6abcc5d21c429c57f8edd111645, type: 2}
+  runClip: {fileID: 7400000, guid: 23f7a6ebfa581d94a90eb01b34d9e549, type: 2}
+  jumpClip: {fileID: 7400000, guid: 9bb361403bec47e4daf387fb30c3e845, type: 2}
+  fallClip: {fileID: 7400000, guid: 1ca136248346f9a4795649f697ec2f7f, type: 2}
+  wallStickClip: {fileID: 7400000, guid: c36aa11236db5b44c9653cc192a5b75e, type: 2}
+  stunClip: {fileID: 7400000, guid: bb04e52465a726248b0e14e729b1820a, type: 2}

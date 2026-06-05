@@ -20,7 +20,7 @@ public sealed class CharacterAnimationData : ScriptableObject
     public AnimationClip WallStickClip => wallStickClip;
     public AnimationClip StunClip => stunClip;
 
-    // 이동 상태에 대응하는 캐릭터 애니메이션 클립을 반환합니다.
+    // - Role: Get clip.
     public AnimationClip GetClip(PlayerLocomotionState state)
     {
         switch (state)

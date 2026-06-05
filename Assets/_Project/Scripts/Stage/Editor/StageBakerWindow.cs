@@ -33,7 +33,7 @@ public sealed class StageBakerWindow : EditorWindow
 
     private Vector2 scrollPosition;
 
-    // Role: Tools 메뉴에서 StageBaker 에디터 윈도우를 연다.
+    // - Role: Open the editor window.
     [MenuItem("Tools/StageBaker")]
     public static void Open()
     {
@@ -41,7 +41,7 @@ public sealed class StageBakerWindow : EditorWindow
         window.Show();
     }
 
-    // Role: StageBaker 에디터 윈도우의 전체 GUI를 그린다.
+    // - Role: Draw simple debug GUI.
     private void OnGUI()
     {
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
@@ -55,7 +55,7 @@ public sealed class StageBakerWindow : EditorWindow
         EditorGUILayout.EndScrollView();
     }
 
-    // Role: Bake 결과 저장 대상과 기준 Grid 정보를 그린다.
+    // - Role: Draw output section.
     private void DrawOutputSection()
     {
         EditorGUILayout.LabelField("Output", EditorStyles.boldLabel);
@@ -65,7 +65,7 @@ public sealed class StageBakerWindow : EditorWindow
         EditorGUILayout.Space(8f);
     }
 
-    // Role: Stage 셀 범위와 경계 설정 UI를 그린다.
+    // - Role: Draw bounds section.
     private void DrawBoundsSection()
     {
         showBounds = EditorGUILayout.Foldout(showBounds, "Bounds", true, EditorStyles.foldoutHeader);
@@ -97,7 +97,7 @@ public sealed class StageBakerWindow : EditorWindow
         EditorGUILayout.Space(8f);
     }
 
-    // Role: 충돌체 병합과 공간 분할 Bake 설정 UI를 그린다.
+    // - Role: Draw bake settings section.
     private void DrawBakeSettingsSection()
     {
         showBakeSettings = EditorGUILayout.Foldout(showBakeSettings, "Bake Settings", true, EditorStyles.foldoutHeader);
@@ -113,7 +113,7 @@ public sealed class StageBakerWindow : EditorWindow
         EditorGUILayout.Space(8f);
     }
 
-    // Role: Bake에 사용할 Tilemap 레이어 목록 UI를 그린다.
+    // - Role: Draw tilemap section.
     private void DrawTilemapSection()
     {
         showTilemapLayers = EditorGUILayout.Foldout(showTilemapLayers, "Tilemap_Layers", true, EditorStyles.foldoutHeader);
@@ -136,9 +136,7 @@ public sealed class StageBakerWindow : EditorWindow
         EditorGUILayout.Space(8f);
     }
 
-    // Role: 특정 Tilemap 레이어의 참조와 LayerDefinition 설정 UI를 그린다.
-    // Parameters:
-    // - index: 표시할 Tilemap 레이어 인덱스
+    // - Role: Draw tilemap entry.
     private void DrawTilemapEntry(int index)
     {
         TilemapEntry entry = tilemapEntries[index];
@@ -179,7 +177,7 @@ public sealed class StageBakerWindow : EditorWindow
         EditorGUILayout.EndVertical();
     }
 
-    // Role: Validate와 Bake 실행 버튼 UI를 그린다.
+    // - Role: Draw action section.
     private void DrawActionSection()
     {
         using (new EditorGUILayout.HorizontalScope())
@@ -196,10 +194,7 @@ public sealed class StageBakerWindow : EditorWindow
         }
     }
 
-    // Role: RectInt 값을 X/Y/Width/Height 입력 필드로 그린다.
-    // Parameters:
-    // - label: 필드 묶음 라벨
-    // - value: 현재 RectInt 값
+    // - Role: Draw rect int.
     private RectInt DrawRectInt(string label, RectInt value)
     {
         EditorGUILayout.LabelField(label);
@@ -212,7 +207,7 @@ public sealed class StageBakerWindow : EditorWindow
         return new RectInt(x, y, width, height);
     }
 
-    // Role: 등록된 Tilemap들의 cellBounds를 합쳐 Bake 범위를 자동 설정한다.
+    // - Role: Fit bounds from tilemaps.
     private void FitBoundsFromTilemaps()
     {
         bool hasBounds = false;
@@ -226,11 +221,7 @@ public sealed class StageBakerWindow : EditorWindow
             }
 
             BoundsInt tilemapBounds = entry.tilemap.cellBounds;
-            RectInt bounds = new RectInt(
-                tilemapBounds.xMin,
-                tilemapBounds.yMin,
-                tilemapBounds.size.x,
-                tilemapBounds.size.y);
+            RectInt bounds = new RectInt(tilemapBounds.xMin, tilemapBounds.yMin, tilemapBounds.size.x, tilemapBounds.size.y);
             if (bounds.width <= 0 || bounds.height <= 0)
             {
                 continue;
@@ -259,7 +250,7 @@ public sealed class StageBakerWindow : EditorWindow
         cellBounds = combined;
     }
 
-    // Role: 에디터 윈도우 입력값을 StageBakeRequest로 구성한다.
+    // - Role: Build request.
     private StageBakeRequest BuildRequest()
     {
         List<StageBakeLayerInput> layers = new List<StageBakeLayerInput>(tilemapEntries.Count);
@@ -291,10 +282,7 @@ public sealed class StageBakerWindow : EditorWindow
         };
     }
 
-    // Role: StageBaker 실행 결과를 Unity Console에 출력한다.
-    // Parameters:
-    // - label: 로그에 표시할 작업 이름
-    // - report: 출력할 Stage Bake 결과 리포트
+    // - Role: Log report.
     private static void LogReport(string label, StageBakeReport report)
     {
         foreach (string error in report.errors)

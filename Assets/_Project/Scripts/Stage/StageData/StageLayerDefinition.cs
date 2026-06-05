@@ -1,6 +1,6 @@
 using System;
 
-// Role: Stage 타일이 사용할 표면 물리 속성을 구분한다.
+// - Role: List stage surface physics types.
 public enum StageSurfacePhysicType
 {
     Default = 0,
@@ -9,7 +9,7 @@ public enum StageSurfacePhysicType
     Mud = 3,
 }
 
-// Role: Stage 타일의 충돌/상태 속성을 비트 플래그로 표현한다.
+// - Role: Store stage tile flags.
 [Flags]
 public enum StageTileFlags
 {
@@ -20,14 +20,14 @@ public enum StageTileFlags
     Hazard = 1 << 3,
 }
 
-// Role: Bake 결과 충돌체의 형태를 구분한다.
+// - Role: List baked collider shapes.
 public enum StageColliderType
 {
     Rect = 0,
     ConvexPolygon = 1,
 }
 
-// Role: Stage 외곽 경계의 처리 방식을 구분한다.
+// - Role: List stage edge rules.
 public enum StageBoundaryMode
 {
     Open = 0,
@@ -36,14 +36,14 @@ public enum StageBoundaryMode
     Wrap = 3,
 }
 
-// Role: Tilemap 레이어 하나에 적용할 표면 속성과 타일 플래그를 저장한다.
+// - Role: Store one tilemap layer rule.
 [Serializable]
 public struct StageLayerDefinition
 {
     public StageSurfacePhysicType surfacePhysicType;
     public StageTileFlags flags;
 
-    // Role: 일반 Solid 지형에 사용할 기본 레이어 정의를 반환한다.
+    // - Role: Get the default solid layer rule.
     public static StageLayerDefinition Default => new StageLayerDefinition
     {
         surfacePhysicType = StageSurfacePhysicType.Normal,

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-// Role: Stage 로컬 셀 좌표계 기준 크기와 외곽 경계 동작을 저장한다.
+// - Role: Store stage size and edge rules.
 [Serializable]
 public struct StageBoundsData
 {
@@ -12,7 +12,7 @@ public struct StageBoundsData
     public StageBoundaryMode top;
 }
 
-// Role: 레이어 우선순위가 반영된 단일 Bake 타일 셀 정보를 저장한다.
+// - Role: Store one baked tile cell.
 [Serializable]
 public struct StageTileCellData
 {
@@ -22,7 +22,7 @@ public struct StageTileCellData
     public int layerPriority;
 }
 
-// Role: Bake된 셀에서 생성된 서버 충돌체 정보를 저장한다.
+// - Role: Store one baked server collider.
 [Serializable]
 public struct StageColliderData
 {
@@ -34,7 +34,7 @@ public struct StageColliderData
     public Vector2[] points;
 }
 
-// Role: Uniform Grid 버킷 좌표와 해당 버킷에 포함된 충돌체 인덱스를 저장한다.
+// - Role: Store one grid bucket and its collider IDs.
 [Serializable]
 public struct StageSpatialBucketData
 {

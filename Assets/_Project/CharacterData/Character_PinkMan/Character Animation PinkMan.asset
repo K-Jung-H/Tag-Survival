@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e670f942b5404e43b20196d33f89fc3d, type: 3}
+  m_Name: Character Animation PinkMan
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
+  animatorController: {fileID: 9100000, guid: fd09b39fc6734c74ea2a962abafe77e0, type: 2}
+  idleClip: {fileID: 7400000, guid: db56c60736643f34ebe46b84abdfe6a2, type: 2}
+  runClip: {fileID: 7400000, guid: 0f610f75082cb5c489438d064183e168, type: 2}
+  jumpClip: {fileID: 7400000, guid: 15540338c7a8ea349a6c0c8563cbf270, type: 2}
+  fallClip: {fileID: 7400000, guid: 6d084d77da8b7b64a9cb470149bf4417, type: 2}
+  wallStickClip: {fileID: 7400000, guid: 16ff1764427202a4d987a8cb489a5d61, type: 2}
+  stunClip: {fileID: 7400000, guid: 371fc0af15cdccf44baf9fc2a51d54c3, type: 2}

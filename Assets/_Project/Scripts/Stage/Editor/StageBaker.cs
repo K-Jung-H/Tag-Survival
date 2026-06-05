@@ -52,9 +52,7 @@ public static class StageBaker
         public StageTileFlags flags;
         public int priority;
 
-        // Role: 셀이 현재 병합 기준과 같은 속성인지 판단한다.
-        // Parameters:
-        // - cell: 비교할 Stage 타일 셀 데이터
+        // - Role: Check if the cell matches.
         public bool Matches(StageTileCellData cell)
         {
             return surfacePhysicType == cell.surfacePhysicType
@@ -63,9 +61,7 @@ public static class StageBaker
         }
     }
 
-    // Role: Bake 실행 전 요청 데이터의 유효성을 검사한다.
-    // Parameters:
-    // - request: 검사할 Stage Bake 요청
+    // - Role: Validate the request.
     public static StageBakeReport Validate(StageBakeRequest request)
     {
         StageBakeReport report = new StageBakeReport();
@@ -73,9 +69,7 @@ public static class StageBaker
         return report;
     }
 
-    // Role: Tilemap 레이어를 StageBakeData의 셀, 충돌체, 공간 분할 데이터로 변환한다.
-    // Parameters:
-    // - request: Bake에 사용할 입력과 출력 설정
+    // - Role: Bake stage data.
     public static StageBakeReport Bake(StageBakeRequest request)
     {
         StageBakeReport report = new StageBakeReport();
@@ -132,10 +126,7 @@ public static class StageBaker
 
         StageTileCellData[] cells = BuildCellData(winners);
         float cellSize = ResolveCellSize(request.grid);
-        StageColliderData[] colliders = BuildRectColliders(
-            cells,
-            cellSize,
-            request.mergeRectColliders);
+        StageColliderData[] colliders = BuildRectColliders(cells, cellSize, request.mergeRectColliders);
         StageSpatialBucketData[] spatialBuckets = request.generateSpatialIndex
             ? BuildSpatialBuckets(colliders, cellSize, request.uniformGridSize)
             : new StageSpatialBucketData[0];
@@ -168,10 +159,7 @@ public static class StageBaker
         return report;
     }
 
-    // Role: Stage Bake 요청에 필요한 필수 값과 범위를 검사한다.
-    // Parameters:
-    // - request: 검사할 Stage Bake 요청
-    // - report: 검사 결과를 누적할 리포트
+    // - Role: Validate the bake request.
     private static void ValidateRequest(StageBakeRequest request, StageBakeReport report)
     {
         if (request == null)
@@ -227,26 +215,19 @@ public static class StageBaker
         }
     }
 
-    // Role: 레이어가 Bake 대상인지 판단한다.
-    // Parameters:
-    // - layer: 검사할 Tilemap 레이어 입력
+    // - Role: Check if layer ready is true.
     private static bool IsLayerReady(StageBakeLayerInput layer)
     {
         return layer != null && layer.includeInBake && layer.tilemap != null;
     }
 
-    // Role: 두 레이어 정의가 같은 속성을 의미하는지 판단한다.
-    // Parameters:
-    // - a: 첫 번째 레이어 정의
-    // - b: 두 번째 레이어 정의
+    // - Role: Check if definitions match.
     private static bool DefinitionsMatch(StageLayerDefinition a, StageLayerDefinition b)
     {
         return a.surfacePhysicType == b.surfacePhysicType && a.flags == b.flags;
     }
 
-    // Role: 우선순위 계산 결과를 저장 가능한 Stage 타일 셀 배열로 만든다.
-    // Parameters:
-    // - winners: 각 로컬 셀 좌표의 최종 선택 레이어
+    // - Role: Build cell data.
     private static StageTileCellData[] BuildCellData(Dictionary<Vector2Int, CellWinner> winners)
     {
         List<StageTileCellData> cells = new List<StageTileCellData>(winners.Count);
@@ -271,11 +252,7 @@ public static class StageBaker
         return cells.ToArray();
     }
 
-    // Role: 충돌 플래그가 있는 셀들을 Greedy Rectangle Meshing으로 사각 충돌체로 병합한다.
-    // Parameters:
-    // - cells: Bake된 Stage 타일 셀 목록
-    // - cellSize: 한 셀의 월드 크기
-    // - mergeRectColliders: 같은 속성의 연결 셀을 사각형으로 병합할지 여부
+    // - Role: Build rect colliders.
     private static StageColliderData[] BuildRectColliders(
         StageTileCellData[] cells,
         float cellSize,
@@ -318,20 +295,13 @@ public static class StageBaker
         return colliders.ToArray();
     }
 
-    // Role: 셀이 충돌체 생성 대상인지 판단한다.
-    // Parameters:
-    // - cell: 검사할 Stage 타일 셀 데이터
+    // - Role: Check if create collider should happen.
     private static bool ShouldCreateCollider(StageTileCellData cell)
     {
         return cell.flags != StageTileFlags.None;
     }
 
-    // Role: 병합 시작 셀에서 오른쪽으로 확장 가능한 너비를 계산한다.
-    // Parameters:
-    // - lookup: 좌표별 Stage 타일 셀 조회 테이블
-    // - visited: 이미 병합 처리된 셀 좌표 집합
-    // - origin: 병합 시작 좌표
-    // - key: 병합 기준 속성
+    // - Role: Find merge width.
     private static int FindMergeWidth(
         Dictionary<Vector2Int, StageTileCellData> lookup,
         HashSet<Vector2Int> visited,
@@ -347,13 +317,7 @@ public static class StageBaker
         return Mathf.Max(1, width);
     }
 
-    // Role: 계산된 너비를 유지하면서 위쪽으로 확장 가능한 높이를 계산한다.
-    // Parameters:
-    // - lookup: 좌표별 Stage 타일 셀 조회 테이블
-    // - visited: 이미 병합 처리된 셀 좌표 집합
-    // - origin: 병합 시작 좌표
-    // - key: 병합 기준 속성
-    // - width: 이미 계산된 병합 너비
+    // - Role: Find merge height.
     private static int FindMergeHeight(
         Dictionary<Vector2Int, StageTileCellData> lookup,
         HashSet<Vector2Int> visited,
@@ -386,12 +350,7 @@ public static class StageBaker
         return height;
     }
 
-    // Role: 특정 좌표의 셀이 현재 사각형 병합에 포함될 수 있는지 판단한다.
-    // Parameters:
-    // - lookup: 좌표별 Stage 타일 셀 조회 테이블
-    // - visited: 이미 병합 처리된 셀 좌표 집합
-    // - coord: 검사할 셀 좌표
-    // - key: 병합 기준 속성
+    // - Role: Check if merge cell can happen.
     private static bool CanMergeCell(
         Dictionary<Vector2Int, StageTileCellData> lookup,
         HashSet<Vector2Int> visited,
@@ -403,12 +362,7 @@ public static class StageBaker
             && key.Matches(cell);
     }
 
-    // Role: 병합된 사각형 영역의 셀들을 처리 완료로 표시한다.
-    // Parameters:
-    // - visited: 처리 완료 셀 좌표 집합
-    // - origin: 병합 시작 좌표
-    // - width: 병합된 너비
-    // - height: 병합된 높이
+    // - Role: Mark cells as visited.
     private static void MarkVisited(HashSet<Vector2Int> visited, Vector2Int origin, int width, int height)
     {
         for (int yOffset = 0; yOffset < height; yOffset++)
@@ -420,12 +374,7 @@ public static class StageBaker
         }
     }
 
-    // Role: 병합된 셀 영역을 StageColliderData 사각형으로 변환한다.
-    // Parameters:
-    // - originCell: 사각형의 좌측 하단 기준 셀
-    // - widthInCells: 사각형 너비 셀 수
-    // - heightInCells: 사각형 높이 셀 수
-    // - cellSize: 한 셀의 월드 크기
+    // - Role: Create rect collider.
     private static StageColliderData CreateRectCollider(
         StageTileCellData originCell,
         int widthInCells,
@@ -447,11 +396,7 @@ public static class StageBaker
         };
     }
 
-    // Role: 충돌체 조회 비용을 줄이기 위한 Uniform Grid 버킷 목록을 생성한다.
-    // Parameters:
-    // - colliders: 공간 분할에 등록할 충돌체 목록
-    // - cellSize: 한 셀의 월드 크기
-    // - bucketSizeInCells: 한 버킷이 포함하는 셀 크기
+    // - Role: Build spatial buckets.
     private static StageSpatialBucketData[] BuildSpatialBuckets(
         StageColliderData[] colliders,
         float cellSize,
@@ -503,9 +448,7 @@ public static class StageBaker
         return buckets.ToArray();
     }
 
-    // Role: Grid 설정에서 Stage Bake에 사용할 셀 크기를 계산한다.
-    // Parameters:
-    // - grid: Bake 기준 Grid
+    // - Role: Find cell size.
     private static float ResolveCellSize(Grid grid)
     {
         if (grid == null)

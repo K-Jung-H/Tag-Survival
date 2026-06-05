@@ -21,17 +21,20 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     private bool warnedMissingMoveJoystick;
     private bool warnedMissingSkillAimJoystick;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         lastAim = NormalizeOrDefault(defaultAim, Vector2.right);
         localSkillCooldownDuration = Mathf.Max(0f, fallbackSkillCooldownSeconds);
     }
 
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         WarnMissingReferences();
     }
 
+    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         skillFireTimer = 0f;
@@ -39,7 +42,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         UpdateSkillCooldownView();
     }
 
-    // Role: Combines mobile joystick input with an optional keyboard/gamepad fallback.
+    // - Role: Get input state.
     public override ClientInputState GetInputState()
     {
         TickLocalCooldown();
@@ -81,6 +84,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         };
     }
 
+    // - Role: Apply skill aim joystick.
     private void ApplySkillAimJoystick(ref Vector2 aim, ref PlayerInputButtons buttons)
     {
         if (skillAimJoystick == null)
@@ -112,6 +116,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         }
     }
 
+    // - Role: Apply queued skill fire.
     private void ApplyQueuedSkillFire(ref PlayerInputButtons buttons)
     {
         if (skillFireTimer <= 0f)
@@ -121,6 +126,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         skillFireTimer = Mathf.Max(0f, skillFireTimer - Time.deltaTime);
     }
 
+    // - Role: Try to queue local skill fire.
     private void TryQueueLocalSkillFire()
     {
         if (blockSkillInputDuringLocalCooldown && localSkillCooldownRemaining > 0f)
@@ -130,6 +136,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         StartLocalCooldown();
     }
 
+    // - Role: Start local cooldown.
     private void StartLocalCooldown()
     {
         float cooldownSeconds = ResolveSkillCooldownSeconds();
@@ -137,6 +144,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         localSkillCooldownRemaining = cooldownSeconds;
     }
 
+    // - Role: Update local cooldown by time.
     private void TickLocalCooldown()
     {
         if (localSkillCooldownRemaining <= 0f)
@@ -145,6 +153,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         localSkillCooldownRemaining = Mathf.Max(0f, localSkillCooldownRemaining - Time.deltaTime);
     }
 
+    // - Role: Update skill cooldown view.
     private void UpdateSkillCooldownView()
     {
         if (skillAimJoystick == null)
@@ -153,6 +162,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         skillAimJoystick.SetCooldownReadyProgress(GetLocalSkillReadyProgress());
     }
 
+    // - Role: Get local skill ready progress.
     private float GetLocalSkillReadyProgress()
     {
         if (localSkillCooldownDuration <= 0.0001f)
@@ -161,6 +171,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         return 1f - Mathf.Clamp01(localSkillCooldownRemaining / localSkillCooldownDuration);
     }
 
+    // - Role: Find skill cooldown seconds.
     private float ResolveSkillCooldownSeconds()
     {
         if (snapshotReceiver != null
@@ -176,6 +187,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         return Mathf.Max(0f, fallbackSkillCooldownSeconds);
     }
 
+    // - Role: Warn about missing references.
     private void WarnMissingReferences()
     {
         if (!warnedMissingMoveJoystick && moveJoystick == null)
@@ -191,6 +203,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
         }
     }
 
+    // - Role: Normalize or default.
     private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 fallback)
     {
         if (value.sqrMagnitude > 0.0001f)

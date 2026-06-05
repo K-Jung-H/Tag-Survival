@@ -63,6 +63,7 @@ public sealed class StageDefinition : ScriptableObject
     public float GravityScale => ResolvePhysicsModifier(StageSurfacePhysicType.Normal).GravityScale;
     public float MaxFallSpeedMultiplier => ResolvePhysicsModifier(StageSurfacePhysicType.Normal).MaxFallSpeedMultiplier;
 
+    // - Role: Try to get physics modifier.
     public bool TryGetPhysicsModifier(StageSurfacePhysicType surfacePhysicType, out StagePhysicsModifier modifier)
     {
         StagePhysicsModifier[] modifiers = PhysicsModifiers;
@@ -81,6 +82,7 @@ public sealed class StageDefinition : ScriptableObject
         return false;
     }
 
+    // - Role: Find physics modifier.
     public StagePhysicsModifier ResolvePhysicsModifier(StageSurfacePhysicType surfacePhysicType)
     {
         if (TryGetPhysicsModifier(surfacePhysicType, out StagePhysicsModifier modifier))
@@ -103,6 +105,7 @@ public sealed class StageDefinition : ScriptableObject
         return StagePhysicsModifier.Normal;
     }
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
         HashSet<StageSurfacePhysicType> modifierTypes = CollectModifierTypes();
@@ -133,6 +136,7 @@ public sealed class StageDefinition : ScriptableObject
         }
     }
 
+    // - Role: Collect modifier types.
     private HashSet<StageSurfacePhysicType> CollectModifierTypes()
     {
         HashSet<StageSurfacePhysicType> modifierTypes = new HashSet<StageSurfacePhysicType>();
@@ -151,6 +155,7 @@ public sealed class StageDefinition : ScriptableObject
         return modifierTypes;
     }
 
+    // - Role: Collect baked surface types.
     private HashSet<StageSurfacePhysicType> CollectBakedSurfaceTypes()
     {
         HashSet<StageSurfacePhysicType> bakedSurfaceTypes = new HashSet<StageSurfacePhysicType>();

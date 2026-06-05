@@ -6,7 +6,7 @@ public struct ClientInputState
     public Vector2 aim;
     public PlayerInputButtons buttons;
 
-    // Role: 입력이 없는 기본 상태를 반환한다.
+    // - Role: Create an empty input state.
     public static ClientInputState Empty()
     {
         return new ClientInputState

@@ -24,37 +24,27 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     private Vector2 hookDirection = Vector2.right;
     private Vector2 fireStartPosition;
     private Vector2 anchorPosition;
-    private Vector2 previousPlayerAnchor;
     private float ropeLength;
-    private bool hasPreviousPlayerAnchor;
 
+    // - Role: Create hook skill state machine.
     public Hook_SkillStateMachine(SkillDefinition definition)
         : base(definition)
     {
         config = definition != null ? definition.GetConfig<HookSkillConfig>() : null;
     }
 
-    public override bool UsesSwingMovement => State == SkillObjectState.Active;
-
-    public override void PrepareMovement(
-        ref PlayerState player,
-        StageCollisionSystem collisionSystem,
+    // - Role: Apply owner constraint.
+    public override void ApplyOwnerConstraint(
+        PlayerObject player,
         float deltaTime)
     {
         if (State != SkillObjectState.Active)
         {
-            hasPreviousPlayerAnchor = false;
             return;
         }
 
         hookPosition = anchorPosition;
         hookVelocity = Vector2.zero;
-
-        if (player.isGrounded)
-        {
-            hasPreviousPlayerAnchor = false;
-            return;
-        }
 
         Vector2 playerAnchor = GetPlayerAnchorPosition(player);
         if (ropeLength <= 0f)
@@ -66,7 +56,6 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         float distance = anchorToPlayer.magnitude;
         if (distance <= 0.0001f)
         {
-            hasPreviousPlayerAnchor = false;
             return;
         }
 
@@ -76,48 +65,75 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         bool isRopeTaut = distance >= ropeLength - RopeTautTolerance;
         if (!isRopeTaut)
         {
-            hasPreviousPlayerAnchor = false;
             return;
         }
 
-        ApplySwingInputAcceleration(ref player, direction, deltaTime);
-        RemoveRopeRadialVelocity(ref player, direction);
+        if (distance > ropeLength)
+        {
+            Vector2 correctedAnchor = anchorPosition + direction * ropeLength;
+            Vector2 correctionDelta = correctedAnchor - playerAnchor;
+            if (correctionDelta.sqrMagnitude > 0.000001f)
+            {
+                player.position += correctionDelta;
+                if (correctionDelta.y > 0.0001f)
+                {
+                    player.isGrounded = false;
+                }
 
+                playerAnchor = GetPlayerAnchorPosition(player);
+                anchorToPlayer = playerAnchor - anchorPosition;
+                distance = anchorToPlayer.magnitude;
+                if (distance <= 0.0001f)
+                {
+                    return;
+                }
+
+                direction = anchorToPlayer / distance;
+                hookDirection = direction;
+            }
+        }
+
+        if (player.isGrounded)
+        {
+            RemoveOutwardRopeVelocity(player, direction);
+            return;
+        }
+
+        ApplySwingInputAcceleration(player, direction, deltaTime);
+        RemoveRopeRadialVelocity(player, direction);
+        ApplySwingDamping(player, direction, deltaTime);
         player.isWallSticking = false;
         player.wallNormalX = 0;
-
-        previousPlayerAnchor = playerAnchor;
-        hasPreviousPlayerAnchor = true;
     }
 
+    // - Role: Simulate this object.
     public override void Simulate(
-        ref PlayerState player,
-        StageCollisionSystem collisionSystem,
+        PlayerObject player,
         float deltaTime,
         bool skillPressedThisTick)
     {
-        ownerClientId = player.clientId;
+        ownerClientId = player.playerId;
         TickCooldown(deltaTime);
 
         if (skillPressedThisTick)
         {
-            HandleSkillPressed(ref player);
+            HandleSkillPressed(player);
         }
 
         switch (State)
         {
             case SkillObjectState.Spawning:
-                SimulateFlyingOut(collisionSystem, deltaTime);
                 break;
             case SkillObjectState.Active:
-                SimulateAttached(ref player, collisionSystem, deltaTime);
+                SimulateAttached();
                 break;
             case SkillObjectState.Destroying:
-                SimulateReturning(ref player, deltaTime);
+                SimulateReturning(player, deltaTime);
                 break;
         }
     }
 
+    // - Role: Sync skill objects.
     public override void SyncSkillObjects(Skill skill)
     {
         if (skill == null)
@@ -141,13 +157,42 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         skillObject.velocity = hookVelocity;
         skillObject.rotation = Mathf.Atan2(hookDirection.y, hookDirection.x) * Mathf.Rad2Deg;
         skillObject.collider = new WorldCollider(Vector2.zero, new Vector2(HookHitHalfExtent, HookHitHalfExtent));
+        skillObject.stageMode = State == SkillObjectState.Spawning
+            ? SkillObjectStageMode.MoveWithStageCollision
+            : SkillObjectStageMode.None;
+        skillObject.stageSearchDistance = 0;
     }
 
-    private void HandleSkillPressed(ref PlayerState player)
+    // - Role: Handle stage move result.
+    public override void OnStageMoveResult(SkillObject self, StageCollisionMoveResult moveResult)
+    {
+        if (self == null || self.skillObjectId != HookObjectIndex || State != SkillObjectState.Spawning)
+        {
+            return;
+        }
+
+        hookPosition = self.position;
+        if (moveResult.isGrounded || moveResult.hitCeiling || moveResult.hitWall)
+        {
+            anchorPosition = hookPosition;
+            hookVelocity = Vector2.zero;
+            hookDirection = -fireDirection;
+            State = SkillObjectState.Active;
+            return;
+        }
+
+        if (Vector2.Distance(fireStartPosition, hookPosition) >= MaxRopeLength)
+        {
+            StartReturning();
+        }
+    }
+
+    // - Role: Handle skill pressed.
+    private void HandleSkillPressed(PlayerObject player)
     {
         if (State == SkillObjectState.Active)
         {
-            ApplyDetachBoost(ref player);
+            ApplyDetachBoost(player);
             StartReturning();
             return;
         }
@@ -173,125 +218,19 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         hookVelocity = fireDirection * HookSpeed;
         anchorPosition = hookPosition;
         ropeLength = 0f;
-        hasPreviousPlayerAnchor = false;
         State = SkillObjectState.Spawning;
     }
 
-    private void SimulateFlyingOut(StageCollisionSystem collisionSystem, float deltaTime)
-    {
-        Vector2 delta = hookVelocity * deltaTime;
-        StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
-            hookPosition,
-            delta,
-            new Vector2(HookHitHalfExtent, HookHitHalfExtent));
-
-        hookPosition = moveResult.position;
-        if (moveResult.isGrounded || moveResult.hitCeiling || moveResult.hitWall)
-        {
-            anchorPosition = hookPosition;
-            hookVelocity = Vector2.zero;
-            hookDirection = -fireDirection;
-            hasPreviousPlayerAnchor = false;
-            State = SkillObjectState.Active;
-            return;
-        }
-
-        if (Vector2.Distance(fireStartPosition, hookPosition) >= MaxRopeLength)
-        {
-            StartReturning();
-        }
-    }
-
-    private void SimulateAttached(
-        ref PlayerState player,
-        StageCollisionSystem collisionSystem,
-        float deltaTime)
+    // - Role: Simulate attached hook state.
+    private void SimulateAttached()
     {
         hookPosition = anchorPosition;
         hookVelocity = Vector2.zero;
-        bool wasGroundedBeforeRope = player.isGrounded;
-
-        Vector2 playerAnchor = GetPlayerAnchorPosition(player);
-        if (ropeLength <= 0f)
-        {
-            ropeLength = Vector2.Distance(anchorPosition, playerAnchor);
-        }
-
-        Vector2 anchorToPlayer = playerAnchor - anchorPosition;
-        float distance = anchorToPlayer.magnitude;
-        if (distance <= 0.0001f)
-        {
-            hasPreviousPlayerAnchor = false;
-            return;
-        }
-
-        Vector2 direction = anchorToPlayer / distance;
-        hookDirection = direction;
-
-        bool isRopeTaut = distance >= ropeLength - RopeTautTolerance;
-        if (!isRopeTaut)
-        {
-            hasPreviousPlayerAnchor = false;
-            return;
-        }
-
-        if (distance > ropeLength)
-        {
-            Vector2 correctedAnchor = anchorPosition + direction * ropeLength;
-            Vector2 correctionDelta = correctedAnchor - playerAnchor;
-            if (correctionDelta.sqrMagnitude > 0.000001f)
-            {
-                StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
-                    playerAnchor,
-                    correctionDelta,
-                    player.collisionHalfExtent);
-
-                player.position = moveResult.position - player.collisionOffset;
-                player.isGrounded = moveResult.isGrounded
-                    || (wasGroundedBeforeRope && correctionDelta.y <= 0.0001f);
-
-                if (moveResult.isGrounded && player.velocity.y < 0f)
-                {
-                    player.velocity.y = 0f;
-                    player.coyoteTimeRemaining = player.movementStats.coyoteTime;
-                }
-
-                if (moveResult.hitCeiling && player.velocity.y > 0f)
-                {
-                    player.velocity.y = 0f;
-                }
-
-                playerAnchor = GetPlayerAnchorPosition(player);
-                anchorToPlayer = playerAnchor - anchorPosition;
-                distance = anchorToPlayer.magnitude;
-                if (distance <= 0.0001f)
-                {
-                    hasPreviousPlayerAnchor = false;
-                    return;
-                }
-
-                direction = anchorToPlayer / distance;
-                hookDirection = direction;
-            }
-        }
-
-        if (wasGroundedBeforeRope || player.isGrounded)
-        {
-            RemoveOutwardRopeVelocity(ref player, direction);
-            hasPreviousPlayerAnchor = false;
-            return;
-        }
-
-        RebuildVelocityFromConstrainedPosition(ref player, deltaTime);
-        RemoveRopeRadialVelocity(ref player, direction);
-        ApplySwingDamping(ref player, direction, deltaTime);
-
-        player.isWallSticking = false;
-        player.wallNormalX = 0;
     }
 
+    // - Role: Apply swing input acceleration.
     private void ApplySwingInputAcceleration(
-        ref PlayerState player,
+        PlayerObject player,
         Vector2 radialDirection,
         float deltaTime)
     {
@@ -310,7 +249,8 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         player.velocity += tangent * (Mathf.Abs(horizontalInput) * SwingInputAcceleration * deltaTime);
     }
 
-    private void ApplyDetachBoost(ref PlayerState player)
+    // - Role: Apply detach boost.
+    private void ApplyDetachBoost(PlayerObject player)
     {
         Vector2 playerAnchor = GetPlayerAnchorPosition(player);
         Vector2 toHook = anchorPosition - playerAnchor;
@@ -328,8 +268,9 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         player.velocity += boostDirection.normalized * ResolveDetachBoost();
     }
 
+    // - Role: Find detach boost direction.
     private Vector2 ResolveDetachBoostDirection(
-        PlayerState player,
+        PlayerObject player,
         Vector2 toHook)
     {
         if (Mathf.Abs(player.input.x) <= MovementInputThreshold)
@@ -354,6 +295,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         return tangent;
     }
 
+    // - Role: Find detach boost.
     private float ResolveDetachBoost()
     {
         float normalizedLength = MaxRopeLength > 0f
@@ -368,8 +310,9 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         return SwingDetachBoost * Mathf.Lerp(1f, 2f, (normalizedLength - 0.5f) / 0.5f);
     }
 
+    // - Role: Apply swing damping.
     private void ApplySwingDamping(
-        ref PlayerState player,
+        PlayerObject player,
         Vector2 radialDirection,
         float deltaTime)
     {
@@ -384,16 +327,18 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         player.velocity = radialVelocity + tangentVelocity * damping;
     }
 
+    // - Role: Remove rope radial velocity.
     private static void RemoveRopeRadialVelocity(
-        ref PlayerState player,
+        PlayerObject player,
         Vector2 radialDirection)
     {
         float radialVelocity = Vector2.Dot(player.velocity, radialDirection);
         player.velocity -= radialDirection * radialVelocity;
     }
 
+    // - Role: Remove outward rope velocity.
     private static void RemoveOutwardRopeVelocity(
-        ref PlayerState player,
+        PlayerObject player,
         Vector2 radialDirection)
     {
         float radialVelocity = Vector2.Dot(player.velocity, radialDirection);
@@ -405,21 +350,8 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         player.velocity -= radialDirection * radialVelocity;
     }
 
-    private void RebuildVelocityFromConstrainedPosition(
-        ref PlayerState player,
-        float deltaTime)
-    {
-        if (!hasPreviousPlayerAnchor || deltaTime <= 0f)
-        {
-            return;
-        }
-
-        Vector2 currentPlayerAnchor = GetPlayerAnchorPosition(player);
-        player.velocity = (currentPlayerAnchor - previousPlayerAnchor) / deltaTime;
-        hasPreviousPlayerAnchor = false;
-    }
-
-    private void SimulateReturning(ref PlayerState player, float deltaTime)
+    // - Role: Simulate hook return state.
+    private void SimulateReturning(PlayerObject player, float deltaTime)
     {
         Vector2 target = GetPlayerAnchorPosition(player);
         Vector2 toTarget = target - hookPosition;
@@ -440,14 +372,15 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         hookPosition += hookVelocity * deltaTime;
     }
 
+    // - Role: Start returning.
     private void StartReturning()
     {
         State = SkillObjectState.Destroying;
         ropeLength = 0f;
-        hasPreviousPlayerAnchor = false;
     }
 
-    private static Vector2 GetPlayerAnchorPosition(PlayerState player)
+    // - Role: Get player anchor position.
+    private static Vector2 GetPlayerAnchorPosition(PlayerObject player)
     {
         return player.position + player.collisionOffset;
     }

@@ -34,7 +34,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
     public IReadOnlyDictionary<ulong, ClientSnapshotState> Snapshots => snapshots;
     public IReadOnlyDictionary<ulong, ClientSkillSnapshotState> SkillSnapshots => skillSnapshots;
 
-    // Role: 입력 기록 컴포넌트를 캐싱하고 NetworkManager 연결 이벤트를 등록한다.
+    // - Role: Set up this object when it starts.
     private void Start()
     {
         if (networkDelaySimulator == null)
@@ -58,14 +58,14 @@ public class Client_SnapshotReceiver : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
-    // Role: 서버 스냅샷 수신 핸들러 등록을 재시도한다.
+    // - Role: Update this object each frame.
     private void Update()
     {
         TryRegisterSnapshotHandler();
         FlushDelayedSnapshots();
     }
 
-    // Role: 등록된 NetworkManager 이벤트와 서버 스냅샷 수신 핸들러를 해제한다.
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (NetworkManager.Singleton == null)
@@ -77,9 +77,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         UnregisterSnapshotHandler();
     }
 
-    // Role: 로컬 클라이언트 접속 성공 시 서버 스냅샷 수신 핸들러 등록을 시도한다.
-    // Parameters:
-    // - clientId: 접속한 클라이언트 ID
+    // - Role: Handle client connected.
     private void OnClientConnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -91,9 +89,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         TryRegisterSnapshotHandler();
     }
 
-    // Role: 로컬 클라이언트 연결 해제 시 수신 상태와 입력 기록을 초기화한다.
-    // Parameters:
-    // - clientId: 연결 해제된 클라이언트 ID
+    // - Role: Handle client disconnected.
     private void OnClientDisconnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -117,7 +113,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         UnregisterSnapshotHandler();
     }
 
-    // Role: CustomMessagingManager가 준비된 뒤 서버 스냅샷 수신 핸들러를 등록한다.
+    // - Role: Try to register snapshot handler.
     private void TryRegisterSnapshotHandler()
     {
         if (isRegistered)
@@ -146,7 +142,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         isRegistered = true;
     }
 
-    // Role: 서버 스냅샷 수신 핸들러를 해제한다.
+    // - Role: Unregister snapshot handler.
     private void UnregisterSnapshotHandler()
     {
         if (!isRegistered)
@@ -158,17 +154,12 @@ public class Client_SnapshotReceiver : MonoBehaviour
         if (NetworkManager.Singleton.CustomMessagingManager == null)
             return;
 
-        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(
-            GameNetMessages.ServerSnapshot
-        );
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerSnapshot);
 
         isRegistered = false;
     }
 
-    // Role: 서버 스냅샷 패킷을 읽고 클라이언트 표시용 월드 상태와 입력 처리 기록을 갱신한다.
-    // Parameters:
-    // - senderClientId: 스냅샷 패킷을 보낸 서버 ID
-    // - reader: 스냅샷 패킷 reader
+    // - Role: Handle server snapshot received.
     private void OnServerSnapshotReceived(ulong senderClientId, FastBufferReader reader)
     {
         if (!CanReceiveSnapshot())
@@ -203,6 +194,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         ApplyServerSnapshot(header, players, skills);
     }
 
+    // - Role: Try to read snapshot.
     private bool TryReadSnapshot(
         ref FastBufferReader reader,
         bool canReuseReadBuffers,
@@ -244,6 +236,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         return true;
     }
 
+    // - Role: Get player read buffer.
     private PlayerSnapshotPacket[] GetPlayerReadBuffer(ushort playerCount, bool canReuseReadBuffers)
     {
         if (playerCount <= 0)
@@ -264,6 +257,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         return reusablePlayerBuffer;
     }
 
+    // - Role: Get skill read buffer.
     private SkillSnapshotPacket[] GetSkillReadBuffer(ushort skillCount, bool canReuseReadBuffers)
     {
         if (skillCount <= 0)
@@ -284,6 +278,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         return reusableSkillBuffer;
     }
 
+    // - Role: Apply server snapshot.
     private void ApplyServerSnapshot(
         ServerSnapshotHeaderPacket header,
         PlayerSnapshotPacket[] players,
@@ -353,6 +348,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         RemoveMissingSkills();
     }
 
+    // - Role: Flush delayed snapshots.
     private void FlushDelayedSnapshots()
     {
         if (delayedSnapshots.Count == 0)
@@ -379,7 +375,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         }
     }
 
-    // Role: 현재 인스턴스가 서버 스냅샷을 수신할 수 있는 상태인지 판단한다.
+    // - Role: Check if receive snapshot can happen.
     private bool CanReceiveSnapshot()
     {
         if (NetworkManager.Singleton == null)
@@ -397,7 +393,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         return true;
     }
 
-    // Role: 최신 스냅샷에 포함되지 않은 플레이어 상태를 제거한다.
+    // - Role: Remove missing players.
     private void RemoveMissingPlayers()
     {
         removeTargets.Clear();
@@ -416,7 +412,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         }
     }
 
-    // Role: 최신 스냅샷에 없는 스킬 상태를 제거한다.
+    // - Role: Remove missing skills.
     private void RemoveMissingSkills()
     {
         removeTargets.Clear();
@@ -436,15 +432,13 @@ public class Client_SnapshotReceiver : MonoBehaviour
         }
     }
 
-    // Role: 특정 클라이언트 ID의 최신 스냅샷 상태 조회를 시도한다.
-    // Parameters:
-    // - clientId: 조회할 클라이언트 ID
-    // - state: 조회 성공 시 반환될 스냅샷 상태
+    // - Role: Try to get snapshot.
     public bool TryGetSnapshot(ulong clientId, out ClientSnapshotState state)
     {
         return snapshots.TryGetValue(clientId, out state);
     }
 
+    // - Role: Check if newer snapshot is true.
     private bool IsNewerSnapshot(uint incomingSeq)
     {
         if (!hasAppliedSnapshot)
@@ -456,6 +450,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
         return unchecked((int)(incomingSeq - LastSnapshotSeq)) > 0;
     }
 
+    // - Role: Get network delay seconds.
     private float GetNetworkDelaySeconds()
     {
         if (networkDelaySimulator == null)

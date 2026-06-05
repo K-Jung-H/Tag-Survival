@@ -27,7 +27,7 @@ public class OffScreenIndicatorView : MonoBehaviour
 
     public int IndicatorCount => indicators.Count;
 
-    // Role: 참조 상태를 초기화한다.
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         if (targetCamera == null)
@@ -36,7 +36,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         }
     }
 
-    // Role: 월드 View 이벤트를 구독하고 이미 생성된 플레이어 표시자를 동기화한다.
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         if (worldView == null)
@@ -48,7 +48,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         SyncExistingPlayerViews();
     }
 
-    // Role: 월드 View 이벤트 구독을 해제한다.
+    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         if (worldView == null)
@@ -58,7 +58,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         worldView.PlayerViewRemoved -= OnPlayerViewRemoved;
     }
 
-    // Role: 표시자의 화면 밖 위치와 표시 상태를 갱신한다.
+    // - Role: Update this object after normal updates.
     private void LateUpdate()
     {
         if (!CanUpdateIndicators())
@@ -68,7 +68,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         RemoveInvalidIndicators();
     }
 
-    // Role: 이미 생성되어 있는 플레이어 View 표시자를 초기화한다.
+    // - Role: Sync existing player views.
     private void SyncExistingPlayerViews()
     {
         worldView.CopyPlayerViewsTo(existingPlayerViews);
@@ -79,9 +79,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         }
     }
 
-    // Role: 플레이어 View 생성 이벤트를 처리한다.
-    // Parameters:
-    // - viewRef: 생성된 플레이어 View 참조
+    // - Role: Handle player view created.
     private void OnPlayerViewCreated(ClientWorldPlayerViewRef viewRef)
     {
         if (viewRef.root == null)
@@ -93,15 +91,13 @@ public class OffScreenIndicatorView : MonoBehaviour
         TryCreateIndicator(viewRef);
     }
 
-    // Role: 플레이어 View 제거 이벤트를 처리한다.
-    // Parameters:
-    // - clientId: 제거된 플레이어 클라이언트 ID
+    // - Role: Handle player view removed.
     private void OnPlayerViewRemoved(ulong clientId)
     {
         RemoveIndicator(clientId);
     }
 
-    // Role: 표시자 갱신이 가능한 상태인지 판단한다.
+    // - Role: Check if update indicators can happen.
     private bool CanUpdateIndicators()
     {
         if (worldView == null)
@@ -113,9 +109,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         return true;
     }
 
-    // Role: 플레이어 View의 표시자 스킨 원본을 복사해 표시자를 생성한다.
-    // Parameters:
-    // - viewRef: 플레이어 View 참조
+    // - Role: Try to create indicator.
     private void TryCreateIndicator(ClientWorldPlayerViewRef viewRef)
     {
         Transform sourceTransform = FindChildRecursive(viewRef.root, indicatorObjectName);
@@ -150,7 +144,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         });
     }
 
-    // Role: 모든 표시자의 화면 밖 상태와 위치를 갱신한다.
+    // - Role: Update indicators.
     private void UpdateIndicators()
     {
         foreach (var pair in indicators)
@@ -164,9 +158,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         }
     }
 
-    // Role: 특정 표시자의 화면 밖 상태와 위치를 갱신한다.
-    // Parameters:
-    // - entry: 표시자 엔트리
+    // - Role: Update indicator.
     private void UpdateIndicator(IndicatorEntry entry)
     {
         Vector3 playerPosition = entry.playerRoot.position;
@@ -189,6 +181,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         entry.indicator.enabled = true;
     }
 
+    // - Role: Get indicator color.
     private Color GetIndicatorColor(ulong clientId, Color defaultColor)
     {
         if (worldView != null
@@ -201,9 +194,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         return defaultColor;
     }
 
-    // Role: Viewport 좌표가 카메라 화면 안인지 판단한다.
-    // Parameters:
-    // - viewportPosition: 검사할 Viewport 좌표
+    // - Role: Check if inside viewport is true.
     private bool IsInsideViewport(Vector3 viewportPosition)
     {
         if (viewportPosition.z <= 0f)
@@ -218,9 +209,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         return true;
     }
 
-    // Role: Viewport 좌표를 화면 가장자리 월드 좌표로 변환한다.
-    // Parameters:
-    // - viewportPosition: 대상 Viewport 좌표
+    // - Role: Get clamped world position.
     private Vector3 GetClampedWorldPosition(Vector3 viewportPosition)
     {
         if (viewportPosition.z < 0f)
@@ -230,17 +219,9 @@ public class OffScreenIndicatorView : MonoBehaviour
             viewportPosition.z = Mathf.Abs(viewportPosition.z);
         }
 
-        viewportPosition.x = Mathf.Clamp(
-            viewportPosition.x,
-            viewportPadding,
-            1f - viewportPadding
-        );
+        viewportPosition.x = Mathf.Clamp(viewportPosition.x, viewportPadding, 1f - viewportPadding);
 
-        viewportPosition.y = Mathf.Clamp(
-            viewportPosition.y,
-            viewportPadding,
-            1f - viewportPadding
-        );
+        viewportPosition.y = Mathf.Clamp(viewportPosition.y, viewportPadding, 1f - viewportPadding);
 
         Vector3 worldPosition = targetCamera.ViewportToWorldPoint(viewportPosition);
         worldPosition.z = indicatorZ;
@@ -248,11 +229,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         return worldPosition;
     }
 
-    // Role: 표시자가 대상 위치를 바라보도록 회전시킨다.
-    // Parameters:
-    // - indicatorTransform: 회전 대상 Transform
-    // - fromPosition: 표시자 위치
-    // - targetPosition: 대상 위치
+    // - Role: Rotate toward the target.
     private void RotateToTarget(
         Transform indicatorTransform,
         Vector3 fromPosition,
@@ -268,7 +245,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         indicatorTransform.rotation = Quaternion.Euler(0f, 0f, angle + rotationOffset);
     }
 
-    // Role: 유효하지 않은 표시자를 제거한다.
+    // - Role: Remove invalid indicators.
     private void RemoveInvalidIndicators()
     {
         removeTargets.Clear();
@@ -287,9 +264,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         }
     }
 
-    // Role: 특정 클라이언트 ID에 해당하는 표시자를 제거한다.
-    // Parameters:
-    // - clientId: 제거할 표시자의 클라이언트 ID
+    // - Role: Remove indicator.
     private void RemoveIndicator(ulong clientId)
     {
         if (!indicators.TryGetValue(clientId, out IndicatorEntry entry))
@@ -303,10 +278,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         indicators.Remove(clientId);
     }
 
-    // Role: 이름이 일치하는 하위 Transform을 재귀 탐색한다.
-    // Parameters:
-    // - root: 탐색 시작 Transform
-    // - objectName: 찾을 오브젝트 이름
+    // - Role: Find child recursive.
     private Transform FindChildRecursive(Transform root, string objectName)
     {
         if (root.name == objectName)

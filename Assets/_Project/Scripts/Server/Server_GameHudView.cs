@@ -16,6 +16,7 @@ public class Server_GameHudView : MonoBehaviour
     private float refreshTimer;
     private bool hasLoggedMissingReferences;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         if (leaderboardTitleText != null)
@@ -26,6 +27,7 @@ public class Server_GameHudView : MonoBehaviour
         LogMissingReferencesOnce();
     }
 
+    // - Role: Update this object after normal updates.
     private void LateUpdate()
     {
         refreshTimer += Time.deltaTime;
@@ -38,6 +40,7 @@ public class Server_GameHudView : MonoBehaviour
         RenderHud();
     }
 
+    // - Role: Render the HUD.
     private void RenderHud()
     {
         if (gamePlayRunner == null || gamePlayRunner.GamePlay == null)
@@ -84,6 +87,7 @@ public class Server_GameHudView : MonoBehaviour
         }
     }
 
+    // - Role: Clear rows.
     private void ClearRows()
     {
         for (int i = 0; i < leaderboardRows.Count; i++)
@@ -98,17 +102,19 @@ public class Server_GameHudView : MonoBehaviour
         }
     }
 
+    // - Role: Format leaderboard row.
     private string FormatLeaderboardRow(int zeroBasedRank, GameStateEntryPacket entry)
     {
         int seconds = Mathf.FloorToInt(entry.taggerTimeMs / 1000f);
         return $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {seconds}s";
     }
 
+    // - Role: Find player name.
     private string ResolvePlayerName(ulong clientId)
     {
         if (gamePlayRunner != null
             && gamePlayRunner.GamePlay != null
-            && gamePlayRunner.GamePlay.TryGetPlayer(clientId, out PlayerState player)
+            && gamePlayRunner.GamePlay.TryGetPlayer(clientId, out PlayerObject player)
             && !string.IsNullOrWhiteSpace(player.nickname))
         {
             return player.nickname;
@@ -117,6 +123,7 @@ public class Server_GameHudView : MonoBehaviour
         return $"Client {clientId}";
     }
 
+    // - Role: Format timer.
     private string FormatTimer(int totalSeconds)
     {
         int safeSeconds = Mathf.Max(0, totalSeconds);
@@ -125,6 +132,7 @@ public class Server_GameHudView : MonoBehaviour
         return $"{minutes:00}:{seconds:00}";
     }
 
+    // - Role: Log missing references once.
     private void LogMissingReferencesOnce()
     {
         if (hasLoggedMissingReferences)

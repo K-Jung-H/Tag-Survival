@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using PlayerRenderState = PlayerRuntimeState;
 using UnityEngine.Animations;
 using UnityEngine.Playables;
@@ -31,11 +31,13 @@ public sealed class Client_CharacterView : MonoBehaviour
     public CharacterAnimationData AnimationData => animationData;
     public Transform NameplateAnchor => nameplateAnchor != null ? nameplateAnchor : transform;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         ResolveNameplateAnchor();
     }
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
         if (animator == null)
@@ -51,6 +53,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         ResolveNameplateAnchor();
     }
 
+    // - Role: Find nameplate anchor.
     private void ResolveNameplateAnchor()
     {
         if (nameplateAnchor == null)
@@ -63,13 +66,13 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
-    // 캐릭터 정의와 클라이언트 ID를 사용해 View 런타임 상태를 초기화합니다.
+    // - Role: Set the first state.
     public void Initialize(ulong clientId, CharacterDefinition definition)
     {
         byte characterId = definition != null ? definition.CharacterId : (byte)0;
         animationData = definition != null ? definition.AnimationData : null;
         ApplyAnimatorController(animationData);
-        stateMachine = CharacterStateMachineFactory.Create(characterId);
+        stateMachine = new Default_CharacterStateMachine(characterId);
         stateMachine.ApplyState(new PlayerRenderState
         {
             clientId = clientId,
@@ -88,6 +91,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (animationGraph.IsValid())
@@ -96,6 +100,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
+    // - Role: Apply snapshot.
     public void ApplySnapshot(
         ClientSnapshotState snapshotState,
         bool isLocalPlayer,
@@ -106,7 +111,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     {
         if (stateMachine == null || stateMachine.State.characterId != snapshotState.characterId)
         {
-            stateMachine = CharacterStateMachineFactory.Create(snapshotState.characterId);
+            stateMachine = new Default_CharacterStateMachine(snapshotState.characterId);
         }
 
         stateMachine.ApplySnapshotState(snapshotState);
@@ -125,6 +130,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         PlayLocomotionClip(stateMachine.State.locomotionState);
     }
 
+    // - Role: Apply tagger color.
     public void ApplyTaggerColor(bool isTagger, Color taggerColor)
     {
         if (body != null)
@@ -133,6 +139,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
+    // - Role: Smooth the render position.
     private Vector2 SmoothRenderPosition(
         Vector2 targetPosition,
         float followSpeed,
@@ -154,6 +161,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         return Vector2.Lerp(renderPosition, targetPosition, t);
     }
 
+    // - Role: Update aim line.
     private void UpdateAimLine(Vector2 aim, PlayerInputButtons buttons)
     {
         if (aimLine == null)
@@ -179,19 +187,14 @@ public sealed class Client_CharacterView : MonoBehaviour
             aim.y * aimLineLength * 0.5f / scaleY,
             0f);
 
-        lineTransform.localRotation = Quaternion.Euler(
-            0f,
-            0f,
-            Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg);
+        lineTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg);
 
-        lineTransform.localScale = new Vector3(
-            aimLineLength / scaleX,
-            aimLineWidth / scaleY,
-            1f);
+        lineTransform.localScale = new Vector3(aimLineLength / scaleX, aimLineWidth / scaleY, 1f);
 
         aimLine.enabled = true;
     }
 
+    // - Role: Update skill indicator.
     private void UpdateSkillIndicator()
     {
         if (skillIndicator == null)
@@ -202,6 +205,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         skillIndicator.enabled = false;
     }
 
+    // - Role: Apply animator controller.
     private void ApplyAnimatorController(CharacterAnimationData data)
     {
         if (animator == null)
@@ -230,7 +234,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         hasMissingClipWarning = false;
     }
 
-    // 서버에서 전달된 바라보는 방향을 Body 스프라이트에 반영합니다.
+    // - Role: Update facing.
     private void UpdateFacing(PlayerRenderState state)
     {
         if (body == null)
@@ -241,6 +245,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         body.flipX = state.facingSign < 0;
     }
 
+    // - Role: Play locomotion clip.
     private void PlayLocomotionClip(PlayerLocomotionState locomotionState)
     {
         if (animator == null || animationData == null)
@@ -264,9 +269,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         {
             if (!hasMissingClipWarning)
             {
-                Debug.LogWarning(
-                    $"[Client_CharacterView] AnimationClip is not assigned for {locomotionState}.",
-                    this);
+                Debug.LogWarning($"[Client_CharacterView] AnimationClip is not assigned for {locomotionState}.", this);
                 hasMissingClipWarning = true;
             }
 
@@ -300,6 +303,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         }
     }
 
+    // - Role: Try to play animator state.
     private bool TryPlayAnimatorState(string stateName, PlayerLocomotionState locomotionState)
     {
         if (animator == null || animator.runtimeAnimatorController == null)
@@ -329,6 +333,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         return true;
     }
 
+    // - Role: Make sure the animation graph exists.
     private void EnsureAnimationGraph()
     {
         if (animationGraph.IsValid())

@@ -4,6 +4,7 @@ public abstract class Skill_StateMachine
 {
     protected readonly SkillDefinition definition;
 
+    // - Role: Create skill state machine.
     protected Skill_StateMachine(SkillDefinition definition)
     {
         this.definition = definition;
@@ -13,27 +14,52 @@ public abstract class Skill_StateMachine
     public SkillType SkillType => definition != null ? definition.SkillType : SkillType.None;
     public SkillObjectState State { get; protected set; }
     public float CooldownRemaining { get; protected set; }
-    public virtual bool UsesSwingMovement => false;
 
-    // 이동 계산 전에 스킬이 플레이어 속도/상태를 보정해야 할 때 호출합니다.
-    public virtual void PrepareMovement(
-        ref PlayerState player,
-        StageCollisionSystem collisionSystem,
+    // - Role: Apply owner constraint.
+    public virtual void ApplyOwnerConstraint(
+        PlayerObject player,
         float deltaTime)
     {
     }
 
+    // - Role: Simulate this object.
     public abstract void Simulate(
-        ref PlayerState player,
-        StageCollisionSystem collisionSystem,
+        PlayerObject player,
         float deltaTime,
         bool skillPressedThisTick);
 
-    // 상태머신이 관리하는 스킬 오브젝트 목록을 Skill 컨테이너에 동기화합니다.
+    // - Role: Handle collision.
+    public virtual void OnCollision(SkillObject self, IWorldObject other)
+    {
+    }
+
+    // - Role: Handle stage move result.
+    public virtual void OnStageMoveResult(SkillObject self, StageCollisionMoveResult moveResult)
+    {
+    }
+
+    // - Role: Check if stage placement cell blocked is true.
+    public virtual bool IsStagePlacementCellBlocked(SkillObject self, Vector2Int cell)
+    {
+        return false;
+    }
+
+    // - Role: Handle stage placement result.
+    public virtual void OnStagePlacementResult(
+        SkillObject self,
+        bool success,
+        Vector2Int cell,
+        Vector2 position,
+        Vector2 halfExtent)
+    {
+    }
+
+    // - Role: Sync skill objects.
     public virtual void SyncSkillObjects(Skill skill)
     {
     }
 
+    // - Role: Update cooldown by time.
     protected void TickCooldown(float deltaTime)
     {
         if (CooldownRemaining > 0f)
@@ -42,6 +68,7 @@ public abstract class Skill_StateMachine
         }
     }
 
+    // - Role: Start cooldown.
     protected void StartCooldown()
     {
         CooldownRemaining = definition != null ? definition.Cooldown : 0f;

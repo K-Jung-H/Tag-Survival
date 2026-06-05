@@ -13,11 +13,13 @@ public class Client_WorldVfxSpawner : MonoBehaviour
     private readonly HashSet<GameVfxType> warnedMissingDefinitions = new();
     private readonly HashSet<GameVfxType> warnedDuplicateDefinitions = new();
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         CacheDefinitions();
     }
 
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         CacheDefinitions();
@@ -29,6 +31,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         }
     }
 
+    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         if (gameEventReceiver != null)
@@ -37,6 +40,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         }
     }
 
+    // - Role: Handle game event received.
     private void OnGameEventReceived(GameEventEntryPacket gameEvent)
     {
         if (gameEvent.eventType != GameEventType.SpawnVfx)
@@ -47,6 +51,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         SpawnVfx(gameEvent.vfxType, gameEvent.position, gameEvent.rotation);
     }
 
+    // - Role: Spawn VFX.
     private void SpawnVfx(GameVfxType vfxType, Vector2 position, float rotation)
     {
         if (vfxType == GameVfxType.None)
@@ -79,6 +84,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         }
     }
 
+    // - Role: Cache VFX definitions.
     private void CacheDefinitions()
     {
         definitionsByType.Clear();
@@ -108,6 +114,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         }
     }
 
+    // - Role: Find game event receiver.
     private void ResolveGameEventReceiver()
     {
         if (gameEventReceiver != null)
@@ -134,6 +141,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         }
     }
 
+    // - Role: Warn about missing definition.
     private void WarnMissingDefinition(GameVfxType vfxType)
     {
         if (!warnedMissingDefinitions.Add(vfxType))
@@ -143,15 +151,14 @@ public class Client_WorldVfxSpawner : MonoBehaviour
 
         if (vfxDefinitionData == null)
         {
-            Debug.LogWarning(
-                $"[Client_WorldVfxSpawner] VFX definition data is not assigned. Cannot spawn {vfxType}.",
-                this);
+            Debug.LogWarning($"[Client_WorldVfxSpawner] VFX definition data is not assigned. Cannot spawn {vfxType}.", this);
             return;
         }
 
         Debug.LogWarning($"[Client_WorldVfxSpawner] VFX definition is missing for {vfxType}.", this);
     }
 
+    // - Role: Warn about duplicate definition.
     private void WarnDuplicateDefinition(GameVfxType vfxType, int index)
     {
         if (!warnedDuplicateDefinitions.Add(vfxType))
@@ -164,6 +171,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
             this);
     }
 
+    // - Role: Play particle systems.
     private static void PlayParticleSystems(GameObject instance)
     {
         ParticleSystem[] particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
@@ -184,6 +192,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         }
     }
 
+    // - Role: Find lifetime.
     private static float ResolveLifetime(GameObject instance, float configuredLifetime)
     {
         if (configuredLifetime > 0f)
@@ -195,6 +204,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         return particleLifetime > 0f ? particleLifetime : DefaultVfxLifetimeSeconds;
     }
 
+    // - Role: Get particle lifetime.
     private static float GetParticleLifetime(GameObject instance)
     {
         ParticleSystem[] particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
@@ -220,6 +230,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         return maxLifetime;
     }
 
+    // - Role: Get start lifetime max.
     private static float GetStartLifetimeMax(ParticleSystem.MinMaxCurve lifetime)
     {
         return lifetime.mode switch
@@ -232,6 +243,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         };
     }
 
+    // - Role: Get last key time.
     private static float GetLastKeyTime(AnimationCurve curve, float fallback)
     {
         if (curve == null || curve.length == 0)

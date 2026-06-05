@@ -35,7 +35,7 @@ public class Client_WorldView : MonoBehaviour
 
     public int PlayerViewCount => playerViews.Count;
 
-    // Role: 스냅샷 수신 컴포넌트와 캐릭터 카탈로그 연결 상태를 검사한다.
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         if (snapshotReceiver == null)
@@ -59,7 +59,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
-    // Role: 클라이언트 상태에서 서버 스냅샷을 캐릭터 View에 반영한다.
+    // - Role: Update this object after normal updates.
     private void LateUpdate()
     {
         if (!CanRenderWorld())
@@ -71,9 +71,7 @@ public class Client_WorldView : MonoBehaviour
         RemoveMissingSkillViews();
     }
 
-    // Role: 현재 생성된 플레이어 View 목록을 복사한다.
-    // Parameters:
-    // - target: 복사 대상 리스트
+    // - Role: Copy player views to.
     public void CopyPlayerViewsTo(List<ClientWorldPlayerViewRef> target)
     {
         target.Clear();
@@ -92,10 +90,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
-    // Role: 특정 클라이언트의 플레이어 View 루트 조회를 시도한다.
-    // Parameters:
-    // - clientId: 조회할 클라이언트 ID
-    // - root: 조회된 플레이어 View 루트
+    // - Role: Try to get player view root.
     public bool TryGetPlayerViewRoot(ulong clientId, out Transform root)
     {
         root = null;
@@ -110,6 +105,7 @@ public class Client_WorldView : MonoBehaviour
         return true;
     }
 
+    // - Role: Try to get player snapshot.
     public bool TryGetPlayerSnapshot(ulong clientId, out ClientSnapshotState snapshotState)
     {
         snapshotState = default;
@@ -122,7 +118,7 @@ public class Client_WorldView : MonoBehaviour
         return snapshotReceiver.TryGetSnapshot(clientId, out snapshotState);
     }
 
-    // Role: 현재 인스턴스가 클라이언트 월드 View를 렌더링할 수 있는지 판단한다.
+    // - Role: Check if render world can happen.
     private bool CanRenderWorld()
     {
         if (snapshotReceiver == null)
@@ -143,7 +139,7 @@ public class Client_WorldView : MonoBehaviour
         return true;
     }
 
-    // Role: 수신된 스냅샷에 맞춰 캐릭터 View를 생성하고 표시 상태를 갱신한다.
+    // - Role: Sync player views.
     private void SyncPlayerViews()
     {
         foreach (var pair in snapshotReceiver.Snapshots)
@@ -165,9 +161,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
-    // Role: 지정한 클라이언트 ID가 로컬 플레이어인지 판단한다.
-    // Parameters:
-    // - clientId: 검사할 클라이언트 ID
+    // - Role: Check if local player is true.
     private bool IsLocalPlayer(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -176,11 +170,7 @@ public class Client_WorldView : MonoBehaviour
         return clientId == NetworkManager.Singleton.LocalClientId;
     }
 
-    // Role: 특정 클라이언트 ID에 해당하는 캐릭터 View를 가져오거나 생성한다.
-    // Parameters:
-    // - clientId: 표시 오브젝트를 찾거나 생성할 클라이언트 ID
-    // - characterId: 생성할 캐릭터 ID
-    // - view: 조회되거나 생성된 캐릭터 View
+    // - Role: Try to get or create player view.
     private bool TryGetOrCreatePlayerView(
         ulong clientId,
         byte characterId,
@@ -229,10 +219,7 @@ public class Client_WorldView : MonoBehaviour
         return true;
     }
 
-    // Role: characterId에 맞는 캐릭터 정의 조회를 시도한다.
-    // Parameters:
-    // - characterId: 조회할 캐릭터 ID
-    // - definition: 조회된 캐릭터 정의
+    // - Role: Try to get character definition.
     private bool TryGetCharacterDefinition(byte characterId, out CharacterDefinition definition)
     {
         definition = null;
@@ -255,7 +242,7 @@ public class Client_WorldView : MonoBehaviour
         return false;
     }
 
-    // Role: 최신 스냅샷에 없는 플레이어 View를 제거한다.
+    // - Role: Remove missing views.
     private void RemoveMissingViews()
     {
         removeTargets.Clear();
@@ -280,6 +267,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
+    // - Role: Sync skill views.
     private void SyncSkillViews()
     {
         foreach (var pair in snapshotReceiver.SkillSnapshots)
@@ -297,6 +285,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
+    // - Role: Try to get or create skill view.
     private bool TryGetOrCreateSkillView(
         ulong ownerClientId,
         byte skillId,
@@ -342,6 +331,7 @@ public class Client_WorldView : MonoBehaviour
         return true;
     }
 
+    // - Role: Try to get skill definition.
     private bool TryGetSkillDefinition(byte skillId, out SkillDefinition definition)
     {
         definition = null;
@@ -363,6 +353,7 @@ public class Client_WorldView : MonoBehaviour
         return false;
     }
 
+    // - Role: Remove missing skill views.
     private void RemoveMissingSkillViews()
     {
         removeTargets.Clear();
@@ -392,11 +383,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
-    // Role: 캐릭터 View를 제거하고 필요하면 제거 이벤트를 발생시킨다.
-    // Parameters:
-    // - clientId: 제거할 플레이어 클라이언트 ID
-    // - view: 제거할 캐릭터 View
-    // - raiseEvent: 제거 이벤트 발생 여부
+    // - Role: Remove player view.
     private void RemovePlayerView(ulong clientId, Client_CharacterView view, bool raiseEvent)
     {
         if (raiseEvent)
@@ -413,10 +400,7 @@ public class Client_WorldView : MonoBehaviour
         playerViews.Remove(clientId);
     }
 
-    // Role: 로컬 플레이어 View가 생성되면 카메라 추적 대상을 설정한다.
-    // Parameters:
-    // - clientId: 생성된 플레이어의 클라이언트 ID
-    // - root: 생성된 플레이어 View 루트
+    // - Role: Try to assign local camera target.
     private void TryAssignLocalCameraTarget(ulong clientId, Transform root)
     {
         if (NetworkManager.Singleton == null)
@@ -434,10 +418,7 @@ public class Client_WorldView : MonoBehaviour
         cameraFollow.Target = root;
     }
 
-    // Role: 로컬 플레이어 View가 제거될 때 카메라 추적 대상을 해제한다.
-    // Parameters:
-    // - clientId: 제거될 플레이어 클라이언트 ID
-    // - root: 제거될 플레이어 View 루트
+    // - Role: Clear local camera target if needed.
     private void ClearLocalCameraTargetIfNeeded(ulong clientId, Transform root)
     {
         if (NetworkManager.Singleton == null)
@@ -455,10 +436,7 @@ public class Client_WorldView : MonoBehaviour
         }
     }
 
-    // Role: 플레이어 View 생성 이벤트를 발생시킨다.
-    // Parameters:
-    // - clientId: 생성된 플레이어 클라이언트 ID
-    // - root: 생성된 플레이어 View 루트
+    // - Role: Raise the player view created event.
     private void RaisePlayerViewCreated(ulong clientId, Client_CharacterView view)
     {
         PlayerViewCreated?.Invoke(new ClientWorldPlayerViewRef
@@ -469,9 +447,7 @@ public class Client_WorldView : MonoBehaviour
         });
     }
 
-    // Role: 플레이어 View 제거 이벤트를 발생시킨다.
-    // Parameters:
-    // - clientId: 제거될 플레이어 클라이언트 ID
+    // - Role: Raise the player view removed event.
     private void RaisePlayerViewRemoved(ulong clientId)
     {
         PlayerViewRemoved?.Invoke(clientId);

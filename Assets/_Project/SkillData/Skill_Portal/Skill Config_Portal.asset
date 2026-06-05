@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b1f53cb072394f8fb0d87ab4eadcd333, type: 3}
   m_Name: Skill Config_Portal
   m_EditorClassIdentifier: Assembly-CSharp::PortalSkillConfig
-  portalTeleportCooldown: 2
+  portalTeleportCooldown: 1
   spawnDuration: 5
   destroyDuration: 3

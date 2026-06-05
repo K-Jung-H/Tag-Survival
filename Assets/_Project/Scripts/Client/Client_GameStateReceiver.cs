@@ -33,6 +33,7 @@ public class Client_GameStateReceiver : MonoBehaviour
     public bool HasGameState => hasGameState;
     public GameStateEntryPacket[] Entries => CurrentState.entries ?? Array.Empty<GameStateEntryPacket>();
 
+    // - Role: Set up this object when it starts.
     private void Start()
     {
         if (networkDelaySimulator == null)
@@ -56,12 +57,14 @@ public class Client_GameStateReceiver : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
+    // - Role: Update this object each frame.
     private void Update()
     {
         TryRegisterGameStateHandler();
         FlushDelayedSnapshots();
     }
 
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (NetworkManager.Singleton == null)
@@ -73,6 +76,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         UnregisterGameStateHandler();
     }
 
+    // - Role: Handle client connected.
     private void OnClientConnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -84,6 +88,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         TryRegisterGameStateHandler();
     }
 
+    // - Role: Handle client disconnected.
     private void OnClientDisconnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -106,6 +111,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         UnregisterGameStateHandler();
     }
 
+    // - Role: Try to register game state handler.
     private void TryRegisterGameStateHandler()
     {
         if (isRegistered)
@@ -134,6 +140,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         isRegistered = true;
     }
 
+    // - Role: Unregister game state handler.
     private void UnregisterGameStateHandler()
     {
         if (!isRegistered)
@@ -145,13 +152,12 @@ public class Client_GameStateReceiver : MonoBehaviour
         if (NetworkManager.Singleton.CustomMessagingManager == null)
             return;
 
-        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(
-            GameNetMessages.ServerGameState
-        );
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerGameState);
 
         isRegistered = false;
     }
 
+    // - Role: Handle server game state received.
     private void OnServerGameStateReceived(ulong senderClientId, FastBufferReader reader)
     {
         if (!CanReceiveGameState())
@@ -182,6 +188,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         ApplyGameState(packet, receivedEntries, receivedEntries.Count);
     }
 
+    // - Role: Flush delayed snapshots.
     private void FlushDelayedSnapshots()
     {
         if (delayedSnapshots.Count == 0)
@@ -206,6 +213,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         }
     }
 
+    // - Role: Apply game state.
     private void ApplyGameState(
         GameStateSnapshotPacket packet,
         IReadOnlyList<GameStateEntryPacket> entries,
@@ -236,6 +244,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         hasGameState = true;
     }
 
+    // - Role: Apply entries.
     private void ApplyEntries(
         GameStateSnapshotPacket packet,
         IReadOnlyList<GameStateEntryPacket> entries,
@@ -265,6 +274,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         sortedEntries.Sort(CompareGameStateEntries);
     }
 
+    // - Role: Clear cached tagger flags.
     private void ClearCachedTaggerFlags()
     {
         cachedEntryKeys.Clear();
@@ -282,12 +292,14 @@ public class Client_GameStateReceiver : MonoBehaviour
         }
     }
 
+    // - Role: Try to get game state.
     public bool TryGetGameState(out ClientGameStateSnapshotState state)
     {
         state = CurrentState;
         return hasGameState;
     }
 
+    // - Role: Check if apply game state should happen.
     private bool ShouldApplyGameState(GameStateSnapshotPacket packet)
     {
         if (!hasGameState)
@@ -313,6 +325,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         return true;
     }
 
+    // - Role: Try to read game state packet.
     private bool TryReadGameStatePacket(
         ref FastBufferReader reader,
         out GameStateSnapshotPacket packet,
@@ -364,6 +377,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         return true;
     }
 
+    // - Role: Update applied sequences.
     private void UpdateAppliedSequences(GameStateSnapshotPacket packet)
     {
         if (!hasGameState || IsNewerSequence(packet.gameStateSeq, lastAppliedGameStateSeq))
@@ -380,11 +394,13 @@ public class Client_GameStateReceiver : MonoBehaviour
         lastAppliedFullSyncSeq = packet.gameStateSeq;
     }
 
+    // - Role: Check if newer sequence is true.
     private static bool IsNewerSequence(uint incomingSeq, uint currentSeq)
     {
         return unchecked((int)(incomingSeq - currentSeq)) > 0;
     }
 
+    // - Role: Compare game state entries.
     private static int CompareGameStateEntries(
         GameStateEntryPacket first,
         GameStateEntryPacket second)
@@ -398,6 +414,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         return first.clientId.CompareTo(second.clientId);
     }
 
+    // - Role: Copy sorted entries to buffer.
     private int CopySortedEntriesToBuffer()
     {
         int count = Mathf.Min(sortedEntries.Count, sortedEntryBuffer.Length);
@@ -414,6 +431,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         return count;
     }
 
+    // - Role: Clear sorted entry buffer.
     private void ClearSortedEntryBuffer()
     {
         for (int i = 0; i < sortedEntryBuffer.Length; i++)
@@ -422,6 +440,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         }
     }
 
+    // - Role: Check if receive game state can happen.
     private bool CanReceiveGameState()
     {
         if (NetworkManager.Singleton == null)
@@ -439,6 +458,7 @@ public class Client_GameStateReceiver : MonoBehaviour
         return true;
     }
 
+    // - Role: Get network delay seconds.
     private float GetNetworkDelaySeconds()
     {
         if (networkDelaySimulator == null)

@@ -8,6 +8,7 @@ public sealed class ServerGameEventQueue
 
     public int Count => pendingEvents.Count;
 
+    // - Role: Queue one game event.
     public void Queue(
         uint serverTick,
         GameEventType eventType,
@@ -37,6 +38,7 @@ public sealed class ServerGameEventQueue
         nextEventSeq++;
     }
 
+    // - Role: Queue spawn VFX.
     public void QueueSpawnVfx(
         uint serverTick,
         GameVfxType vfxType,
@@ -55,6 +57,7 @@ public sealed class ServerGameEventQueue
             rotation);
     }
 
+    // - Role: Copy pending to.
     public void CopyPendingTo(List<GameEventEntryPacket> target)
     {
         target.Clear();
@@ -66,6 +69,7 @@ public sealed class ServerGameEventQueue
         }
     }
 
+    // - Role: Clear sent game events.
     public void Clear(int eventCount)
     {
         if (eventCount <= 0 || pendingEvents.Count == 0)

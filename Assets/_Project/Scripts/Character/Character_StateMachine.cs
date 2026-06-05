@@ -3,8 +3,11 @@ using UnityEngine;
 public interface ICharacterStateMachine
 {
     PlayerRuntimeState State { get; }
+    // - Role: Apply state.
     void ApplyState(PlayerRuntimeState newState);
+    // - Role: Apply snapshot.
     void ApplySnapshot(PlayerSnapshotPacket packet);
+    // - Role: Apply snapshot state.
     void ApplySnapshotState(ClientSnapshotState snapshotState);
 }
 
@@ -12,6 +15,7 @@ public class Character_StateMachine : ICharacterStateMachine
 {
     private PlayerRuntimeState state;
 
+    // - Role: Create character state machine.
     public Character_StateMachine(byte characterId)
     {
         state.characterId = characterId;
@@ -22,7 +26,7 @@ public class Character_StateMachine : ICharacterStateMachine
 
     public PlayerRuntimeState State => state;
 
-    // 서버 계산 결과 또는 클라이언트 스냅샷 수신 결과를 캐릭터 상태에 반영합니다.
+    // - Role: Apply state.
     public virtual void ApplyState(PlayerRuntimeState newState)
     {
         state = newState;
@@ -38,7 +42,7 @@ public class Character_StateMachine : ICharacterStateMachine
         }
     }
 
-    // 서버에서 받은 플레이어 스냅샷 패킷을 캐릭터 상태에 반영합니다.
+    // - Role: Apply snapshot.
     public virtual void ApplySnapshot(PlayerSnapshotPacket packet)
     {
         ApplyState(new PlayerRuntimeState
@@ -53,7 +57,7 @@ public class Character_StateMachine : ICharacterStateMachine
         });
     }
 
-    // 클라이언트가 캐시한 플레이어 스냅샷 상태를 캐릭터 상태에 반영합니다.
+    // - Role: Apply snapshot state.
     public virtual void ApplySnapshotState(ClientSnapshotState snapshotState)
     {
         ApplyState(new PlayerRuntimeState

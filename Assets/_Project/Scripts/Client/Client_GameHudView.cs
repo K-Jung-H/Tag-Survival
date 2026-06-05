@@ -18,6 +18,7 @@ public class Client_GameHudView : MonoBehaviour
 
     private bool hasLoggedMissingReferences;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         if (leaderboardTitleText != null)
@@ -28,6 +29,7 @@ public class Client_GameHudView : MonoBehaviour
         LogMissingReferencesOnce();
     }
 
+    // - Role: Update this object after normal updates.
     private void LateUpdate()
     {
         if (gameStateReceiver == null || !gameStateReceiver.TryGetGameState(out ClientGameStateSnapshotState state))
@@ -40,6 +42,7 @@ public class Client_GameHudView : MonoBehaviour
         RenderLeaderboard(state.entries, state.entryCount);
     }
 
+    // - Role: Render the game timer.
     private void RenderTimer(ushort remainingSeconds, bool isGameEnded)
     {
         if (timerText == null)
@@ -50,6 +53,7 @@ public class Client_GameHudView : MonoBehaviour
             : FormatTimer(remainingSeconds);
     }
 
+    // - Role: Render the leaderboard.
     private void RenderLeaderboard(GameStateEntryPacket[] entries, int entryCount)
     {
         if (entries == null)
@@ -101,6 +105,7 @@ public class Client_GameHudView : MonoBehaviour
         localPlayerOutsideRow.color = ResolveLeaderboardColor(entries[localRankIndex], true);
     }
 
+    // - Role: Clear HUD.
     private void ClearHud()
     {
         if (timerText != null)
@@ -126,12 +131,14 @@ public class Client_GameHudView : MonoBehaviour
         }
     }
 
+    // - Role: Format leaderboard row.
     private string FormatLeaderboardRow(int zeroBasedRank, GameStateEntryPacket entry)
     {
         int seconds = Mathf.FloorToInt(entry.taggerTimeMs / 1000f);
         return $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {seconds}s";
     }
 
+    // - Role: Find player name.
     private string ResolvePlayerName(ulong clientId)
     {
         if (rosterReceiver != null && rosterReceiver.TryGetNickname(clientId, out string nickname))
@@ -142,6 +149,7 @@ public class Client_GameHudView : MonoBehaviour
         return $"Client {clientId}";
     }
 
+    // - Role: Format timer.
     private string FormatTimer(int totalSeconds)
     {
         int safeSeconds = Mathf.Max(0, totalSeconds);
@@ -150,6 +158,7 @@ public class Client_GameHudView : MonoBehaviour
         return $"{minutes:00}:{seconds:00}";
     }
 
+    // - Role: Find leaderboard color.
     private Color ResolveLeaderboardColor(GameStateEntryPacket entry, bool isLocalPlayer)
     {
         if (entry.isTagger)
@@ -160,6 +169,7 @@ public class Client_GameHudView : MonoBehaviour
         return isLocalPlayer ? localTopRankColor : defaultTextColor;
     }
 
+    // - Role: Find client rank index.
     private int FindClientRankIndex(GameStateEntryPacket[] entries, int entryCount, ulong clientId)
     {
         int count = Mathf.Clamp(entryCount, 0, entries.Length);
@@ -174,6 +184,7 @@ public class Client_GameHudView : MonoBehaviour
         return -1;
     }
 
+    // - Role: Find local client ID.
     private ulong ResolveLocalClientId()
     {
         if (NetworkManager.Singleton == null)
@@ -184,6 +195,7 @@ public class Client_GameHudView : MonoBehaviour
         return NetworkManager.Singleton.LocalClientId;
     }
 
+    // - Role: Log missing references once.
     private void LogMissingReferencesOnce()
     {
         if (hasLoggedMissingReferences)

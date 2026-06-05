@@ -10,20 +10,19 @@ public sealed class CharacterCatalog : ScriptableObject
     private readonly Dictionary<byte, CharacterDefinition> definitionsById = new();
     private bool isCacheDirty = true;
 
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         RebuildCache();
     }
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
         isCacheDirty = true;
     }
 
-    // Role: characterId에 맞는 CharacterDefinition을 조회하고, 없으면 fallback을 반환한다.
-    // Parameters:
-    // - characterId: 조회할 캐릭터 ID
-    // - definition: 조회된 캐릭터 정의
+    // - Role: Try to get a character definition.
     public bool TryGet(byte characterId, out CharacterDefinition definition)
     {
         if (TryGetById(characterId, out definition))
@@ -35,20 +34,14 @@ public sealed class CharacterCatalog : ScriptableObject
         return definition != null;
     }
 
-    // Role: characterId에 정확히 대응되는 CharacterDefinition을 조회한다.
-    // Parameters:
-    // - characterId: 조회할 캐릭터 ID
-    // - definition: 조회된 캐릭터 정의
+    // - Role: Try to get by ID.
     public bool TryGetById(byte characterId, out CharacterDefinition definition)
     {
         EnsureCache();
         return definitionsById.TryGetValue(characterId, out definition) && definition != null;
     }
 
-    // Role: Catalog 배열 인덱스에 대응되는 CharacterDefinition을 조회한다.
-    // Parameters:
-    // - index: Catalog 배열 인덱스
-    // - definition: 조회된 캐릭터 정의
+    // - Role: Try to get by index.
     public bool TryGetByIndex(int index, out CharacterDefinition definition)
     {
         if (definitions != null && index >= 0 && index < definitions.Length)
@@ -61,6 +54,7 @@ public sealed class CharacterCatalog : ScriptableObject
         return false;
     }
 
+    // - Role: Make sure the cache is ready.
     private void EnsureCache()
     {
         if (!isCacheDirty)
@@ -71,6 +65,7 @@ public sealed class CharacterCatalog : ScriptableObject
         RebuildCache();
     }
 
+    // - Role: Rebuild the cache.
     private void RebuildCache()
     {
         definitionsById.Clear();

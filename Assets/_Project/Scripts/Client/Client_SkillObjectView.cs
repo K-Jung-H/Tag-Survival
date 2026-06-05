@@ -28,10 +28,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     public byte SkillId => definition != null ? definition.SkillId : (byte)0;
     private SkillType EffectiveSkillType => skillType != SkillType.None ? skillType : definition != null ? definition.SkillType : SkillType.None;
 
-    // Role: 스킬 렌더링 프리팹의 앵커와 렌더 요소를 초기화한다.
-    // Parameters:
-    // - newOwnerClientId: 스킬을 소유한 플레이어 ID
-    // - newDefinition: 렌더링에 사용할 스킬 정의
+    // - Role: Set the first state.
     public void Initialize(ulong newOwnerClientId, SkillDefinition newDefinition)
     {
         definition = newDefinition;
@@ -41,10 +38,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         HideAllObjects();
     }
 
-    // Role: 서버 스킬 스냅샷을 렌더 앵커와 렌더 요소에 반영한다.
-    // Parameters:
-    // - snapshot: 서버에서 수신한 스킬 스냅샷
-    // - ownerRoot: 스킬을 소유한 플레이어 Transform
+    // - Role: Apply snapshot.
     public void ApplySnapshot(ClientSkillSnapshotState snapshot, Transform ownerRoot)
     {
         activeObjectIds.Clear();
@@ -62,6 +56,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         HideInactiveObjects();
     }
 
+    // - Role: Cache initial transforms.
     private void CacheInitialTransforms()
     {
         baseRotationZ = new float[skillObjects.Count];
@@ -109,6 +104,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Apply skill object.
     private void ApplySkillObject(SkillObjectSnapshotPacket snapshot)
     {
         if (!TryGetSkillObject(snapshot.skillObjectId, out SkillObjectEntry entry))
@@ -128,6 +124,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         activeObjectIds.Add(snapshot.skillObjectId);
     }
 
+    // - Role: Apply derived objects.
     private void ApplyDerivedObjects(ClientSkillSnapshotState snapshot, Transform ownerRoot)
     {
         if (EffectiveSkillType != SkillType.HookGrappling)
@@ -196,6 +193,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         activeObjectIds.Add(RopeObjectIndex);
     }
 
+    // - Role: Hide all render objects.
     private void HideAllObjects()
     {
         for (int i = 0; i < skillObjects.Count; i++)
@@ -204,6 +202,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Hide inactive render objects.
     private void HideInactiveObjects()
     {
         for (int i = 0; i < skillObjects.Count; i++)
@@ -215,6 +214,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Apply render elements.
     private void ApplyRenderElements(byte skillObjectIndex, SkillObjectState state)
     {
         SkillRenderElementCache[] caches = GetRenderElementCaches(skillObjectIndex);
@@ -249,6 +249,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Hide render elements.
     private void HideRenderElements(byte skillObjectIndex)
     {
         SkillRenderElementCache[] caches = GetRenderElementCaches(skillObjectIndex);
@@ -275,6 +276,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Check if render should happen.
     private static bool ShouldRender(SkillRenderElementEntry entry, SkillObjectState state)
     {
         if (state == SkillObjectState.None)
@@ -286,6 +288,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return stateFlag != 0 && (entry.renderStates & stateFlag) != 0;
     }
 
+    // - Role: Get render state flag.
     private static SkillObjectRenderStateFlags GetRenderStateFlag(SkillObjectState state)
     {
         return state switch
@@ -297,6 +300,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         };
     }
 
+    // - Role: Create render element cache.
     private static SkillRenderElementCache CreateRenderElementCache(GameObject targetObject)
     {
         SkillRenderElementCache cache = new();
@@ -318,6 +322,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return cache;
     }
 
+    // - Role: Apply main color.
     private void ApplyMainColor(SkillRenderElementCache cache, SkillRenderElementEntry renderElement, int skillObjectIndex)
     {
         if (cache == null || !renderElement.overrideMainColor)
@@ -368,6 +373,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Cache owner main colors.
     private void CacheOwnerMainColors(ulong clientId)
     {
         for (int i = 0; i < ownerMainColors.Length; i++)
@@ -376,12 +382,14 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Get owner main color.
     private Color GetOwnerMainColor(int skillObjectIndex)
     {
         int colorSlot = Mathf.Abs(skillObjectIndex) % ownerMainColors.Length;
         return ownerMainColors[colorSlot];
     }
 
+    // - Role: Get player main color.
     private static Color GetPlayerMainColor(ulong clientId, int colorSlot)
     {
         uint hash = GetStableClientHash(clientId, colorSlot);
@@ -394,6 +402,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return Color.HSVToRGB(hue, saturation, value);
     }
 
+    // - Role: Get stable client hash.
     private static uint GetStableClientHash(ulong clientId, int colorSlot)
     {
         unchecked
@@ -415,6 +424,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Show renderers.
     private static void ShowRenderers(SkillRenderElementCache cache, SkillObjectState state)
     {
         if (cache == null)
@@ -428,6 +438,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         PlayParticleSystems(cache);
     }
 
+    // - Role: Play animator.
     private static void PlayAnimator(SkillRenderElementCache cache, SkillObjectState state)
     {
         if (cache == null || cache.animators == null || cache.animators.Length == 0)
@@ -461,6 +472,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Play particle systems.
     private static void PlayParticleSystems(SkillRenderElementCache cache)
     {
         if (cache == null || cache.particleSystems == null)
@@ -478,6 +490,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Hide renderers.
     private static void HideRenderers(SkillRenderElementCache cache)
     {
         if (cache == null)
@@ -498,6 +511,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         cache.isVisible = false;
     }
 
+    // - Role: Set render objects active.
     private static void SetRenderObjectsActive(SkillRenderElementCache cache, bool active)
     {
         SetComponentObjectsActive(cache.spriteRenderers, active);
@@ -507,6 +521,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         SetComponentObjectsActive(cache.lights2D, active);
     }
 
+    // - Role: Set component objects active.
     private static void SetComponentObjectsActive<T>(T[] components, bool active)
         where T : Component
     {
@@ -525,6 +540,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Stop particle systems.
     private static void StopParticleSystems(SkillRenderElementCache cache)
     {
         if (cache == null || cache.particleSystems == null)
@@ -542,6 +558,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Try to get skill object.
     private bool TryGetSkillObject(byte skillObjectIndex, out SkillObjectEntry entry)
     {
         entry = default;
@@ -554,6 +571,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return entry.anchor != null;
     }
 
+    // - Role: Get base rotation z.
     private float GetBaseRotationZ(byte skillObjectIndex)
     {
         if (baseRotationZ == null || skillObjectIndex >= baseRotationZ.Length)
@@ -564,6 +582,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return baseRotationZ[skillObjectIndex];
     }
 
+    // - Role: Get base local scale.
     private Vector3 GetBaseLocalScale(byte skillObjectIndex)
     {
         if (baseLocalScale == null || skillObjectIndex >= baseLocalScale.Length)
@@ -575,6 +594,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return scale == Vector3.zero ? Vector3.one : scale;
     }
 
+    // - Role: Get base visual length x.
     private float GetBaseVisualLengthX(byte skillObjectIndex)
     {
         if (baseVisualLengthX == null || skillObjectIndex >= baseVisualLengthX.Length)
@@ -585,6 +605,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return baseVisualLengthX[skillObjectIndex];
     }
 
+    // - Role: Get render elements.
     private List<SkillRenderElementEntry> GetRenderElements(byte skillObjectIndex)
     {
         if (skillObjectIndex >= skillObjects.Count)
@@ -595,6 +616,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return skillObjects[skillObjectIndex].renderElements;
     }
 
+    // - Role: Get render element caches.
     private SkillRenderElementCache[] GetRenderElementCaches(byte skillObjectIndex)
     {
         if (renderElementCaches == null
@@ -607,6 +629,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return renderElementCaches[skillObjectIndex];
     }
 
+    // - Role: Get first sprite renderer.
     private SpriteRenderer GetFirstSpriteRenderer(byte skillObjectIndex)
     {
         SkillRenderElementCache[] caches = GetRenderElementCaches(skillObjectIndex);
@@ -622,6 +645,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return null;
     }
 
+    // - Role: Get first sprite renderer.
     private static SpriteRenderer GetFirstSpriteRenderer(SkillRenderElementCache cache)
     {
         if (cache == null || cache.spriteRenderers == null)
@@ -640,6 +664,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return null;
     }
 
+    // - Role: Warn about missing render elements.
     private void WarnMissingRenderElements(byte skillObjectIndex)
     {
         if (warnedMissingRenderElements == null
@@ -655,6 +680,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             this);
     }
 
+    // - Role: Get sprite world length x.
     private static float GetSpriteWorldLengthX(SpriteRenderer spriteRenderer)
     {
         if (spriteRenderer == null || spriteRenderer.sprite == null)
@@ -665,6 +691,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return Mathf.Abs(spriteRenderer.sprite.bounds.size.x * spriteRenderer.transform.lossyScale.x);
     }
 
+    // - Role: Get visual center aligned position.
     private static Vector3 GetVisualCenterAlignedPosition(
         Transform anchorTransform,
         SpriteRenderer spriteRenderer,

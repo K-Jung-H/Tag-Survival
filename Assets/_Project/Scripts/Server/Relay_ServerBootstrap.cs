@@ -22,18 +22,20 @@ public class Relay_ServerBootstrap : MonoBehaviour
     private bool isProcessing;
     private bool isServerStarted;
 
-    // Role: Unity Services 초기화 후 옵션에 따라 서버 Relay 연결을 자동 시작한다.
+    // - Role: Set up this object when it starts.
     private async void Start()
     {
+        // - Role: Set up Unity services.
         await InitializeUnityServices();
 
         if (autoStartServer)
         {
+            // - Role: Start server async.
             await StartServerAsync();
         }
     }
 
-    // Role: 서버 상태와 JoinCode를 좌측 상단 GUI Box에 출력한다.
+    // - Role: Draw simple debug GUI.
     private void OnGUI()
     {
         GUILayout.BeginArea(new Rect(10, 10, 260, 130));
@@ -49,7 +51,7 @@ public class Relay_ServerBootstrap : MonoBehaviour
         GUILayout.EndArea();
     }
 
-    // Role: UGS와 익명 로그인을 초기화한다.
+    // - Role: Set up Unity services.
     private async Task InitializeUnityServices()
     {
         try
@@ -72,7 +74,7 @@ public class Relay_ServerBootstrap : MonoBehaviour
         }
     }
 
-    // Role: Relay allocation을 생성하고 Dedicated Server 모드로 NetworkManager를 시작한다.
+    // - Role: Start server async.
     public async Task StartServerAsync()
     {
         if (isProcessing || isServerStarted)
@@ -135,7 +137,7 @@ public class Relay_ServerBootstrap : MonoBehaviour
         isProcessing = false;
     }
 
-    // Role: 등록된 NetworkManager 연결 이벤트를 해제한다.
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (NetworkManager.Singleton == null)
@@ -145,23 +147,19 @@ public class Relay_ServerBootstrap : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
     }
 
-    // Role: 클라이언트 접속 시 서버 상태 메시지를 갱신한다.
-    // Parameters:
-    // - clientId: 접속한 클라이언트의 고유 ID
+    // - Role: Handle client connected.
     private void OnClientConnected(ulong clientId)
     {
         statusMessage = $"Client Connected: {clientId}";
     }
 
-    // Role: 클라이언트 연결 해제 시 서버 상태 메시지를 갱신한다.
-    // Parameters:
-    // - clientId: 연결 해제된 클라이언트의 고유 ID
+    // - Role: Handle client disconnected.
     private void OnClientDisconnected(ulong clientId)
     {
         statusMessage = $"Client Disconnected: {clientId}";
     }
 
-    // Role: 현재 표시할 JoinCode 문자열을 반환한다.
+    // - Role: Get join code text.
     private string GetJoinCodeText()
     {
         if (string.IsNullOrWhiteSpace(currentJoinCode))
@@ -170,7 +168,7 @@ public class Relay_ServerBootstrap : MonoBehaviour
         return currentJoinCode;
     }
 
-    // Role: 현재 서버에 연결된 클라이언트 수를 반환한다.
+    // - Role: Get connected client count.
     private int GetConnectedClientCount()
     {
         if (NetworkManager.Singleton == null)

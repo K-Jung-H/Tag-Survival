@@ -13,26 +13,21 @@ public class Client_NetworkDelaySimulator : MonoBehaviour
     public float OneWayDelaySeconds =>
         delayModeEnabled ? roundTripDelayMilliseconds * 0.0005f : 0f;
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
-        roundTripDelayMilliseconds = Mathf.Clamp(
-            roundTripDelayMilliseconds,
-            MinRoundTripDelayMilliseconds,
-            MaxRoundTripDelayMilliseconds
-        );
+        roundTripDelayMilliseconds = Mathf.Clamp(roundTripDelayMilliseconds, MinRoundTripDelayMilliseconds, MaxRoundTripDelayMilliseconds);
     }
 
+    // - Role: Set delay mode.
     public void SetDelayMode(bool enabled)
     {
         delayModeEnabled = enabled;
     }
 
+    // - Role: Set round trip delay milliseconds.
     public void SetRoundTripDelayMilliseconds(float milliseconds)
     {
-        roundTripDelayMilliseconds = Mathf.RoundToInt(Mathf.Clamp(
-            milliseconds,
-            MinRoundTripDelayMilliseconds,
-            MaxRoundTripDelayMilliseconds
-        ));
+        roundTripDelayMilliseconds = Mathf.RoundToInt(Mathf.Clamp(milliseconds, MinRoundTripDelayMilliseconds, MaxRoundTripDelayMilliseconds));
     }
 }

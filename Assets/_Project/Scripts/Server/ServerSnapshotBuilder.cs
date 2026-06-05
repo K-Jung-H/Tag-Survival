@@ -5,20 +5,21 @@ using PlayerRenderState = PlayerRuntimeState;
 
 public sealed class ServerSnapshotBuilder
 {
+    // - Role: Copy player snapshots to.
     public void CopyPlayerSnapshotsTo(
-        IReadOnlyDictionary<ulong, PlayerState> players,
+        IReadOnlyDictionary<ulong, PlayerObject> players,
         List<PlayerSnapshotPacket> target)
     {
         target.Clear();
 
         foreach (var pair in players)
         {
-            PlayerState player = pair.Value;
+            PlayerObject player = pair.Value;
             PlayerRenderState renderState = player.characterStateMachine.State;
 
             target.Add(new PlayerSnapshotPacket
             {
-                clientId = player.clientId,
+                clientId = player.playerId,
                 position = renderState.position,
                 velocity = renderState.velocity,
                 aim = renderState.aim,
@@ -32,6 +33,7 @@ public sealed class ServerSnapshotBuilder
         }
     }
 
+    // - Role: Copy skill snapshots to.
     public void CopySkillSnapshotsTo(
         ServerSkillSystem skillSystem,
         List<SkillSnapshotPacket> target)
@@ -46,8 +48,9 @@ public sealed class ServerSnapshotBuilder
         }
     }
 
+    // - Role: Copy game state entries to.
     public void CopyGameStateEntriesTo(
-        IReadOnlyDictionary<ulong, PlayerState> players,
+        IReadOnlyDictionary<ulong, PlayerObject> players,
         List<GameStateEntryPacket> target,
         bool taggersOnly)
     {
@@ -55,7 +58,7 @@ public sealed class ServerSnapshotBuilder
 
         foreach (var pair in players)
         {
-            PlayerState player = pair.Value;
+            PlayerObject player = pair.Value;
             if (taggersOnly && !player.isTagger)
             {
                 continue;
@@ -63,7 +66,7 @@ public sealed class ServerSnapshotBuilder
 
             target.Add(new GameStateEntryPacket
             {
-                clientId = player.clientId,
+                clientId = player.playerId,
                 taggerTimeMs = SecondsToMilliseconds(player.taggerAccumulatedTime),
                 isTagger = player.isTagger
             });
@@ -72,8 +75,9 @@ public sealed class ServerSnapshotBuilder
         target.Sort(CompareLeaderboardEntries);
     }
 
+    // - Role: Copy roster entries to.
     public void CopyRosterEntriesTo(
-        IReadOnlyDictionary<ulong, PlayerState> players,
+        IReadOnlyDictionary<ulong, PlayerObject> players,
         List<RosterEntryPacket> target,
         byte defaultCharacterId)
     {
@@ -81,7 +85,7 @@ public sealed class ServerSnapshotBuilder
 
         foreach (var pair in players)
         {
-            PlayerState player = pair.Value;
+            PlayerObject player = pair.Value;
             FixedString64Bytes nickname = default;
             nickname.CopyFromTruncated(player.nickname);
             byte characterId = player.characterStateMachine != null
@@ -90,7 +94,7 @@ public sealed class ServerSnapshotBuilder
 
             target.Add(new RosterEntryPacket
             {
-                clientId = player.clientId,
+                clientId = player.playerId,
                 nickname = nickname,
                 characterId = characterId,
                 skillId = player.skillId
@@ -100,6 +104,7 @@ public sealed class ServerSnapshotBuilder
         target.Sort(CompareRosterEntries);
     }
 
+    // - Role: Add skill snapshot.
     private static void AddSkillSnapshot(List<SkillSnapshotPacket> target, Skill skill)
     {
         if (skill == null)
@@ -154,6 +159,7 @@ public sealed class ServerSnapshotBuilder
         });
     }
 
+    // - Role: Find skill snapshot state.
     private static SkillObjectState ResolveSkillSnapshotState(IReadOnlyList<SkillObject> objects)
     {
         bool hasDestroying = false;
@@ -187,6 +193,7 @@ public sealed class ServerSnapshotBuilder
         return hasDestroying ? SkillObjectState.Destroying : SkillObjectState.None;
     }
 
+    // - Role: Convert seconds to milliseconds.
     private static uint SecondsToMilliseconds(float seconds)
     {
         float milliseconds = Mathf.Max(0f, seconds) * 1000f;
@@ -198,6 +205,7 @@ public sealed class ServerSnapshotBuilder
         return (uint)Mathf.Round(milliseconds);
     }
 
+    // - Role: Compare leaderboard entries.
     private static int CompareLeaderboardEntries(
         GameStateEntryPacket first,
         GameStateEntryPacket second)
@@ -211,6 +219,7 @@ public sealed class ServerSnapshotBuilder
         return first.clientId.CompareTo(second.clientId);
     }
 
+    // - Role: Compare roster entries.
     private static int CompareRosterEntries(
         RosterEntryPacket first,
         RosterEntryPacket second)

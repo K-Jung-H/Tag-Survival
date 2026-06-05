@@ -15,6 +15,7 @@ public sealed class SkillDefinition : ScriptableObject
     public GameObject SkillObjectViewPrefab => skillObjectViewPrefab;
     public SkillConfig Config => config;
 
+    // - Role: Get config.
     public T GetConfig<T>() where T : SkillConfig
     {
         return config as T;

@@ -22,6 +22,7 @@ public class Client_GameEventReceiver : MonoBehaviour
     public bool HasAppliedEvent => hasAppliedEvent;
     public uint LastAppliedEventSeq => lastAppliedEventSeq;
 
+    // - Role: Set up this object when it starts.
     private void Start()
     {
         if (networkDelaySimulator == null)
@@ -45,12 +46,14 @@ public class Client_GameEventReceiver : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
+    // - Role: Update this object each frame.
     private void Update()
     {
         TryRegisterGameEventHandler();
         FlushDelayedEvents();
     }
 
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (NetworkManager.Singleton == null)
@@ -64,6 +67,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         UnregisterGameEventHandler();
     }
 
+    // - Role: Handle client connected.
     private void OnClientConnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -79,6 +83,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         TryRegisterGameEventHandler();
     }
 
+    // - Role: Handle client disconnected.
     private void OnClientDisconnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -98,6 +103,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         UnregisterGameEventHandler();
     }
 
+    // - Role: Try to register game event handler.
     private void TryRegisterGameEventHandler()
     {
         if (isRegistered)
@@ -138,6 +144,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         isRegistered = true;
     }
 
+    // - Role: Unregister game event handler.
     private void UnregisterGameEventHandler()
     {
         if (!isRegistered)
@@ -155,13 +162,12 @@ public class Client_GameEventReceiver : MonoBehaviour
             return;
         }
 
-        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(
-            GameNetMessages.ServerGameEvent
-        );
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerGameEvent);
 
         isRegistered = false;
     }
 
+    // - Role: Handle server game event received.
     private void OnServerGameEventReceived(ulong senderClientId, FastBufferReader reader)
     {
         if (!CanReceiveGameEvent())
@@ -193,6 +199,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         }
     }
 
+    // - Role: Flush delayed events.
     private void FlushDelayedEvents()
     {
         if (delayedEvents.Count == 0)
@@ -221,6 +228,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         }
     }
 
+    // - Role: Apply game event.
     private void ApplyGameEvent(GameEventEntryPacket gameEvent)
     {
         if (!ShouldApplyGameEvent(gameEvent.eventSeq))
@@ -234,6 +242,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         GameEventReceived?.Invoke(gameEvent);
     }
 
+    // - Role: Check if apply game event should happen.
     private bool ShouldApplyGameEvent(uint eventSeq)
     {
         if (!hasAppliedEvent)
@@ -249,6 +258,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         return IsNewerSequence(eventSeq, lastAppliedEventSeq);
     }
 
+    // - Role: Check if receive game event can happen.
     private bool CanReceiveGameEvent()
     {
         if (NetworkManager.Singleton == null)
@@ -274,6 +284,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         return true;
     }
 
+    // - Role: Get network delay seconds.
     private float GetNetworkDelaySeconds()
     {
         if (networkDelaySimulator == null)
@@ -284,6 +295,7 @@ public class Client_GameEventReceiver : MonoBehaviour
         return networkDelaySimulator.OneWayDelaySeconds;
     }
 
+    // - Role: Check if newer sequence is true.
     private static bool IsNewerSequence(uint incomingSeq, uint currentSeq)
     {
         return unchecked((int)(incomingSeq - currentSeq)) > 0;

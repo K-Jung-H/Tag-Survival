@@ -8,6 +8,7 @@ public readonly struct ServerPlayerInputCommand
     public readonly Vector2 aim;
     public readonly PlayerInputButtons buttons;
 
+    // - Role: Create a player input command.
     public ServerPlayerInputCommand(
         ushort inputSeq,
         Vector2 input,
@@ -28,18 +29,21 @@ public sealed class ServerInputBuffer
     private readonly Dictionary<ulong, ServerPlayerInputCommand> pendingInputs = new();
     private readonly Dictionary<ulong, ushort> latestReceivedInputSeqs = new();
 
+    // - Role: Register player.
     public void RegisterPlayer(ulong clientId)
     {
         pendingInputs.Remove(clientId);
         latestReceivedInputSeqs[clientId] = NoReceivedInputSeq;
     }
 
+    // - Role: Remove player.
     public void RemovePlayer(ulong clientId)
     {
         pendingInputs.Remove(clientId);
         latestReceivedInputSeqs.Remove(clientId);
     }
 
+    // - Role: Set input.
     public bool SetInput(
         ulong clientId,
         ushort inputSeq,
@@ -72,6 +76,7 @@ public sealed class ServerInputBuffer
         return true;
     }
 
+    // - Role: Try to consume input.
     public bool TryConsumeInput(ulong clientId, out ServerPlayerInputCommand command)
     {
         if (!pendingInputs.TryGetValue(clientId, out command))
@@ -83,6 +88,7 @@ public sealed class ServerInputBuffer
         return true;
     }
 
+    // - Role: Check if newer input is true.
     private static bool IsNewerInput(ushort incomingSeq, ushort currentSeq)
     {
         if (incomingSeq == currentSeq)

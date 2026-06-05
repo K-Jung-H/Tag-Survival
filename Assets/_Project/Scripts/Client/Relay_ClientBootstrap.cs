@@ -51,26 +51,29 @@ public class Relay_ClientBootstrap : MonoBehaviour
     private float joinProfileRetryTimer;
     private int joinProfileSendAttempts;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
-        joinProfileWriter = new FastBufferWriter(
-            GameNetProtocol.ClientJoinProfilePacketBufferSize,
-            Allocator.Persistent);
+        joinProfileWriter = new FastBufferWriter(GameNetProtocol.ClientJoinProfilePacketBufferSize, Allocator.Persistent);
         joinProfileWriterCreated = true;
     }
 
+    // - Role: Set up this object when it starts.
     private async void Start()
     {
+        // - Role: Set up Unity services.
         await InitializeUnityServices();
         PrepareUI();
         BindUIEvents();
     }
 
+    // - Role: Update this object each frame.
     private void Update()
     {
         SendPendingJoinProfileIfNeeded();
     }
 
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (connectButton != null)
@@ -119,6 +122,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         DisposeJoinProfileWriter();
     }
 
+    // - Role: Set up Unity services.
     private async Task InitializeUnityServices()
     {
         try
@@ -136,6 +140,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Prepare UI links.
     private void PrepareUI()
     {
         ResolveNetworkDelaySimulator();
@@ -146,6 +151,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         ApplyNetworkDelayUIState();
     }
 
+    // - Role: Bind UI events.
     private void BindUIEvents()
     {
         if (connectButton != null)
@@ -184,6 +190,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
+    // - Role: Handle connect button clicked.
     private void OnConnectButtonClicked()
     {
         if (joinCodeInput == null)
@@ -207,6 +214,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         _ = StartClientAsync(joinCode);
     }
 
+    // - Role: Handle join code submitted.
     private void OnJoinCodeSubmitted(string _)
     {
         if (connectButton == null || !connectButton.interactable)
@@ -215,6 +223,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         OnConnectButtonClicked();
     }
 
+    // - Role: Bind connection submit input.
     private void BindConnectionInputSubmit(TMP_InputField inputField)
     {
         if (inputField == null)
@@ -227,6 +236,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         inputField.onSubmit.AddListener(OnJoinCodeSubmitted);
     }
 
+    // - Role: Try to build join profile.
     private bool TryBuildJoinProfile(out ClientJoinProfilePacket packet)
     {
         packet = default;
@@ -259,6 +269,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         return true;
     }
 
+    // - Role: Try to read byte input.
     private bool TryReadByteInput(
         TMP_InputField inputField,
         byte fallbackValue,
@@ -281,6 +292,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         return false;
     }
 
+    // - Role: Clean nickname text.
     private string SanitizeNickname(string nickname)
     {
         if (string.IsNullOrWhiteSpace(nickname))
@@ -297,6 +309,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         return trimmedNickname;
     }
 
+    // - Role: Start client async.
     public async Task StartClientAsync(string joinCode)
     {
         if (string.IsNullOrWhiteSpace(joinCode))
@@ -359,6 +372,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Handle client connected.
     private void OnClientConnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -377,6 +391,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         SendJoinProfileNow();
     }
 
+    // - Role: Handle client disconnected.
     private void OnClientDisconnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -394,6 +409,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         ApplyPanelVisibility();
     }
 
+    // - Role: Send pending join profile if needed.
     private void SendPendingJoinProfileIfNeeded()
     {
         if (!hasPendingJoinProfile)
@@ -415,6 +431,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         SendJoinProfileNow();
     }
 
+    // - Role: Send join profile now.
     private void SendJoinProfileNow()
     {
         if (!CanSendJoinProfile())
@@ -434,6 +451,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         joinProfileRetryTimer = JoinProfileRetryInterval;
     }
 
+    // - Role: Check if send join profile can happen.
     private bool CanSendJoinProfile()
     {
         if (!hasPendingJoinProfile)
@@ -457,6 +475,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         return NetworkManager.Singleton.CustomMessagingManager != null;
     }
 
+    // - Role: Clear pending join profile.
     private void ClearPendingJoinProfile()
     {
         hasPendingJoinProfile = false;
@@ -465,6 +484,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         pendingJoinProfile = default;
     }
 
+    // - Role: Set connection UI interactable.
     private void SetConnectionUIInteractable(bool interactable)
     {
         if (joinCodeInput != null)
@@ -493,6 +513,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Set up connection UI.
     private void ConfigureConnectionUI()
     {
         if (!hasWarnedMissingConnectionUi
@@ -511,6 +532,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Find network delay simulator.
     private void ResolveNetworkDelaySimulator()
     {
         if (networkDelaySimulator != null)
@@ -525,6 +547,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Set up network delay UI.
     private void ConfigureNetworkDelayUI()
     {
         if (delaySlider != null)
@@ -555,6 +578,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Apply panel visibility.
     private void ApplyPanelVisibility()
     {
         if (connectionPanel != null)
@@ -573,12 +597,14 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
     }
 
+    // - Role: Handle network delay mode changed.
     private void OnNetworkDelayModeChanged(bool _)
     {
         ApplyNetworkDelaySettings();
         ApplyNetworkDelayUIState();
     }
 
+    // - Role: Handle network delay slider changed.
     private void OnNetworkDelaySliderChanged(float value)
     {
         if (networkDelaySimulator != null)
@@ -589,6 +615,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         UpdateNetworkDelayValueText();
     }
 
+    // - Role: Apply network delay settings.
     private void ApplyNetworkDelaySettings()
     {
         ResolveNetworkDelaySimulator();
@@ -610,6 +637,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         UpdateNetworkDelayValueText();
     }
 
+    // - Role: Apply network delay UI state.
     private void ApplyNetworkDelayUIState()
     {
         if (delaySlider != null)
@@ -620,6 +648,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         UpdateNetworkDelayValueText();
     }
 
+    // - Role: Update network delay value text.
     private void UpdateNetworkDelayValueText()
     {
         if (delayValueText == null)
@@ -632,6 +661,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         delayValueText.text = $"RTT: {delayMilliseconds} ms";
     }
 
+    // - Role: Dispose the join profile writer.
     private void DisposeJoinProfileWriter()
     {
         if (!joinProfileWriterCreated)

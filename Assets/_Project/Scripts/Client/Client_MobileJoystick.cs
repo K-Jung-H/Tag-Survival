@@ -24,6 +24,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
     public bool IsPressed => activePointerId != int.MinValue;
     public bool HasInput => Value.sqrMagnitude > 0.0001f;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         rectTransform = transform as RectTransform;
@@ -31,18 +32,20 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         ResetJoystick(clearPendingRelease: true);
     }
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
         rectTransform = transform as RectTransform;
         ResolveReferences();
     }
 
+    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         ResetJoystick(clearPendingRelease: true);
     }
 
-    // Role: Starts reading one touch or pointer for this fixed joystick.
+    // - Role: Handle pointer down.
     public void OnPointerDown(PointerEventData eventData)
     {
         if (IsPressed && activePointerId != eventData.pointerId)
@@ -54,7 +57,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         UpdateValue(eventData);
     }
 
-    // Role: Updates joystick direction from the active touch or pointer.
+    // - Role: Handle drag.
     public void OnDrag(PointerEventData eventData)
     {
         if (activePointerId != eventData.pointerId)
@@ -63,7 +66,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         UpdateValue(eventData);
     }
 
-    // Role: Stores release direction so the input provider can fire on touch up.
+    // - Role: Handle pointer up.
     public void OnPointerUp(PointerEventData eventData)
     {
         if (activePointerId != eventData.pointerId)
@@ -74,12 +77,13 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         ResetJoystick(clearPendingRelease: false);
     }
 
-    // Role: Resets joystick state when UI input is cancelled.
+    // - Role: Handle cancel.
     public void OnCancel(BaseEventData eventData)
     {
         ResetJoystick(clearPendingRelease: true);
     }
 
+    // - Role: Consume the saved release input.
     public bool ConsumeRelease(out Vector2 releaseValue)
     {
         releaseValue = pendingReleaseValue;
@@ -90,6 +94,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         return result;
     }
 
+    // - Role: Set cooldown ready progress.
     public void SetCooldownReadyProgress(float readyProgress)
     {
         ResolveReferences();
@@ -104,6 +109,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         areaBackgroundImage.fillAmount = Mathf.Clamp01(readyProgress);
     }
 
+    // - Role: Find references.
     private void ResolveReferences()
     {
         if (rectTransform == null)
@@ -166,6 +172,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         DisableChildRaycastTarget(handle);
     }
 
+    // - Role: Update value.
     private void UpdateValue(PointerEventData eventData)
     {
         if (rectTransform == null)
@@ -193,6 +200,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         SetHandlePosition(Value);
     }
 
+    // - Role: Apply dead zone.
     private Vector2 ApplyDeadZone(Vector2 rawValue)
     {
         float magnitude = rawValue.magnitude;
@@ -203,6 +211,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         return rawValue.normalized * normalizedMagnitude;
     }
 
+    // - Role: Reset joystick state.
     private void ResetJoystick(bool clearPendingRelease)
     {
         activePointerId = int.MinValue;
@@ -219,6 +228,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         SetHandlePosition(Vector2.zero);
     }
 
+    // - Role: Set handle position.
     private void SetHandlePosition(Vector2 value)
     {
         ResolveReferences();
@@ -229,6 +239,7 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         handle.anchoredPosition = Vector2.ClampMagnitude(value, 1f) * maxHandleDistance;
     }
 
+    // - Role: Disable a child raycast target.
     private void DisableChildRaycastTarget(RectTransform target)
     {
         if (target == null || target == rectTransform)

@@ -1,38 +1,20 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Server_GamePlay
 {
     private const byte DefaultCharacterId = 0;
     private const byte DefaultSkillId = 1;
-    private const int MaxNicknameLength = 16;
-    private const string DefaultNickname = "NoName";
     private const float TagStunDurationSeconds = 5f;
-    private static readonly Vector2 DefaultCollisionExtent =
-        new Vector2(GameSimulationConfig.PlayerRadius, GameSimulationConfig.PlayerRadius);
-    private static readonly Vector2 DefaultCollisionOffset = Vector2.zero;
-    private static readonly CharacterMovementStats DefaultMovementStats =
-        CharacterMovementStats.Create(
-            GameSimulationConfig.PlayerMoveSpeed,
-            2.25f,
-            0.35f,
-            0.28f,
-            GameSimulationConfig.PlayerMaxFallSpeed,
-            80f,
-            70f,
-            35f,
-            12f,
-            18f,
-            GameSimulationConfig.PlayerWallMoveSpeedMultiplier,
-            0.08f);
 
-    private readonly Dictionary<ulong, PlayerState> players = new();
-    private readonly List<WorldCollisionEvent> playerCollisionEvents = new();
+    private readonly Dictionary<ulong, PlayerObject> players = new();
+    private readonly List<IWorldObject> worldObjects = new();
+    private readonly List<WorldCollisionEvent> worldCollisionEvents = new();
     private readonly ServerGameEventQueue gameEventQueue = new();
     private readonly ServerInputBuffer inputBuffer = new();
     private readonly ServerPlayerSystem playerSystem = new();
     private readonly ServerSkillSystem skillSystem = new();
-    private readonly ServerWorldInteractionSystem worldInteractionSystem = new();
+    private readonly ServerWorldCollisionSystem worldCollisionSystem = new();
     private readonly IServerGameMode gameMode = new TagGameMode(TagStunDurationSeconds);
     private readonly ServerSnapshotBuilder snapshotBuilder = new();
     private readonly StageCollisionSystem collisionSystem;
@@ -40,67 +22,34 @@ public class Server_GamePlay
     private readonly CharacterCatalog characterCatalog;
     private readonly SkillCatalog skillCatalog;
 
-    public Server_GamePlay()
-        : this((StageDefinition)null, null, null)
-    {
-    }
-
-    public Server_GamePlay(StageBakeData stageBakeData)
-        : this(stageBakeData, null, null)
-    {
-    }
-
-    public Server_GamePlay(StageBakeData stageBakeData, CharacterCatalog characterCatalog)
-        : this(null, stageBakeData, characterCatalog, null)
-    {
-    }
-
-    public Server_GamePlay(
-        StageBakeData stageBakeData,
-        CharacterCatalog characterCatalog,
-        SkillCatalog skillCatalog)
-        : this(null, stageBakeData, characterCatalog, skillCatalog)
-    {
-    }
-
-    public Server_GamePlay(StageDefinition stageDefinition, CharacterCatalog characterCatalog)
-        : this(stageDefinition, characterCatalog, null)
-    {
-    }
-
+    // - Role: Create server gameplay state.
     public Server_GamePlay(
         StageDefinition stageDefinition,
-        CharacterCatalog characterCatalog,
-        SkillCatalog skillCatalog)
-        : this(
-            stageDefinition,
-            stageDefinition != null ? stageDefinition.StageBakeData : null,
-            characterCatalog,
-            skillCatalog)
-    {
-    }
-
-    private Server_GamePlay(
-        StageDefinition stageDefinition,
-        StageBakeData stageBakeData,
         CharacterCatalog characterCatalog,
         SkillCatalog skillCatalog)
     {
         this.stageDefinition = stageDefinition;
         this.characterCatalog = characterCatalog;
         this.skillCatalog = skillCatalog;
+        StageBakeData stageBakeData = stageDefinition != null
+            ? stageDefinition.StageBakeData
+            : null;
         collisionSystem = new StageCollisionSystem(
             stageBakeData,
-            DefaultCollisionExtent,
+            PlayerObject.DefaultCollisionHalfExtent,
             GameSimulationConfig.CollisionSkinWidth
         );
+        skillSystem.Bind(this);
     }
 
     public uint Tick { get; private set; }
     public uint GameStateVersion { get; private set; }
 
-    public IReadOnlyDictionary<ulong, PlayerState> Players => players;
+    public IReadOnlyDictionary<ulong, PlayerObject> Players => players;
     public StageCollisionSystem CollisionSystem => collisionSystem;
+    public IServerGameMode GameMode => gameMode;
+    public Dictionary<ulong, PlayerObject> MutablePlayers => players;
+    public ServerGameEventQueue GameEventQueue => gameEventQueue;
     public GamePhase Phase => gameMode.Phase;
     public float GameDurationSeconds => gameMode.GameDurationSeconds;
     public float GameElapsedSeconds => gameMode.GameElapsedSeconds;
@@ -109,16 +58,19 @@ public class Server_GamePlay
     public bool IsGameEnded => gameMode.IsGameEnded;
     public int PendingGameEventCount => gameEventQueue.Count;
 
+    // - Role: Set game duration seconds.
     public void SetGameDurationSeconds(float durationSeconds)
     {
         gameMode.SetGameDurationSeconds(durationSeconds);
     }
 
+    // - Role: Add player.
     public void AddPlayer(ulong clientId)
     {
         AddPlayer(clientId, null, DefaultCharacterId, DefaultSkillId);
     }
 
+    // - Role: Add player.
     public bool AddPlayer(ulong clientId, string nickname, byte characterId, byte skillId)
     {
         if (players.ContainsKey(clientId))
@@ -127,60 +79,29 @@ public class Server_GamePlay
         }
 
         CharacterDefinition characterDefinition = ResolveCharacterDefinition(characterId);
-        byte resolvedCharacterId = characterDefinition != null
-            ? characterDefinition.CharacterId
-            : DefaultCharacterId;
-        Vector2 collisionHalfExtent = ResolveCollisionHalfExtent(resolvedCharacterId);
-        Vector2 collisionOffset = ResolveCollisionOffset(resolvedCharacterId);
-        CharacterMovementStats movementStats = ResolveMovementStats(resolvedCharacterId);
         SkillDefinition skillDefinition = ResolveSkillDefinition(skillId);
-        Skill skill = skillSystem.Create(clientId, skillDefinition);
         byte resolvedSkillId = skillDefinition != null
             ? skillDefinition.SkillId
             : DefaultSkillId;
+        Skill skill = skillSystem.Create(clientId, skillDefinition);
 
-        PlayerState player = new PlayerState
-        {
-            clientId = clientId,
-            nickname = SanitizeNickname(nickname, clientId),
-            position = collisionSystem.GetStageCenterPosition(),
-            input = Vector2.zero,
-            velocity = Vector2.zero,
-            aim = Vector2.right,
-            speed = movementStats.moveSpeed,
-            movementStats = movementStats,
-            buttons = PlayerInputButtons.None,
-            skillId = resolvedSkillId,
-            skill = skill,
-            characterStateMachine = CharacterStateMachineFactory.Create(resolvedCharacterId),
-            collisionHalfExtent = collisionHalfExtent,
-            collisionOffset = collisionOffset,
-            isGrounded = false,
-            groundSurfacePhysicType = StageSurfacePhysicType.Normal,
-            isWallSticking = false,
-            wallNormalX = 0,
-            wallSurfacePhysicType = StageSurfacePhysicType.Normal,
-            isJumpPressed = false,
-            jumpQueued = false,
-            isSkillPressed = false,
-            skillQueued = false,
-            hasAimInput = false,
-            coyoteTimeRemaining = 0f,
-            isTagger = false,
-            stunnedTimer = 0f,
-            taggerAccumulatedTime = 0f,
-        };
-        ServerPlayerSystem.UpdateCharacterStateMachine(ref player);
+        PlayerObject player = new PlayerObject(this, clientId);
+        player.Initialize(
+            characterDefinition,
+            skill,
+            resolvedSkillId,
+            collisionSystem.GetStageCenterPosition(),
+            nickname);
+        player = playerSystem.Register(player);
 
         players.Add(clientId, player);
         inputBuffer.RegisterPlayer(clientId);
-        playerSystem.Create(clientId, resolvedCharacterId, resolvedSkillId);
         if (gameMode.OnPlayerAdded(
             players,
             clientId,
             gameEventQueue,
             Tick,
-            collisionSystem.GetStageCenterPosition()))
+            player.position))
         {
             MarkGameStateChanged();
         }
@@ -189,15 +110,15 @@ public class Server_GamePlay
         return true;
     }
 
+    // - Role: Remove player.
     public void RemovePlayer(ulong clientId)
     {
-        bool hadPlayer = players.TryGetValue(clientId, out PlayerState removedPlayer);
+        bool hadPlayer = players.TryGetValue(clientId, out PlayerObject removedPlayer);
 
         players.Remove(clientId);
         inputBuffer.RemovePlayer(clientId);
         playerSystem.Remove(clientId);
         skillSystem.RemoveOwner(clientId);
-        worldInteractionSystem.RemoveClient(clientId);
 
         if (hadPlayer)
         {
@@ -210,6 +131,7 @@ public class Server_GamePlay
         MarkGameStateChanged();
     }
 
+    // - Role: Set input.
     public void SetInput(
         ulong clientId,
         ushort inputSeq,
@@ -225,10 +147,10 @@ public class Server_GamePlay
         inputBuffer.SetInput(clientId, inputSeq, input, aim, buttons);
     }
 
+    // - Role: Simulate this object.
     public void Simulate(float deltaTime)
     {
         Tick++;
-        worldInteractionSystem.TickCooldowns(deltaTime);
         if (gameMode.Tick(
             players,
             deltaTime,
@@ -239,152 +161,86 @@ public class Server_GamePlay
             MarkGameStateChanged();
         }
 
-        playerSystem.ApplyQueuedInputs(players, inputBuffer);
+        playerSystem.ApplyQueuedInputs(inputBuffer);
 
         int subSteps = Mathf.Max(1, GameSimulationConfig.MovementSubSteps);
         float stepDeltaTime = deltaTime / subSteps;
 
         for (int i = 0; i < subSteps; i++)
         {
-            playerSystem.SimulatePlayers(
-                players,
-                skillSystem,
-                collisionSystem,
-                stageDefinition,
-                stepDeltaTime);
-            worldInteractionSystem.ResolvePortalInteractions(
-                players,
-                playerSystem,
-                skillSystem,
-                collisionSystem);
-            ResolvePlayerCollisions();
+            playerSystem.SimulatePlayers(skillSystem, collisionSystem, stageDefinition, stepDeltaTime);
+            ResolveWorldCollisions();
         }
     }
 
-    public bool TryGetPlayer(ulong clientId, out PlayerState player)
+    // - Role: Try to get player.
+    public bool TryGetPlayer(ulong clientId, out PlayerObject player)
     {
         return players.TryGetValue(clientId, out player);
     }
 
+    // - Role: Copy player snapshots to.
     public void CopyPlayerSnapshotsTo(List<PlayerSnapshotPacket> target)
     {
         snapshotBuilder.CopyPlayerSnapshotsTo(players, target);
     }
 
+    // - Role: Copy skill snapshots to.
     public void CopySkillSnapshotsTo(List<SkillSnapshotPacket> target)
     {
         snapshotBuilder.CopySkillSnapshotsTo(skillSystem, target);
     }
 
+    // - Role: Copy game state entries to.
     public void CopyGameStateEntriesTo(List<GameStateEntryPacket> target, bool taggersOnly)
     {
         snapshotBuilder.CopyGameStateEntriesTo(players, target, taggersOnly);
     }
 
+    // - Role: Copy pending game events to.
     public void CopyPendingGameEventsTo(List<GameEventEntryPacket> target)
     {
         gameEventQueue.CopyPendingTo(target);
     }
 
+    // - Role: Clear pending game events.
     public void ClearPendingGameEvents(int eventCount)
     {
         gameEventQueue.Clear(eventCount);
     }
 
+    // - Role: Copy roster entries to.
     public void CopyRosterEntriesTo(List<RosterEntryPacket> target)
     {
         snapshotBuilder.CopyRosterEntriesTo(players, target, DefaultCharacterId);
     }
 
-    private void ResolvePlayerCollisions()
+    // - Role: Find world collisions.
+    private void ResolveWorldCollisions()
     {
-        playerSystem.ResolvePlayerCollisions(players, collisionSystem, playerCollisionEvents);
+        worldObjects.Clear();
+        playerSystem.CopyWorldObjectsTo(worldObjects);
+        skillSystem.SyncSkillObjects();
 
-        for (int i = 0; i < playerCollisionEvents.Count; i++)
+        IReadOnlyList<SkillObject> skillObjects = skillSystem.SkillObjects;
+        for (int i = 0; i < skillObjects.Count; i++)
         {
-            if (!TryGetPlayerCollision(
-                playerCollisionEvents[i],
-                out PlayerObject firstObject,
-                out PlayerObject secondObject))
+            if (skillObjects[i] != null && skillObjects[i].IsActive)
             {
-                continue;
+                worldObjects.Add(skillObjects[i]);
             }
-
-            if (!players.TryGetValue(firstObject.playerId, out PlayerState first)
-                || !players.TryGetValue(secondObject.playerId, out PlayerState second))
-            {
-                continue;
-            }
-
-            Vector2 taggerCollisionPoint = (first.position + second.position) * 0.5f;
-            if (gameMode.TryResolvePlayerCollision(
-                ref first,
-                ref second,
-                taggerCollisionPoint,
-                gameEventQueue,
-                Tick))
-            {
-                MarkGameStateChanged();
-            }
-
-            ServerPlayerSystem.UpdateRenderState(ref first);
-            ServerPlayerSystem.UpdateCharacterStateMachine(ref first);
-            ServerPlayerSystem.UpdateRenderState(ref second);
-            ServerPlayerSystem.UpdateCharacterStateMachine(ref second);
-
-            players[firstObject.playerId] = first;
-            players[secondObject.playerId] = second;
         }
+
+        worldCollisionSystem.ResolveCollisions(worldObjects, worldCollisionEvents, collisionSystem);
     }
 
-    private static bool TryGetPlayerCollision(
-        WorldCollisionEvent collisionEvent,
-        out PlayerObject firstPlayer,
-        out PlayerObject secondPlayer)
-    {
-        firstPlayer = collisionEvent.first as PlayerObject;
-        secondPlayer = collisionEvent.second as PlayerObject;
-        return firstPlayer != null && secondPlayer != null;
-    }
-
-    private void MarkGameStateChanged()
+    // - Role: Mark game state as changed.
+    public void MarkGameStateChanged()
     {
         GameStateVersion++;
     }
 
-    private Vector2 ResolveCollisionHalfExtent(byte characterId)
-    {
-        CharacterDefinition definition = ResolveCharacterDefinition(characterId);
-        if (definition != null)
-        {
-            return definition.CollisionExtent;
-        }
-
-        return DefaultCollisionExtent;
-    }
-
-    private Vector2 ResolveCollisionOffset(byte characterId)
-    {
-        CharacterDefinition definition = ResolveCharacterDefinition(characterId);
-        if (definition != null)
-        {
-            return definition.CollisionOffset;
-        }
-
-        return DefaultCollisionOffset;
-    }
-
-    private CharacterMovementStats ResolveMovementStats(byte characterId)
-    {
-        CharacterDefinition definition = ResolveCharacterDefinition(characterId);
-        if (definition != null)
-        {
-            return definition.MovementStats;
-        }
-
-        return DefaultMovementStats;
-    }
-
+    // - Role: Find skill definition.
     private SkillDefinition ResolveSkillDefinition(byte skillId)
     {
         if (skillCatalog != null && skillCatalog.TryGet(skillId, out SkillDefinition definition))
@@ -395,6 +251,7 @@ public class Server_GamePlay
         return null;
     }
 
+    // - Role: Find character definition.
     private CharacterDefinition ResolveCharacterDefinition(byte characterId)
     {
         if (characterCatalog == null)
@@ -416,22 +273,6 @@ public class Server_GamePlay
         }
 
         return null;
-    }
-
-    private static string SanitizeNickname(string nickname, ulong clientId)
-    {
-        if (string.IsNullOrWhiteSpace(nickname))
-        {
-            return DefaultNickname;
-        }
-
-        string trimmedNickname = nickname.Trim();
-        if (trimmedNickname.Length > MaxNicknameLength)
-        {
-            return trimmedNickname.Substring(0, MaxNicknameLength);
-        }
-
-        return trimmedNickname;
     }
 
 }

@@ -28,6 +28,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
     private readonly List<ulong> removeTargets = new();
     private bool hasLoggedMissingReferences;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         if (worldCamera == null)
@@ -48,6 +49,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         LogMissingReferencesOnce();
     }
 
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         if (worldView != null)
@@ -63,6 +65,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         if (worldView != null)
@@ -77,6 +80,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Update this object after normal updates.
     private void LateUpdate()
     {
         if (!CanUpdateNameplates())
@@ -86,6 +90,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         RemoveInvalidNameplates();
     }
 
+    // - Role: Sync existing player views.
     private void SyncExistingPlayerViews()
     {
         if (worldView == null)
@@ -98,6 +103,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Handle player view created.
     private void OnPlayerViewCreated(ClientWorldPlayerViewRef viewRef)
     {
         if (viewRef.root == null)
@@ -109,11 +115,13 @@ public sealed class Client_NameplateManager : MonoBehaviour
         TryCreateNameplate(viewRef);
     }
 
+    // - Role: Handle player view removed.
     private void OnPlayerViewRemoved(ulong clientId)
     {
         RemoveNameplate(clientId);
     }
 
+    // - Role: Check if update nameplates can happen.
     private bool CanUpdateNameplates()
     {
         if (worldCamera == null)
@@ -125,6 +133,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         return true;
     }
 
+    // - Role: Try to create nameplate.
     private void TryCreateNameplate(ClientWorldPlayerViewRef viewRef)
     {
         if (labelPrefab == null || labelLayer == null)
@@ -156,6 +165,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         });
     }
 
+    // - Role: Update nameplates.
     private void UpdateNameplates()
     {
         foreach (var pair in nameplates)
@@ -170,6 +180,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Update nameplate.
     private void UpdateNameplate(NameplateEntry entry)
     {
         Vector3 screenPosition = worldCamera.WorldToScreenPoint(entry.anchor.position);
@@ -208,6 +219,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Find UI camera.
     private Camera ResolveUiCamera()
     {
         if (targetCanvas == null)
@@ -223,6 +235,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         return targetCanvas.worldCamera != null ? targetCanvas.worldCamera : worldCamera;
     }
 
+    // - Role: Find nickname.
     private string ResolveNickname(ulong clientId)
     {
         if (rosterReceiver != null && rosterReceiver.TryGetNickname(clientId, out string nickname))
@@ -233,6 +246,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         return $"Client {clientId}";
     }
 
+    // - Role: Find nameplate color.
     private Color ResolveNameplateColor(ulong clientId)
     {
         if (worldView != null
@@ -245,6 +259,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         return defaultTextColor;
     }
 
+    // - Role: Refresh all label text.
     private void RefreshAllLabelTexts()
     {
         foreach (var pair in nameplates)
@@ -260,6 +275,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Remove invalid nameplates.
     private void RemoveInvalidNameplates()
     {
         removeTargets.Clear();
@@ -278,6 +294,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
     }
 
+    // - Role: Remove nameplate.
     private void RemoveNameplate(ulong clientId)
     {
         if (!nameplates.TryGetValue(clientId, out NameplateEntry entry))
@@ -291,6 +308,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         nameplates.Remove(clientId);
     }
 
+    // - Role: Log missing references once.
     private void LogMissingReferencesOnce()
     {
         if (hasLoggedMissingReferences)

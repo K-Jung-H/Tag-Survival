@@ -15,6 +15,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
 
     public bool HasRoster => hasRoster;
 
+    // - Role: Set up this object when it starts.
     private void Start()
     {
         if (NetworkManager.Singleton == null)
@@ -28,11 +29,13 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
+    // - Role: Update this object each frame.
     private void Update()
     {
         TryRegisterRosterHandler();
     }
 
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         if (NetworkManager.Singleton == null)
@@ -44,6 +47,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         UnregisterRosterHandler();
     }
 
+    // - Role: Handle client connected.
     private void OnClientConnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -55,6 +59,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         TryRegisterRosterHandler();
     }
 
+    // - Role: Handle client disconnected.
     private void OnClientDisconnected(ulong clientId)
     {
         if (NetworkManager.Singleton == null)
@@ -71,11 +76,13 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         UnregisterRosterHandler();
     }
 
+    // - Role: Try to get entry.
     public bool TryGetEntry(ulong clientId, out RosterEntryPacket entry)
     {
         return rosterEntries.TryGetValue(clientId, out entry);
     }
 
+    // - Role: Try to get nickname.
     public bool TryGetNickname(ulong clientId, out string nickname)
     {
         nickname = null;
@@ -89,6 +96,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         return !string.IsNullOrWhiteSpace(nickname);
     }
 
+    // - Role: Try to register roster handler.
     private void TryRegisterRosterHandler()
     {
         if (isRegistered)
@@ -117,6 +125,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         isRegistered = true;
     }
 
+    // - Role: Unregister roster handler.
     private void UnregisterRosterHandler()
     {
         if (!isRegistered)
@@ -128,13 +137,12 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         if (NetworkManager.Singleton.CustomMessagingManager == null)
             return;
 
-        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(
-            GameNetMessages.ServerRoster
-        );
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerRoster);
 
         isRegistered = false;
     }
 
+    // - Role: Handle server roster received.
     private void OnServerRosterReceived(ulong senderClientId, FastBufferReader reader)
     {
         if (!CanReceiveRoster())
@@ -161,6 +169,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         RosterUpdated?.Invoke();
     }
 
+    // - Role: Check if receive roster can happen.
     private bool CanReceiveRoster()
     {
         if (NetworkManager.Singleton == null)
@@ -175,6 +184,7 @@ public sealed class Client_RosterReceiver : MonoBehaviour
         return !NetworkManager.Singleton.IsServer;
     }
 
+    // - Role: Check if newer sequence is true.
     private static bool IsNewerSequence(uint incomingSeq, uint currentSeq)
     {
         return unchecked((int)(incomingSeq - currentSeq)) > 0;

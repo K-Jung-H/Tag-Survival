@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2b4cbc9a2586e6419cbb498c41dc7f0, type: 3}
   m_Name: Skill Definition_Hook
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
-  skillId: 1
+  skillId: 0
   skillType: 1
   cooldown: 0.5
   skillObjectViewPrefab: {fileID: 1423317497419455560, guid: 66ee0ab3cd9203946b94dfdd3758b62a, type: 3}

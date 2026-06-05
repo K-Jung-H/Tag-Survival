@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2b4cbc9a2586e6419cbb498c41dc7f0, type: 3}
   m_Name: Skill Definition_Portal
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
-  skillId: 2
+  skillId: 1
   skillType: 2
-  cooldown: 10
+  cooldown: 3
   skillObjectViewPrefab: {fileID: 8151316722904010301, guid: 6452e3191cbb45e8ad80201e6fd79fc8, type: 3}
   config: {fileID: 11400000, guid: 9abf496b18d84dc09bc1077ad58714a4, type: 2}

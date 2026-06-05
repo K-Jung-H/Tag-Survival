@@ -14,6 +14,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
     private float skillFireTimer;
     private bool wasAimControlActive;
 
+    // - Role: Set up needed links before start.
     private void Awake()
     {
         lastAim = NormalizeOrDefault(defaultAim, Vector2.right);
@@ -43,6 +44,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         dashAction.AddBinding("<Gamepad>/buttonEast");
     }
 
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         moveAction.Enable();
@@ -50,6 +52,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         dashAction.Enable();
     }
 
+    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         moveAction.Disable();
@@ -59,6 +62,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         wasAimControlActive = false;
     }
 
+    // - Role: Clean up links before this object is destroyed.
     private void OnDestroy()
     {
         moveAction?.Dispose();
@@ -66,7 +70,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         dashAction?.Dispose();
     }
 
-    // Role: Returns keyboard and gamepad input for movement, skill aim, and skill fire.
+    // - Role: Get input state.
     public override ClientInputState GetInputState()
     {
         Vector2 move = moveAction.ReadValue<Vector2>();
@@ -99,6 +103,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         };
     }
 
+    // - Role: Get input buttons.
     private PlayerInputButtons GetInputButtons(bool isAimControlActive)
     {
         PlayerInputButtons buttons = PlayerInputButtons.None;
@@ -127,6 +132,7 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
         return buttons;
     }
 
+    // - Role: Normalize or default.
     private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 fallback)
     {
         if (value.sqrMagnitude > 0.0001f)

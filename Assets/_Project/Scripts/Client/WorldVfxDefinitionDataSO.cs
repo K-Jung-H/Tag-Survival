@@ -9,6 +9,7 @@ public sealed class WorldVfxDefinitionDataSO : ScriptableObject
 
     public WorldVfxDefinition[] Definitions => definitions ?? Array.Empty<WorldVfxDefinition>();
 
+    // - Role: Try to get a VFX definition.
     public bool TryGet(GameVfxType type, out WorldVfxDefinition definition)
     {
         WorldVfxDefinition[] definitionArray = Definitions;
@@ -27,6 +28,7 @@ public sealed class WorldVfxDefinitionDataSO : ScriptableObject
         return false;
     }
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
         WorldVfxDefinition[] definitionArray = Definitions;

@@ -10,20 +10,19 @@ public sealed class SkillCatalog : ScriptableObject
     private readonly Dictionary<byte, SkillDefinition> definitionsById = new();
     private bool isCacheDirty = true;
 
+    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
         RebuildCache();
     }
 
+    // - Role: Check editor values after they change.
     private void OnValidate()
     {
         isCacheDirty = true;
     }
 
-    // Role: skillId에 맞는 SkillDefinition을 조회하고, 없으면 fallback을 반환한다.
-    // Parameters:
-    // - skillId: 조회할 스킬 ID
-    // - definition: 조회된 스킬 정의
+    // - Role: Try to get a skill definition.
     public bool TryGet(byte skillId, out SkillDefinition definition)
     {
         if (TryGetById(skillId, out definition))
@@ -35,20 +34,14 @@ public sealed class SkillCatalog : ScriptableObject
         return definition != null;
     }
 
-    // Role: skillId에 정확히 대응되는 SkillDefinition을 조회한다.
-    // Parameters:
-    // - skillId: 조회할 스킬 ID
-    // - definition: 조회된 스킬 정의
+    // - Role: Try to get by ID.
     public bool TryGetById(byte skillId, out SkillDefinition definition)
     {
         EnsureCache();
         return definitionsById.TryGetValue(skillId, out definition) && definition != null;
     }
 
-    // Role: Catalog 배열 인덱스에 대응되는 SkillDefinition을 조회한다.
-    // Parameters:
-    // - index: Catalog 배열 인덱스
-    // - definition: 조회된 스킬 정의
+    // - Role: Try to get by index.
     public bool TryGetByIndex(int index, out SkillDefinition definition)
     {
         if (definitions != null && index >= 0 && index < definitions.Length)
@@ -61,6 +54,7 @@ public sealed class SkillCatalog : ScriptableObject
         return false;
     }
 
+    // - Role: Make sure the cache is ready.
     private void EnsureCache()
     {
         if (!isCacheDirty)
@@ -71,6 +65,7 @@ public sealed class SkillCatalog : ScriptableObject
         RebuildCache();
     }
 
+    // - Role: Rebuild the cache.
     private void RebuildCache()
     {
         definitionsById.Clear();

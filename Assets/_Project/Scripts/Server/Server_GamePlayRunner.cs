@@ -7,6 +7,8 @@ public class Server_GamePlayRunner : MonoBehaviour
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
+    [SerializeField] private ItemEffectCatalog itemEffectCatalog;
+    [SerializeField] private int maxActiveItemCount = GameNetProtocol.MaxItems;
     [SerializeField] private float gameDurationSeconds = 180f;
     [SerializeField] private float gameStateSendInterval = 1f;
     [SerializeField] private float fullGameStateSendInterval = 30f;
@@ -26,6 +28,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     private bool rosterWriterCreated;
     private readonly System.Collections.Generic.List<PlayerSnapshotPacket> playerSnapshots = new();
     private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
+    private readonly System.Collections.Generic.List<ItemSnapshotPacket> itemSnapshots = new();
     private readonly System.Collections.Generic.List<GameStateEntryPacket> gameStateEntries = new();
     private readonly System.Collections.Generic.List<GameEventEntryPacket> gameEvents = new();
     private readonly System.Collections.Generic.List<RosterEntryPacket> rosterEntries = new();
@@ -51,7 +54,12 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Set up needed links before start.
     private void Awake()
     {
-        gamePlay = new Server_GamePlay(stageDefinition, characterCatalog, skillCatalog);
+        gamePlay = new Server_GamePlay(
+            stageDefinition,
+            characterCatalog,
+            skillCatalog,
+            itemEffectCatalog,
+            maxActiveItemCount);
         gamePlay.SetGameDurationSeconds(gameDurationSeconds);
 
         snapshotWriter = new FastBufferWriter(GameNetProtocol.SnapshotPacketBufferSize, Allocator.Persistent);
@@ -303,6 +311,7 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         gamePlay.CopyPlayerSnapshotsTo(playerSnapshots);
         gamePlay.CopySkillSnapshotsTo(skillSnapshots);
+        gamePlay.CopyItemSnapshotsTo(itemSnapshots);
 
         ServerSnapshotHeaderPacket header = new ServerSnapshotHeaderPacket
         {
@@ -311,7 +320,8 @@ public class Server_GamePlayRunner : MonoBehaviour
             serverTick = gamePlay.Tick,
             serverTime = (float)NetworkManager.Singleton.ServerTime.Time,
             playerCount = (ushort)playerSnapshots.Count,
-            skillCount = (ushort)skillSnapshots.Count
+            skillCount = (ushort)skillSnapshots.Count,
+            itemCount = (ushort)itemSnapshots.Count
         };
 
         snapshotSeq++;
@@ -325,6 +335,11 @@ public class Server_GamePlayRunner : MonoBehaviour
         for (int i = 0; i < skillSnapshots.Count; i++)
         {
             skillSnapshots[i].Write(ref snapshotWriter);
+        }
+
+        for (int i = 0; i < itemSnapshots.Count; i++)
+        {
+            itemSnapshots[i].Write(ref snapshotWriter);
         }
 
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)

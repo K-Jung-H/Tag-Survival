@@ -20,10 +20,10 @@ public static class PlayerMovementController
             {
                 float wallExitSpeedMultiplier = IsMovingAwayFromWall(horizontalInput, player.wallNormalX)
                     ? 1f
-                    : player.movementStats.wallMoveSpeedMultiplier;
+                    : player.effectiveMovementStats.wallMoveSpeedMultiplier;
 
                 player.velocity.x = player.wallNormalX * player.speed * wallExitSpeedMultiplier;
-                player.velocity.y = player.movementStats.jumpVelocity
+                player.velocity.y = player.effectiveMovementStats.jumpVelocity
                     * PlayerPhysicsModifierResolver.ResolveJump(player, stageDefinition).JumpVelocityMultiplier;
                 player.isGrounded = false;
                 player.isWallSticking = false;
@@ -126,7 +126,7 @@ public static class PlayerMovementController
         if (wantsGroundJump || wantsCoyoteJump)
         {
             StagePhysicsModifier jumpModifier = PlayerPhysicsModifierResolver.ResolveJump(player, stageDefinition);
-            player.velocity.y = player.movementStats.jumpVelocity * jumpModifier.JumpVelocityMultiplier;
+            player.velocity.y = player.effectiveMovementStats.jumpVelocity * jumpModifier.JumpVelocityMultiplier;
             player.isGrounded = false;
             player.isWallSticking = false;
             player.wallNormalX = 0;
@@ -137,14 +137,14 @@ public static class PlayerMovementController
         player.jumpQueued = false;
 
         float gravity = player.velocity.y > 0f
-            ? player.movementStats.upGravity
-            : player.movementStats.downGravity;
+            ? player.effectiveMovementStats.upGravity
+            : player.effectiveMovementStats.downGravity;
 
         StagePhysicsModifier airModifier = PlayerPhysicsModifierResolver.ResolveAir(stageDefinition);
         gravity *= airModifier.GravityScale;
         player.velocity.y += gravity * deltaTime;
 
-        float maxFallSpeed = player.movementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
+        float maxFallSpeed = player.effectiveMovementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
         player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
     }
 
@@ -168,8 +168,8 @@ public static class PlayerMovementController
         if (inputMagnitude <= FacingDirectionThreshold)
         {
             float deceleration = player.isGrounded
-                ? player.movementStats.groundDeceleration
-                : player.movementStats.airDeceleration;
+                ? player.effectiveMovementStats.groundDeceleration
+                : player.effectiveMovementStats.airDeceleration;
             if (player.isGrounded)
             {
                 deceleration *= groundModifier.GroundDecelerationMultiplier;
@@ -180,8 +180,8 @@ public static class PlayerMovementController
         }
 
         float acceleration = player.isGrounded
-            ? player.movementStats.groundAcceleration
-            : player.movementStats.airAcceleration;
+            ? player.effectiveMovementStats.groundAcceleration
+            : player.effectiveMovementStats.airAcceleration;
         if (player.isGrounded)
         {
             acceleration *= groundModifier.GroundAccelerationMultiplier;
@@ -191,7 +191,7 @@ public static class PlayerMovementController
         bool isOverTargetSpeed = sameDirection
             && Mathf.Abs(currentVelocityX) > Mathf.Abs(targetVelocityX);
 
-        float overSpeedDeceleration = player.movementStats.overSpeedDeceleration;
+        float overSpeedDeceleration = player.effectiveMovementStats.overSpeedDeceleration;
         if (player.isGrounded)
         {
             overSpeedDeceleration *= groundModifier.OverSpeedDecelerationMultiplier;
@@ -212,7 +212,7 @@ public static class PlayerMovementController
         float deltaTime)
     {
         StagePhysicsModifier wallModifier = PlayerPhysicsModifierResolver.ResolveWall(player, stageDefinition);
-        float wallMoveSpeed = player.speed * player.movementStats.wallMoveSpeedMultiplier;
+        float wallMoveSpeed = player.speed * player.effectiveMovementStats.wallMoveSpeedMultiplier;
         if (verticalInput > JumpInputThreshold)
         {
             return wallMoveSpeed * wallModifier.WallUpMoveMultiplier;

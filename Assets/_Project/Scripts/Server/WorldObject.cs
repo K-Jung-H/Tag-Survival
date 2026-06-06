@@ -17,7 +17,8 @@ public enum WorldObjectType : byte
     None = 0,
     Player = 1,
     SkillObject = 2,
-    Area = 3
+    Area = 3,
+    Item = 4
 }
 
 public enum SkillObjectStageMode : byte
@@ -33,7 +34,8 @@ public enum WorldObjectLayer : ushort
     None = 0,
     Player = 1 << 0,
     SkillObject = 1 << 1,
-    Area = 1 << 2
+    Area = 1 << 2,
+    Item = 1 << 3
 }
 
 public readonly struct WorldCollider
@@ -90,12 +92,14 @@ public sealed class PlayerObject : IWorldObject
     public byte characterId;
     public byte skillId;
     public Skill skill;
+    public PlayerItemEffects itemEffects;
     public ICharacterStateMachine characterStateMachine;
     public Vector2 position;
     public Vector2 velocity;
     public Vector2 aim;
     public float speed;
     public CharacterMovementStats movementStats;
+    public CharacterMovementStats effectiveMovementStats;
     public sbyte facingSign;
     public PlayerLocomotionState locomotionState;
     public Vector2 input;
@@ -117,7 +121,7 @@ public sealed class PlayerObject : IWorldObject
     public bool hasAimInput;
     public float coyoteTimeRemaining;
     public WorldObjectLayer layer = WorldObjectLayer.Player;
-    public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area;
+    public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
     public WorldCollider collider;
 
     public WorldObjectType ObjectType => WorldObjectType.Player;
@@ -135,11 +139,13 @@ public sealed class PlayerObject : IWorldObject
         characterId = 0;
         skillId = 0;
         skill = null;
+        itemEffects = new PlayerItemEffects();
         characterStateMachine = null;
         position = Vector2.zero;
         velocity = Vector2.zero;
         aim = Vector2.right;
         movementStats = CharacterMovementStats.Default;
+        effectiveMovementStats = movementStats;
         speed = movementStats.moveSpeed;
         facingSign = 1;
         locomotionState = PlayerLocomotionState.Idle;
@@ -162,7 +168,7 @@ public sealed class PlayerObject : IWorldObject
         hasAimInput = false;
         coyoteTimeRemaining = 0f;
         layer = WorldObjectLayer.Player;
-        collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area;
+        collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
         collider = new WorldCollider(collisionOffset, collisionHalfExtent);
     }
 
@@ -191,7 +197,9 @@ public sealed class PlayerObject : IWorldObject
         movementStats = characterDefinition != null
             ? characterDefinition.MovementStats
             : CharacterMovementStats.Default;
-        speed = movementStats.moveSpeed;
+        itemEffects.Clear();
+        effectiveMovementStats = movementStats;
+        speed = effectiveMovementStats.moveSpeed;
         collisionHalfExtent = characterDefinition != null
             ? characterDefinition.CollisionExtent
             : DefaultCollisionHalfExtent;
@@ -276,6 +284,29 @@ public sealed class SkillObject : IWorldObject
     public void OnCollision(IWorldObject other)
     {
         ownerSkill?.StateMachine?.OnCollision(this, other);
+    }
+}
+
+public sealed class ItemObject : IWorldObject
+{
+    public uint itemId;
+    public ItemType type;
+    public Vector2 position;
+    public WorldCollider collider;
+    public ItemStateMachine stateMachine;
+    public WorldObjectLayer layer = WorldObjectLayer.Item;
+    public WorldObjectLayer collisionMask = WorldObjectLayer.Player;
+
+    public WorldObjectType ObjectType => WorldObjectType.Item;
+    public WorldObjectLayer Layer => layer;
+    public WorldObjectLayer CollisionMask => collisionMask;
+    public Vector2 WorldPosition => position;
+    public WorldCollider Collider => collider;
+
+    // - Role: Handle collision.
+    public void OnCollision(IWorldObject other)
+    {
+        stateMachine?.OnCollision(this, other);
     }
 }
 

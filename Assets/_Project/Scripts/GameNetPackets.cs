@@ -207,6 +207,7 @@ public struct ServerSnapshotHeaderPacket
     public float serverTime;
     public ushort playerCount;
     public ushort skillCount;
+    public ushort itemCount;
 
     // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
@@ -217,6 +218,7 @@ public struct ServerSnapshotHeaderPacket
         writer.WriteValueSafe(serverTime);
         writer.WriteValueSafe(playerCount);
         writer.WriteValueSafe(skillCount);
+        writer.WriteValueSafe(itemCount);
     }
 
     // - Role: Try to read this data from the reader.
@@ -230,6 +232,7 @@ public struct ServerSnapshotHeaderPacket
         reader.ReadValueSafe(out float serverTime);
         reader.ReadValueSafe(out ushort playerCount);
         reader.ReadValueSafe(out ushort skillCount);
+        reader.ReadValueSafe(out ushort itemCount);
 
         if (protocolVersion != GameNetProtocol.ProtocolVersion)
             return false;
@@ -241,11 +244,54 @@ public struct ServerSnapshotHeaderPacket
             serverTick = serverTick,
             serverTime = serverTime,
             playerCount = playerCount,
-            skillCount = skillCount
+            skillCount = skillCount,
+            itemCount = itemCount
         };
 
         return true;
     }
+}
+
+public struct ItemSnapshotPacket
+{
+    public uint itemId;
+    public ItemType itemType;
+    public Vector2 position;
+
+    // - Role: Write this data to the writer.
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(itemId);
+        writer.WriteValueSafe((byte)itemType);
+        writer.WriteValueSafe(position.x);
+        writer.WriteValueSafe(position.y);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(ref FastBufferReader reader, out ItemSnapshotPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out uint itemId);
+        reader.ReadValueSafe(out byte itemType);
+        reader.ReadValueSafe(out float positionX);
+        reader.ReadValueSafe(out float positionY);
+
+        packet = new ItemSnapshotPacket
+        {
+            itemId = itemId,
+            itemType = (ItemType)itemType,
+            position = new Vector2(positionX, positionY)
+        };
+
+        return true;
+    }
+}
+
+public struct ClientItemSnapshotState
+{
+    public ItemType itemType;
+    public Vector2 position;
 }
 
 public struct PlayerSnapshotPacket
@@ -258,6 +304,7 @@ public struct PlayerSnapshotPacket
     public PlayerLocomotionState locomotionState;
     public byte characterId;
     public byte skillId;
+    public float skillCooldownSeconds;
     public sbyte facingSign;
     public bool isTagger;
 
@@ -275,6 +322,7 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe((byte)locomotionState);
         writer.WriteValueSafe(characterId);
         writer.WriteValueSafe(skillId);
+        writer.WriteValueSafe(skillCooldownSeconds);
         writer.WriteValueSafe(facingSign);
         writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
     }
@@ -295,6 +343,7 @@ public struct PlayerSnapshotPacket
         reader.ReadValueSafe(out byte locomotionState);
         reader.ReadValueSafe(out byte characterId);
         reader.ReadValueSafe(out byte skillId);
+        reader.ReadValueSafe(out float skillCooldownSeconds);
         reader.ReadValueSafe(out sbyte facingSign);
         reader.ReadValueSafe(out byte isTagger);
 
@@ -308,6 +357,7 @@ public struct PlayerSnapshotPacket
             locomotionState = (PlayerLocomotionState)locomotionState,
             characterId = characterId,
             skillId = skillId,
+            skillCooldownSeconds = skillCooldownSeconds,
             facingSign = facingSign,
             isTagger = isTagger != 0
         };
@@ -329,6 +379,7 @@ public struct ClientSnapshotState
     public PlayerLocomotionState locomotionState;
     public byte characterId;
     public byte skillId;
+    public float skillCooldownSeconds;
     public sbyte facingSign;
     public bool isTagger;
     public float lastReceivedTime;

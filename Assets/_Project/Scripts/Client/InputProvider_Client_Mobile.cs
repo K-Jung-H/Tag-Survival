@@ -7,7 +7,6 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     [SerializeField] private Client_MobileJoystick moveJoystick;
     [SerializeField] private Client_MobileJoystick skillAimJoystick;
     [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
-    [SerializeField] private SkillCatalog skillCatalog;
     [SerializeField] private Vector2 defaultAim = Vector2.right;
     [SerializeField] private bool releaseSkillOnAimJoystickUp = true;
     [SerializeField] private bool blockSkillInputDuringLocalCooldown = true;
@@ -175,13 +174,10 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     private float ResolveSkillCooldownSeconds()
     {
         if (snapshotReceiver != null
-            && skillCatalog != null
             && NetworkManager.Singleton != null
-            && snapshotReceiver.TryGetSnapshot(NetworkManager.Singleton.LocalClientId, out ClientSnapshotState snapshot)
-            && skillCatalog.TryGet(snapshot.skillId, out SkillDefinition definition)
-            && definition != null)
+            && snapshotReceiver.TryGetSnapshot(NetworkManager.Singleton.LocalClientId, out ClientSnapshotState snapshot))
         {
-            return definition.Cooldown;
+            return Mathf.Max(0f, snapshot.skillCooldownSeconds);
         }
 
         return Mathf.Max(0f, fallbackSkillCooldownSeconds);

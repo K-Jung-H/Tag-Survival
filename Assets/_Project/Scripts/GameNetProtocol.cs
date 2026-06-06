@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 18;
+    public const ushort ProtocolVersion = 20;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -10,11 +10,12 @@ public static class GameNetProtocol
 
     public const int InputPacketBufferSize = 64;
     public const int ClientJoinProfilePacketBufferSize = 128;
-    public const int SnapshotPacketBufferSize = 8192;
+    public const int SnapshotPacketBufferSize = 12288;
     public const int GameStatePacketBufferSize = 1024;
     public const int GameEventPacketBufferSize = 2048;
     public const int RosterPacketBufferSize = 2048;
     public const int MaxPlayers = 10;
+    public const int MaxItems = 20;
     public const int MaxGameEventsPerBatch = 32;
 }
 
@@ -73,7 +74,8 @@ public enum GameEventType : byte
     GameStarted = 1,
     GameEnded = 2,
     TaggerChanged = 3,
-    SpawnVfx = 4
+    SpawnVfx = 4,
+    ItemApplied = 5
 }
 
 public enum GameVfxType : byte

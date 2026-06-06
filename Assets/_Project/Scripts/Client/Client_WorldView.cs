@@ -18,6 +18,7 @@ public class Client_WorldView : MonoBehaviour
     [SerializeField] private Client_CameraFollow cameraFollow;
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
+    [SerializeField] private ItemView itemViewPrefab;
 
     [Header("View Smoothing")]
     [SerializeField] private float localFollowSpeed = 50f;
@@ -26,7 +27,9 @@ public class Client_WorldView : MonoBehaviour
 
     private readonly Dictionary<ulong, Client_CharacterView> playerViews = new();
     private readonly Dictionary<ulong, Client_SkillObjectView> skillViews = new();
+    private readonly Dictionary<uint, ItemView> itemViews = new();
     private readonly List<ulong> removeTargets = new();
+    private readonly List<uint> removeItemTargets = new();
     private readonly HashSet<byte> missingCharacterWarnings = new();
     private readonly HashSet<byte> missingSkillWarnings = new();
 
@@ -67,8 +70,10 @@ public class Client_WorldView : MonoBehaviour
 
         SyncPlayerViews();
         SyncSkillViews();
+        SyncItemViews();
         RemoveMissingViews();
         RemoveMissingSkillViews();
+        RemoveMissingItemViews();
     }
 
     // - Role: Copy player views to.
@@ -380,6 +385,68 @@ public class Client_WorldView : MonoBehaviour
             }
 
             skillViews.Remove(ownerClientId);
+        }
+    }
+
+    // - Role: Sync item views.
+    private void SyncItemViews()
+    {
+        foreach (var pair in snapshotReceiver.ItemSnapshots)
+        {
+            uint itemId = pair.Key;
+            ClientItemSnapshotState snapshotState = pair.Value;
+
+            if (!TryGetOrCreateItemView(itemId, out ItemView view))
+            {
+                continue;
+            }
+
+            view.ApplySnapshot(snapshotState);
+        }
+    }
+
+    // - Role: Try to get or create item view.
+    private bool TryGetOrCreateItemView(uint itemId, out ItemView view)
+    {
+        if (itemViews.TryGetValue(itemId, out view) && view != null)
+        {
+            return true;
+        }
+
+        view = null;
+        if (itemViewPrefab == null)
+        {
+            return false;
+        }
+
+        view = Instantiate(itemViewPrefab, transform);
+        view.name = $"ItemView_{itemId}";
+        itemViews[itemId] = view;
+        return true;
+    }
+
+    // - Role: Remove missing item views.
+    private void RemoveMissingItemViews()
+    {
+        removeItemTargets.Clear();
+
+        foreach (uint itemId in itemViews.Keys)
+        {
+            if (!snapshotReceiver.ItemSnapshots.ContainsKey(itemId))
+            {
+                removeItemTargets.Add(itemId);
+            }
+        }
+
+        for (int i = 0; i < removeItemTargets.Count; i++)
+        {
+            uint itemId = removeItemTargets[i];
+            if (itemViews.TryGetValue(itemId, out ItemView view) && view != null)
+            {
+                Destroy(view.gameObject);
+            }
+
+            itemViews.Remove(itemId);
         }
     }
 

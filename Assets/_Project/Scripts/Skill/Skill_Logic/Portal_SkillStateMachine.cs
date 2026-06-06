@@ -20,6 +20,7 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
     private PendingPlacement pendingPlacement;
     private ulong ownerClientId;
     private uint placementOrder;
+    private float rangeMultiplier = 1f;
 
     // - Role: Create portal skill state machine.
     public Portal_SkillStateMachine(SkillDefinition definition)
@@ -35,6 +36,7 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
         bool skillPressedThisTick)
     {
         ownerClientId = player.playerId;
+        rangeMultiplier = player.itemEffects != null ? player.itemEffects.GetSkillRangeMultiplier() : 1f;
         TickCooldown(deltaTime);
         TickTeleportCooldowns(deltaTime);
         TickPortals(deltaTime);
@@ -121,7 +123,7 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
             StartSpawning(slotIndex, cell, position, halfExtent);
         }
 
-        StartCooldown();
+        StartCooldown(ResolveOwnerPlayer(self));
         RefreshState();
     }
 
@@ -489,9 +491,20 @@ public sealed class Portal_SkillStateMachine : Skill_StateMachine
     private float PortalTeleportCooldown => config != null
         ? config.PortalTeleportCooldown
         : DefaultTeleportCooldown;
-    private int PlacementSearchDistance => DefaultPlacementSearchDistance;
+    private int PlacementSearchDistance => Mathf.Max(0, Mathf.RoundToInt(DefaultPlacementSearchDistance * Mathf.Max(0f, rangeMultiplier)));
     private float SpawnDuration => config != null ? config.SpawnDuration : DefaultSpawnDuration;
     private float DestroyDuration => config != null ? config.DestroyDuration : DefaultDestroyDuration;
+
+    // - Role: Find owner player.
+    private static PlayerObject ResolveOwnerPlayer(SkillObject self)
+    {
+        if (self != null && self.gamePlay != null && self.gamePlay.TryGetPlayer(self.ownerId, out PlayerObject player))
+        {
+            return player;
+        }
+
+        return null;
+    }
 
     private struct PendingPlacement
     {

@@ -27,6 +27,7 @@ public sealed class ServerSnapshotBuilder
                 locomotionState = renderState.locomotionState,
                 characterId = renderState.characterId,
                 skillId = player.skillId,
+                skillCooldownSeconds = ResolveSkillCooldownSeconds(player),
                 facingSign = renderState.facingSign,
                 isTagger = player.isTagger
             });
@@ -35,16 +36,14 @@ public sealed class ServerSnapshotBuilder
 
     // - Role: Copy skill snapshots to.
     public void CopySkillSnapshotsTo(
-        ServerSkillSystem skillSystem,
+        IReadOnlyDictionary<ulong, PlayerObject> players,
         List<SkillSnapshotPacket> target)
     {
-        skillSystem.SyncSkillObjects();
         target.Clear();
 
-        IReadOnlyList<Skill> skills = skillSystem.Skills;
-        for (int i = 0; i < skills.Count; i++)
+        foreach (var pair in players)
         {
-            AddSkillSnapshot(target, skills[i]);
+            AddSkillSnapshot(target, pair.Value.skill);
         }
     }
 
@@ -157,6 +156,14 @@ public sealed class ServerSnapshotBuilder
             skillObjectCount = (byte)Mathf.Min(snapshotObjectCount, byte.MaxValue),
             skillObjects = skillObjects
         });
+    }
+
+    // - Role: Find skill cooldown seconds.
+    private static float ResolveSkillCooldownSeconds(PlayerObject player)
+    {
+        return player != null && player.skill != null && player.skill.StateMachine != null
+            ? player.skill.StateMachine.GetCooldownSeconds(player)
+            : 0f;
     }
 
     // - Role: Find skill snapshot state.

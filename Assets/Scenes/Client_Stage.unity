@@ -1245,6 +1245,7 @@ MonoBehaviour:
   cameraFollow: {fileID: 519420033}
   characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
   skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
+  itemViewPrefab: {fileID: 4821129715434838906, guid: bff037ba968e786468d9767d3a908268, type: 3}
   localFollowSpeed: 25
   remoteFollowSpeed: 25
   snapDistance: 1.5
@@ -3574,7 +3575,6 @@ MonoBehaviour:
   moveJoystick: {fileID: 2000001104}
   skillAimJoystick: {fileID: 2000001204}
   snapshotReceiver: {fileID: 1941727307}
-  skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
   defaultAim: {x: 1, y: 0}
   releaseSkillOnAimJoystickUp: 1
   blockSkillInputDuringLocalCooldown: 1

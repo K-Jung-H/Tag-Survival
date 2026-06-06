@@ -142,7 +142,7 @@ public sealed class ServerWorldCollisionSystem
         player.isWallSticking = false;
         player.wallNormalX = 0;
         player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-        player.coyoteTimeRemaining = player.movementStats.coyoteTime;
+        player.coyoteTimeRemaining = player.effectiveMovementStats.coyoteTime;
         if (player.velocity.y < 0f)
         {
             player.velocity.y = 0f;

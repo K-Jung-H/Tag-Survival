@@ -15,8 +15,24 @@ public abstract class Skill_StateMachine
     public SkillObjectState State { get; protected set; }
     public float CooldownRemaining { get; protected set; }
 
-    // - Role: Apply owner constraint.
-    public virtual void ApplyOwnerConstraint(
+    // - Role: Get cooldown for player.
+    public float GetCooldownSeconds(PlayerObject player)
+    {
+        float baseCooldown = definition != null ? definition.Cooldown : 0f;
+        float multiplier = player != null && player.itemEffects != null
+            ? player.itemEffects.GetSkillCooldownMultiplier()
+            : 1f;
+        return Mathf.Max(0f, baseCooldown * multiplier);
+    }
+
+    // - Role: Scale current cooldown.
+    public void ScaleCooldown(float multiplier)
+    {
+        CooldownRemaining = Mathf.Max(0f, CooldownRemaining * Mathf.Max(0f, multiplier));
+    }
+
+    // - Role: Constrain owner movement.
+    public virtual void ConstrainOwner(
         PlayerObject player,
         float deltaTime)
     {
@@ -68,9 +84,9 @@ public abstract class Skill_StateMachine
         }
     }
 
-    // - Role: Start cooldown.
-    protected void StartCooldown()
+    // - Role: Start cooldown for player.
+    protected void StartCooldown(PlayerObject player)
     {
-        CooldownRemaining = definition != null ? definition.Cooldown : 0f;
+        CooldownRemaining = GetCooldownSeconds(player);
     }
 }

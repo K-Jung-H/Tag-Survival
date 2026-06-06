@@ -25,6 +25,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
     private Vector2 fireStartPosition;
     private Vector2 anchorPosition;
     private float ropeLength;
+    private float rangeMultiplier = 1f;
 
     // - Role: Create hook skill state machine.
     public Hook_SkillStateMachine(SkillDefinition definition)
@@ -33,8 +34,8 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         config = definition != null ? definition.GetConfig<HookSkillConfig>() : null;
     }
 
-    // - Role: Apply owner constraint.
-    public override void ApplyOwnerConstraint(
+    // - Role: Constrain owner movement.
+    public override void ConstrainOwner(
         PlayerObject player,
         float deltaTime)
     {
@@ -113,6 +114,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         bool skillPressedThisTick)
     {
         ownerClientId = player.playerId;
+        rangeMultiplier = player.itemEffects != null ? player.itemEffects.GetSkillRangeMultiplier() : 1f;
         TickCooldown(deltaTime);
 
         if (skillPressedThisTick)
@@ -361,7 +363,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
         {
             State = SkillObjectState.None;
             hookVelocity = Vector2.zero;
-            StartCooldown();
+            StartCooldown(player);
             return;
         }
 
@@ -387,7 +389,7 @@ public sealed class Hook_SkillStateMachine : Skill_StateMachine
 
     private float HookSpeed => config != null ? config.HookSpeed : DefaultHookSpeed;
     private float ReturnSpeedMultiplier => config != null ? config.ReturnSpeedMultiplier : DefaultReturnSpeedMultiplier;
-    private float MaxRopeLength => config != null ? config.MaxRopeLength : DefaultMaxRopeLength;
+    private float MaxRopeLength => (config != null ? config.MaxRopeLength : DefaultMaxRopeLength) * Mathf.Max(0f, rangeMultiplier);
     private float HookHitHalfExtent => config != null ? config.HookHitHalfExtent : DefaultHookHitHalfExtent;
     private float ReturnCompleteDistance => config != null
         ? config.ReturnCompleteDistance

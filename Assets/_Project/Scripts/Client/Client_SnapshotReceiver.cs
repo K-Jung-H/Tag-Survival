@@ -11,20 +11,25 @@ public class Client_SnapshotReceiver : MonoBehaviour
         public ServerSnapshotHeaderPacket header;
         public PlayerSnapshotPacket[] players;
         public SkillSnapshotPacket[] skills;
+        public ItemSnapshotPacket[] items;
     }
 
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
 
     private readonly Dictionary<ulong, ClientSnapshotState> snapshots = new();
     private readonly Dictionary<ulong, ClientSkillSnapshotState> skillSnapshots = new();
+    private readonly Dictionary<uint, ClientItemSnapshotState> itemSnapshots = new();
     private readonly HashSet<ulong> receivedClientIds = new();
     private readonly HashSet<ulong> receivedSkillOwnerIds = new();
+    private readonly HashSet<uint> receivedItemIds = new();
     private readonly List<ulong> removeTargets = new();
+    private readonly List<uint> removeItemTargets = new();
     private readonly List<QueuedServerSnapshot> delayedSnapshots = new();
     private readonly Dictionary<ulong, SkillObjectSnapshotPacket[]> reusableSkillObjectBuffers = new();
 
     private PlayerSnapshotPacket[] reusablePlayerBuffer = Array.Empty<PlayerSnapshotPacket>();
     private SkillSnapshotPacket[] reusableSkillBuffer = Array.Empty<SkillSnapshotPacket>();
+    private ItemSnapshotPacket[] reusableItemBuffer = Array.Empty<ItemSnapshotPacket>();
     private bool isRegistered;
     private bool hasAppliedSnapshot;
 
@@ -33,6 +38,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
 
     public IReadOnlyDictionary<ulong, ClientSnapshotState> Snapshots => snapshots;
     public IReadOnlyDictionary<ulong, ClientSkillSnapshotState> SkillSnapshots => skillSnapshots;
+    public IReadOnlyDictionary<uint, ClientItemSnapshotState> ItemSnapshots => itemSnapshots;
 
     // - Role: Set up this object when it starts.
     private void Start()
@@ -100,9 +106,12 @@ public class Client_SnapshotReceiver : MonoBehaviour
 
         snapshots.Clear();
         skillSnapshots.Clear();
+        itemSnapshots.Clear();
         receivedClientIds.Clear();
         receivedSkillOwnerIds.Clear();
+        receivedItemIds.Clear();
         removeTargets.Clear();
+        removeItemTargets.Clear();
         delayedSnapshots.Clear();
         reusableSkillObjectBuffers.Clear();
 
@@ -173,7 +182,8 @@ public class Client_SnapshotReceiver : MonoBehaviour
             canReuseReadBuffers,
             out ServerSnapshotHeaderPacket header,
             out PlayerSnapshotPacket[] players,
-            out SkillSnapshotPacket[] skills))
+            out SkillSnapshotPacket[] skills,
+            out ItemSnapshotPacket[] items))
         {
             return;
         }
@@ -185,13 +195,14 @@ public class Client_SnapshotReceiver : MonoBehaviour
                 applyTime = Time.realtimeSinceStartup + delaySeconds,
                 header = header,
                 players = players,
-                skills = skills
+                skills = skills,
+                items = items
             });
 
             return;
         }
 
-        ApplyServerSnapshot(header, players, skills);
+        ApplyServerSnapshot(header, players, skills, items);
     }
 
     // - Role: Try to read snapshot.
@@ -200,11 +211,13 @@ public class Client_SnapshotReceiver : MonoBehaviour
         bool canReuseReadBuffers,
         out ServerSnapshotHeaderPacket header,
         out PlayerSnapshotPacket[] players,
-        out SkillSnapshotPacket[] skills
+        out SkillSnapshotPacket[] skills,
+        out ItemSnapshotPacket[] items
     )
     {
         players = null;
         skills = null;
+        items = null;
 
         if (!ServerSnapshotHeaderPacket.TryRead(ref reader, out header))
             return false;
@@ -231,6 +244,15 @@ public class Client_SnapshotReceiver : MonoBehaviour
                 return false;
 
             skills[i] = packet;
+        }
+
+        items = GetItemReadBuffer(header.itemCount, canReuseReadBuffers);
+        for (int i = 0; i < header.itemCount; i++)
+        {
+            if (!ItemSnapshotPacket.TryRead(ref reader, out ItemSnapshotPacket packet))
+                return false;
+
+            items[i] = packet;
         }
 
         return true;
@@ -278,11 +300,33 @@ public class Client_SnapshotReceiver : MonoBehaviour
         return reusableSkillBuffer;
     }
 
+    // - Role: Get item read buffer.
+    private ItemSnapshotPacket[] GetItemReadBuffer(ushort itemCount, bool canReuseReadBuffers)
+    {
+        if (itemCount <= 0)
+        {
+            return Array.Empty<ItemSnapshotPacket>();
+        }
+
+        if (!canReuseReadBuffers)
+        {
+            return new ItemSnapshotPacket[itemCount];
+        }
+
+        if (reusableItemBuffer.Length != itemCount)
+        {
+            reusableItemBuffer = new ItemSnapshotPacket[itemCount];
+        }
+
+        return reusableItemBuffer;
+    }
+
     // - Role: Apply server snapshot.
     private void ApplyServerSnapshot(
         ServerSnapshotHeaderPacket header,
         PlayerSnapshotPacket[] players,
-        SkillSnapshotPacket[] skills
+        SkillSnapshotPacket[] skills,
+        ItemSnapshotPacket[] items
     )
     {
         if (!IsNewerSnapshot(header.snapshotSeq))
@@ -313,6 +357,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
                 locomotionState = packet.locomotionState,
                 characterId = packet.characterId,
                 skillId = packet.skillId,
+                skillCooldownSeconds = packet.skillCooldownSeconds,
                 facingSign = packet.facingSign,
                 isTagger = packet.isTagger,
                 lastReceivedTime = Time.time
@@ -344,8 +389,27 @@ public class Client_SnapshotReceiver : MonoBehaviour
             };
         }
 
+        receivedItemIds.Clear();
+
+        for (int i = 0; i < items.Length; i++)
+        {
+            ItemSnapshotPacket packet = items[i];
+            if (packet.itemType == ItemType.None)
+            {
+                continue;
+            }
+
+            receivedItemIds.Add(packet.itemId);
+            itemSnapshots[packet.itemId] = new ClientItemSnapshotState
+            {
+                itemType = packet.itemType,
+                position = packet.position
+            };
+        }
+
         RemoveMissingPlayers();
         RemoveMissingSkills();
+        RemoveMissingItems();
     }
 
     // - Role: Flush delayed snapshots.
@@ -371,7 +435,7 @@ public class Client_SnapshotReceiver : MonoBehaviour
 
             delayedSnapshots.RemoveAt(i);
             i--;
-            ApplyServerSnapshot(snapshot.header, snapshot.players, snapshot.skills);
+            ApplyServerSnapshot(snapshot.header, snapshot.players, snapshot.skills, snapshot.items);
         }
     }
 
@@ -429,6 +493,25 @@ public class Client_SnapshotReceiver : MonoBehaviour
         {
             skillSnapshots.Remove(ownerClientId);
             reusableSkillObjectBuffers.Remove(ownerClientId);
+        }
+    }
+
+    // - Role: Remove missing items.
+    private void RemoveMissingItems()
+    {
+        removeItemTargets.Clear();
+
+        foreach (uint itemId in itemSnapshots.Keys)
+        {
+            if (!receivedItemIds.Contains(itemId))
+            {
+                removeItemTargets.Add(itemId);
+            }
+        }
+
+        foreach (uint itemId in removeItemTargets)
+        {
+            itemSnapshots.Remove(itemId);
         }
     }
 

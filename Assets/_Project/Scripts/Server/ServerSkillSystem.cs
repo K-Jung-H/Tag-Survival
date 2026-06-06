@@ -73,14 +73,8 @@ public sealed class Skill
 
 public sealed class ServerSkillSystem
 {
-    private readonly Dictionary<ulong, Skill> skillsByOwner = new();
-    private readonly List<Skill> skills = new();
-    private readonly List<SkillObject> skillObjects = new();
     private Server_GamePlay gamePlay;
     private StageCollisionSystem collisionSystem;
-
-    public IReadOnlyList<Skill> Skills => skills;
-    public IReadOnlyList<SkillObject> SkillObjects => skillObjects;
 
     // - Role: Bind needed links.
     public void Bind(Server_GamePlay gamePlay)
@@ -92,93 +86,53 @@ public sealed class ServerSkillSystem
     // - Role: Create a skill for one owner.
     public Skill Create(ulong ownerId, SkillDefinition definition)
     {
-        RemoveOwner(ownerId);
-
-        Skill skill = new Skill(ownerId, definition, gamePlay);
-        skillsByOwner.Add(ownerId, skill);
-        skills.Add(skill);
-        RebuildSkillObjectList();
-        return skill;
+        return new Skill(ownerId, definition, gamePlay);
     }
 
-    // - Role: Remove owner.
-    public bool RemoveOwner(ulong ownerId)
+    // - Role: Constrain player skill movement.
+    public void Constrain(PlayerObject player, float deltaTime)
     {
-        if (!skillsByOwner.TryGetValue(ownerId, out Skill skill))
-        {
-            return false;
-        }
-
-        skillsByOwner.Remove(ownerId);
-        skills.Remove(skill);
-        RebuildSkillObjectList();
-        return true;
-    }
-
-    // - Role: Try to get a skill by owner.
-    public bool TryGet(ulong ownerId, out Skill skill)
-    {
-        return skillsByOwner.TryGetValue(ownerId, out skill);
-    }
-
-    // - Role: Remove object.
-    public bool RemoveObject(ulong ownerId, byte skillObjectId)
-    {
-        if (!skillsByOwner.TryGetValue(ownerId, out Skill skill))
-        {
-            return false;
-        }
-
-        bool removed = skill.RemoveObject(skillObjectId);
-        if (removed)
-        {
-            RebuildSkillObjectList();
-        }
-
-        return removed;
-    }
-
-    // - Role: Apply owner constraint.
-    public void ApplyOwnerConstraint(
-        PlayerObject player,
-        float deltaTime)
-    {
-        Skill skill = player != null ? player.skill : null;
-        if (skill == null)
+        if (!TryGetSkill(player, out Skill skill))
         {
             return;
         }
 
-        skill.StateMachine?.ApplyOwnerConstraint(player, deltaTime);
+        skill.StateMachine?.ConstrainOwner(player, deltaTime);
     }
 
-    // - Role: Simulate this object.
-    public void Simulate(
-        PlayerObject player,
-        float deltaTime,
-        bool skillPressedThisTick)
+    // - Role: Tick player skill.
+    public void Tick(PlayerObject player, float deltaTime)
     {
-        Skill skill = player != null ? player.skill : null;
-        if (skill == null)
+        if (!TryGetSkill(player, out Skill skill) || skill.StateMachine == null)
         {
+            if (player != null)
+            {
+                player.skillQueued = false;
+            }
+
             return;
         }
 
-        skill.StateMachine?.Simulate(player, deltaTime, skillPressedThisTick);
-        skill.StateMachine?.SyncSkillObjects(skill);
-        if (ResolveSkillObjectStageModes(skill, collisionSystem, deltaTime))
-        {
-            skill.StateMachine?.SyncSkillObjects(skill);
-        }
+        bool skillPressedThisTick = player.skillQueued;
+        player.skillQueued = false;
 
-        RebuildSkillObjectList();
+        skill.StateMachine.Simulate(player, deltaTime, skillPressedThisTick);
+        skill.StateMachine.SyncSkillObjects(skill);
+        if (ResolveStageModes(skill, deltaTime))
+        {
+            skill.StateMachine.SyncSkillObjects(skill);
+        }
     }
 
-    // - Role: Find skill object stage modes.
-    private static bool ResolveSkillObjectStageModes(
-        Skill skill,
-        StageCollisionSystem collisionSystem,
-        float deltaTime)
+    // - Role: Try to get player skill.
+    private static bool TryGetSkill(PlayerObject player, out Skill skill)
+    {
+        skill = player != null ? player.skill : null;
+        return skill != null && skill.OwnerId == player.playerId;
+    }
+
+    // - Role: Resolve stage modes.
+    private bool ResolveStageModes(Skill skill, float deltaTime)
     {
         if (skill == null || collisionSystem == null)
         {
@@ -198,10 +152,10 @@ public sealed class ServerSkillSystem
             switch (skillObject.stageMode)
             {
                 case SkillObjectStageMode.MoveWithStageCollision:
-                    moved |= ResolveSkillObjectStageMove(skill, skillObject, collisionSystem, deltaTime);
+                    moved |= MoveWithStage(skill, skillObject, deltaTime);
                     break;
                 case SkillObjectStageMode.PlaceOnNearestEmptyTile:
-                    ResolveSkillObjectStagePlacement(skill, skillObject, collisionSystem);
+                    PlaceOnStage(skill, skillObject);
                     moved = true;
                     break;
             }
@@ -210,12 +164,8 @@ public sealed class ServerSkillSystem
         return moved;
     }
 
-    // - Role: Find skill object stage move.
-    private static bool ResolveSkillObjectStageMove(
-        Skill skill,
-        SkillObject skillObject,
-        StageCollisionSystem collisionSystem,
-        float deltaTime)
+    // - Role: Move object with stage.
+    private bool MoveWithStage(Skill skill, SkillObject skillObject, float deltaTime)
     {
         if (deltaTime <= 0f || skillObject.velocity.sqrMagnitude <= 0.000001f)
         {
@@ -233,11 +183,8 @@ public sealed class ServerSkillSystem
         return true;
     }
 
-    // - Role: Find skill object stage placement.
-    private static void ResolveSkillObjectStagePlacement(
-        Skill skill,
-        SkillObject skillObject,
-        StageCollisionSystem collisionSystem)
+    // - Role: Place object on stage.
+    private void PlaceOnStage(Skill skill, SkillObject skillObject)
     {
         bool success = collisionSystem.TryFindNearestEmptyTile(
             skillObject.position,
@@ -265,24 +212,49 @@ public sealed class ServerSkillSystem
     // - Role: Sync skill objects.
     public void SyncSkillObjects()
     {
-        for (int i = 0; i < skills.Count; i++)
+        if (gamePlay == null)
         {
-            skills[i].StateMachine?.SyncSkillObjects(skills[i]);
+            return;
         }
 
-        RebuildSkillObjectList();
+        foreach (var pair in gamePlay.Players)
+        {
+            if (TryGetSkill(pair.Value, out Skill skill))
+            {
+                skill.StateMachine?.SyncSkillObjects(skill);
+            }
+        }
     }
 
-    // - Role: Rebuild the skill object list.
-    public void RebuildSkillObjectList()
+    // - Role: Copy active world objects to.
+    public void CopyWorldObjectsTo(List<IWorldObject> target)
     {
-        skillObjects.Clear();
-        for (int i = 0; i < skills.Count; i++)
+        if (target == null)
         {
-            IReadOnlyList<SkillObject> objects = skills[i].Objects;
+            return;
+        }
+
+        SyncSkillObjects();
+        if (gamePlay == null)
+        {
+            return;
+        }
+
+        foreach (var pair in gamePlay.Players)
+        {
+            if (!TryGetSkill(pair.Value, out Skill skill))
+            {
+                continue;
+            }
+
+            IReadOnlyList<SkillObject> objects = skill.Objects;
             for (int j = 0; j < objects.Count; j++)
             {
-                skillObjects.Add(objects[j]);
+                SkillObject skillObject = objects[j];
+                if (skillObject != null && skillObject.IsActive)
+                {
+                    target.Add(skillObject);
+                }
             }
         }
     }

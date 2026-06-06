@@ -14,6 +14,7 @@ public class Server_GamePlay
     private readonly ServerInputBuffer inputBuffer = new();
     private readonly ServerPlayerSystem playerSystem = new();
     private readonly ServerSkillSystem skillSystem = new();
+    private readonly ServerItemSystem itemSystem = new();
     private readonly ServerWorldCollisionSystem worldCollisionSystem = new();
     private readonly IServerGameMode gameMode = new TagGameMode(TagStunDurationSeconds);
     private readonly ServerSnapshotBuilder snapshotBuilder = new();
@@ -26,7 +27,9 @@ public class Server_GamePlay
     public Server_GamePlay(
         StageDefinition stageDefinition,
         CharacterCatalog characterCatalog,
-        SkillCatalog skillCatalog)
+        SkillCatalog skillCatalog,
+        ItemEffectCatalog itemEffectCatalog,
+        int maxActiveItemCount)
     {
         this.stageDefinition = stageDefinition;
         this.characterCatalog = characterCatalog;
@@ -34,12 +37,9 @@ public class Server_GamePlay
         StageBakeData stageBakeData = stageDefinition != null
             ? stageDefinition.StageBakeData
             : null;
-        collisionSystem = new StageCollisionSystem(
-            stageBakeData,
-            PlayerObject.DefaultCollisionHalfExtent,
-            GameSimulationConfig.CollisionSkinWidth
-        );
+        collisionSystem = new StageCollisionSystem(stageBakeData, PlayerObject.DefaultCollisionHalfExtent, GameSimulationConfig.CollisionSkinWidth);
         skillSystem.Bind(this);
+        itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount);
     }
 
     public uint Tick { get; private set; }
@@ -118,7 +118,6 @@ public class Server_GamePlay
         players.Remove(clientId);
         inputBuffer.RemovePlayer(clientId);
         playerSystem.Remove(clientId);
-        skillSystem.RemoveOwner(clientId);
 
         if (hadPlayer)
         {
@@ -126,6 +125,8 @@ public class Server_GamePlay
             {
                 MarkGameStateChanged();
             }
+
+            removedPlayer.skill = null;
         }
 
         MarkGameStateChanged();
@@ -162,6 +163,7 @@ public class Server_GamePlay
         }
 
         playerSystem.ApplyQueuedInputs(inputBuffer);
+        itemSystem.Tick(deltaTime);
 
         int subSteps = Mathf.Max(1, GameSimulationConfig.MovementSubSteps);
         float stepDeltaTime = deltaTime / subSteps;
@@ -188,7 +190,14 @@ public class Server_GamePlay
     // - Role: Copy skill snapshots to.
     public void CopySkillSnapshotsTo(List<SkillSnapshotPacket> target)
     {
-        snapshotBuilder.CopySkillSnapshotsTo(skillSystem, target);
+        skillSystem.SyncSkillObjects();
+        snapshotBuilder.CopySkillSnapshotsTo(players, target);
+    }
+
+    // - Role: Copy item snapshots to.
+    public void CopyItemSnapshotsTo(List<ItemSnapshotPacket> target)
+    {
+        itemSystem.CopySnapshotsTo(target);
     }
 
     // - Role: Copy game state entries to.
@@ -220,17 +229,8 @@ public class Server_GamePlay
     {
         worldObjects.Clear();
         playerSystem.CopyWorldObjectsTo(worldObjects);
-        skillSystem.SyncSkillObjects();
-
-        IReadOnlyList<SkillObject> skillObjects = skillSystem.SkillObjects;
-        for (int i = 0; i < skillObjects.Count; i++)
-        {
-            if (skillObjects[i] != null && skillObjects[i].IsActive)
-            {
-                worldObjects.Add(skillObjects[i]);
-            }
-        }
-
+        skillSystem.CopyWorldObjectsTo(worldObjects);
+        itemSystem.CopyWorldObjectsTo(worldObjects);
         worldCollisionSystem.ResolveCollisions(worldObjects, worldCollisionEvents, collisionSystem);
     }
 

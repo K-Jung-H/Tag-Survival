@@ -152,6 +152,7 @@ public sealed class ServerPlayerSystem
             }
 
             UpdateStunTimer(player, deltaTime);
+            UpdateItemEffects(player, deltaTime);
             UpdateCoyoteTime(player, deltaTime);
 
             float horizontalInput = PlayerMovementController.GetPlatformerHorizontalInput(player.input);
@@ -162,8 +163,8 @@ public sealed class ServerPlayerSystem
                 horizontalInput,
                 verticalInput,
                 deltaTime);
-            SimulateSkill(player, skillSystem, deltaTime);
-            ApplySkillOwnerConstraint(player, skillSystem, deltaTime);
+            skillSystem.Tick(player, deltaTime);
+            skillSystem.Constrain(player, deltaTime);
 
             Vector2 collisionCenter = player.position + player.collisionOffset;
             StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
@@ -182,7 +183,7 @@ public sealed class ServerPlayerSystem
             if (moveResult.isGrounded && player.velocity.y < 0f)
             {
                 player.velocity.y = 0f;
-                player.coyoteTimeRemaining = player.movementStats.coyoteTime;
+                player.coyoteTimeRemaining = player.effectiveMovementStats.coyoteTime;
             }
 
             if (moveResult.hitCeiling && player.velocity.y > 0f)
@@ -305,38 +306,6 @@ public sealed class ServerPlayerSystem
         return fallbackFacingSign;
     }
 
-    // - Role: Simulate one skill.
-    private static void SimulateSkill(
-        PlayerObject player,
-        ServerSkillSystem skillSystem,
-        float deltaTime)
-    {
-        if (player.skill == null || player.skill.StateMachine == null)
-        {
-            player.skillQueued = false;
-            return;
-        }
-
-        bool skillPressedThisTick = player.skillQueued;
-        player.skillQueued = false;
-
-        skillSystem.Simulate(player, deltaTime, skillPressedThisTick);
-    }
-
-    // - Role: Apply skill owner constraint.
-    private static void ApplySkillOwnerConstraint(
-        PlayerObject player,
-        ServerSkillSystem skillSystem,
-        float deltaTime)
-    {
-        if (player.skill == null || player.skill.StateMachine == null)
-        {
-            return;
-        }
-
-        skillSystem.ApplyOwnerConstraint(player, deltaTime);
-    }
-
     // - Role: Update stun timer.
     private static void UpdateStunTimer(PlayerObject player, float deltaTime)
     {
@@ -354,7 +323,7 @@ public sealed class ServerPlayerSystem
     {
         if (player.isGrounded)
         {
-            player.coyoteTimeRemaining = player.movementStats.coyoteTime;
+            player.coyoteTimeRemaining = player.effectiveMovementStats.coyoteTime;
             return;
         }
 
@@ -365,5 +334,18 @@ public sealed class ServerPlayerSystem
         }
 
         player.coyoteTimeRemaining = Mathf.Max(0f, player.coyoteTimeRemaining - deltaTime);
+    }
+
+    // - Role: Update item effects.
+    private static void UpdateItemEffects(PlayerObject player, float deltaTime)
+    {
+        if (player.itemEffects == null)
+        {
+            player.itemEffects = new PlayerItemEffects();
+        }
+
+        player.itemEffects.Tick(deltaTime);
+        player.effectiveMovementStats = player.itemEffects.ApplyMovementStats(player.movementStats);
+        player.speed = player.effectiveMovementStats.moveSpeed;
     }
 }

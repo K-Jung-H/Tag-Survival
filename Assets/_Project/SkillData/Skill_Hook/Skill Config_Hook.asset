@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Skill Config_Hook
   m_EditorClassIdentifier: Assembly-CSharp::HookSkillConfig
   hookSpeed: 18
-  returnSpeedMultiplier: 2
+  returnSpeedMultiplier: 3
   maxRopeLength: 12
   hookHitHalfExtent: 0.08
   returnCompleteDistance: 0.18

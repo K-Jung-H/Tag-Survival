@@ -29,7 +29,8 @@ public class Server_GamePlay
         CharacterCatalog characterCatalog,
         SkillCatalog skillCatalog,
         ItemEffectCatalog itemEffectCatalog,
-        int maxActiveItemCount)
+        int maxActiveItemCount,
+        float itemSelectionTimeoutSeconds)
     {
         this.stageDefinition = stageDefinition;
         this.characterCatalog = characterCatalog;
@@ -39,7 +40,7 @@ public class Server_GamePlay
             : null;
         collisionSystem = new StageCollisionSystem(stageBakeData, PlayerObject.DefaultCollisionHalfExtent, GameSimulationConfig.CollisionSkinWidth);
         skillSystem.Bind(this);
-        itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount);
+        itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount, itemSelectionTimeoutSeconds);
     }
 
     public uint Tick { get; private set; }
@@ -115,6 +116,7 @@ public class Server_GamePlay
     {
         bool hadPlayer = players.TryGetValue(clientId, out PlayerObject removedPlayer);
 
+        itemSystem.CancelPlayerSelection(clientId);
         players.Remove(clientId);
         inputBuffer.RemovePlayer(clientId);
         playerSystem.Remove(clientId);
@@ -162,6 +164,11 @@ public class Server_GamePlay
             MarkGameStateChanged();
         }
 
+        if (gameMode.IsGameEnded)
+        {
+            itemSystem.CancelAllSelections();
+        }
+
         playerSystem.ApplyQueuedInputs(inputBuffer);
         itemSystem.Tick(deltaTime);
 
@@ -179,6 +186,24 @@ public class Server_GamePlay
     public bool TryGetPlayer(ulong clientId, out PlayerObject player)
     {
         return players.TryGetValue(clientId, out player);
+    }
+
+    // - Role: Choose item candidate.
+    public bool ChooseItemCandidate(ulong clientId, uint requestId, int selectedId)
+    {
+        return itemSystem.Choose(clientId, requestId, selectedId);
+    }
+
+    // - Role: Try to get item selection offer.
+    public bool TryDequeueItemSelectionOffer(out ServerItemSystem.ItemSelectionOfferMessage message)
+    {
+        return itemSystem.TryDequeueOffer(out message);
+    }
+
+    // - Role: Try to get item selection result.
+    public bool TryDequeueItemSelectionResult(out ServerItemSystem.ItemSelectionResultMessage message)
+    {
+        return itemSystem.TryDequeueResult(out message);
     }
 
     // - Role: Copy player snapshots to.

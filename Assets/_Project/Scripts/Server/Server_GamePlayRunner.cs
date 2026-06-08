@@ -9,6 +9,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     [SerializeField] private SkillCatalog skillCatalog;
     [SerializeField] private ItemEffectCatalog itemEffectCatalog;
     [SerializeField] private int maxActiveItemCount = GameNetProtocol.MaxItems;
+    [SerializeField] private float itemSelectionTimeoutSeconds = 10f;
     [SerializeField] private float gameDurationSeconds = 180f;
     [SerializeField] private float gameStateSendInterval = 1f;
     [SerializeField] private float fullGameStateSendInterval = 30f;
@@ -21,10 +22,12 @@ public class Server_GamePlayRunner : MonoBehaviour
     private FastBufferWriter snapshotWriter;
     private FastBufferWriter gameStateWriter;
     private FastBufferWriter gameEventWriter;
+    private FastBufferWriter itemSelectionWriter;
     private FastBufferWriter rosterWriter;
     private bool snapshotWriterCreated;
     private bool gameStateWriterCreated;
     private bool gameEventWriterCreated;
+    private bool itemSelectionWriterCreated;
     private bool rosterWriterCreated;
     private readonly System.Collections.Generic.List<PlayerSnapshotPacket> playerSnapshots = new();
     private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
@@ -59,7 +62,8 @@ public class Server_GamePlayRunner : MonoBehaviour
             characterCatalog,
             skillCatalog,
             itemEffectCatalog,
-            maxActiveItemCount);
+            maxActiveItemCount,
+            itemSelectionTimeoutSeconds);
         gamePlay.SetGameDurationSeconds(gameDurationSeconds);
 
         snapshotWriter = new FastBufferWriter(GameNetProtocol.SnapshotPacketBufferSize, Allocator.Persistent);
@@ -68,11 +72,14 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         gameEventWriter = new FastBufferWriter(GameNetProtocol.GameEventPacketBufferSize, Allocator.Persistent);
 
+        itemSelectionWriter = new FastBufferWriter(GameNetProtocol.ItemSelectionPacketBufferSize, Allocator.Persistent);
+
         rosterWriter = new FastBufferWriter(GameNetProtocol.RosterPacketBufferSize, Allocator.Persistent);
 
         snapshotWriterCreated = true;
         gameStateWriterCreated = true;
         gameEventWriterCreated = true;
+        itemSelectionWriterCreated = true;
         rosterWriterCreated = true;
     }
 
@@ -117,6 +124,12 @@ public class Server_GamePlayRunner : MonoBehaviour
         {
             gameEventWriter.Dispose();
             gameEventWriterCreated = false;
+        }
+
+        if (itemSelectionWriterCreated)
+        {
+            itemSelectionWriter.Dispose();
+            itemSelectionWriterCreated = false;
         }
 
         if (rosterWriterCreated)
@@ -179,15 +192,9 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (NetworkManager.Singleton.CustomMessagingManager == null)
             return;
 
-        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
-            GameNetMessages.ClientJoinProfile,
-            OnClientJoinProfileReceived
-        );
-
-        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
-            GameNetMessages.ClientInput,
-            OnClientInputReceived
-        );
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientJoinProfile, OnClientJoinProfileReceived);
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientInput, OnClientInputReceived);
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientItemSelectionChoice, OnClientItemSelectionChoiceReceived);
 
         areClientMessageHandlersRegistered = true;
     }
@@ -207,6 +214,8 @@ public class Server_GamePlayRunner : MonoBehaviour
         NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientJoinProfile);
 
         NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientInput);
+
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientItemSelectionChoice);
 
         areClientMessageHandlersRegistered = false;
     }
@@ -257,6 +266,19 @@ public class Server_GamePlayRunner : MonoBehaviour
         );
     }
 
+    // - Role: Handle item selection choice received.
+    private void OnClientItemSelectionChoiceReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (!ClientItemSelectionChoicePacket.TryRead(ref reader, out ClientItemSelectionChoicePacket packet))
+            return;
+
+        gamePlay.ChooseItemCandidate(senderClientId, packet.requestId, packet.selectedId);
+        SendItemSelectionMessages();
+    }
+
     // - Role: Process server ticks and send updates.
     private void RunServerTickLoop()
     {
@@ -270,6 +292,7 @@ public class Server_GamePlayRunner : MonoBehaviour
             fullGameStateTimer += serverDeltaTime;
 
             gamePlay.Simulate(serverDeltaTime);
+            SendItemSelectionMessages();
             SendGameEventsToAllClients();
 
             if (snapshotTimer >= snapshotSendInterval)
@@ -290,6 +313,59 @@ public class Server_GamePlayRunner : MonoBehaviour
                 SendGameStateToAllClients(isFullSync: false);
             }
         }
+    }
+
+    // - Role: Send item selection messages.
+    private void SendItemSelectionMessages()
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (!itemSelectionWriterCreated)
+            return;
+
+        if (NetworkManager.Singleton.CustomMessagingManager == null)
+            return;
+
+        while (gamePlay.TryDequeueItemSelectionResult(out ServerItemSystem.ItemSelectionResultMessage result))
+        {
+            SendItemSelectionResult(result);
+        }
+
+        while (gamePlay.TryDequeueItemSelectionOffer(out ServerItemSystem.ItemSelectionOfferMessage offer))
+        {
+            SendItemSelectionOffer(offer);
+        }
+    }
+
+    // - Role: Send item selection offer.
+    private void SendItemSelectionOffer(ServerItemSystem.ItemSelectionOfferMessage message)
+    {
+        if (!IsClientConnected(message.clientId))
+            return;
+
+        itemSelectionWriter.Truncate(0);
+        message.packet.Write(ref itemSelectionWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ServerItemSelectionOffer,
+            message.clientId,
+            itemSelectionWriter,
+            NetworkDelivery.ReliableSequenced);
+    }
+
+    // - Role: Send item selection result.
+    private void SendItemSelectionResult(ServerItemSystem.ItemSelectionResultMessage message)
+    {
+        if (!IsClientConnected(message.clientId))
+            return;
+
+        itemSelectionWriter.Truncate(0);
+        message.packet.Write(ref itemSelectionWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ServerItemSelectionResult,
+            message.clientId,
+            itemSelectionWriter,
+            NetworkDelivery.ReliableSequenced);
     }
 
     // - Role: Send snapshot to all clients.
@@ -589,5 +665,20 @@ public class Server_GamePlayRunner : MonoBehaviour
             return false;
 
         return true;
+    }
+
+    // - Role: Check if client connected.
+    private static bool IsClientConnected(ulong clientId)
+    {
+        if (NetworkManager.Singleton == null)
+            return false;
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            if (client.ClientId == clientId)
+                return true;
+        }
+
+        return false;
     }
 }

@@ -1138,6 +1138,7 @@ MonoBehaviour:
   skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
   itemEffectCatalog: {fileID: 11400000, guid: 201007d370f95064080b807c828d4353, type: 2}
   maxActiveItemCount: 20
+  itemSelectionTimeoutSeconds: 10
   gameDurationSeconds: 360
   gameStateSendInterval: 1
   fullGameStateSendInterval: 30

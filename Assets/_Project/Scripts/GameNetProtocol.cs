@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 20;
+    public const ushort ProtocolVersion = 21;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -10,6 +10,7 @@ public static class GameNetProtocol
 
     public const int InputPacketBufferSize = 64;
     public const int ClientJoinProfilePacketBufferSize = 128;
+    public const int ItemSelectionPacketBufferSize = 256;
     public const int SnapshotPacketBufferSize = 12288;
     public const int GameStatePacketBufferSize = 1024;
     public const int GameEventPacketBufferSize = 2048;
@@ -23,9 +24,12 @@ public static class GameNetMessages
 {
     public const string ClientJoinProfile = "client_join_profile";
     public const string ClientInput = "client_input";
+    public const string ClientItemSelectionChoice = "client_item_selection_choice";
     public const string ServerSnapshot = "server_snapshot";
     public const string ServerGameState = "server_game_state";
     public const string ServerGameEvent = "server_game_event";
+    public const string ServerItemSelectionOffer = "server_item_selection_offer";
+    public const string ServerItemSelectionResult = "server_item_selection_result";
     public const string ServerRoster = "server_roster";
 }
 
@@ -84,4 +88,12 @@ public enum GameVfxType : byte
     TaggerTransfer = 1,
     GameStart = 2,
     GameEnd = 3
+}
+
+public enum ItemSelectionResultType : byte
+{
+    None = 0,
+    PlayerSelected = 1,
+    TimeoutRandom = 2,
+    Cancelled = 3
 }

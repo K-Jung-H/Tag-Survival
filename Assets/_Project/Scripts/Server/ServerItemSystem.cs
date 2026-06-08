@@ -3,35 +3,72 @@ using UnityEngine;
 
 public sealed class ServerItemSystem
 {
+    public struct ItemSelectionOfferMessage
+    {
+        public ulong clientId;
+        public ServerItemSelectionOfferPacket packet;
+    }
+
+    public struct ItemSelectionResultMessage
+    {
+        public ulong clientId;
+        public ServerItemSelectionResultPacket packet;
+    }
+
+    private sealed class PendingItemSelection
+    {
+        public ulong playerId;
+        public uint requestId;
+        public uint itemId;
+        public ItemType itemType;
+        public Vector2 position;
+        public readonly int[] candidateIds = new int[SelectionCandidateCount];
+        public float remainingSeconds;
+    }
+
+    private const int SelectionCandidateCount = 3;
+    private const float DefaultSelectionTimeoutSeconds = 10f;
     private const float DefaultSpawnIntervalSeconds = 3f;
     private const int DefaultSpawnRetryCount = 12;
     private const int DefaultSpawnSearchDistance = 8;
 
     private readonly Dictionary<uint, ItemObject> itemsById = new();
     private readonly List<ItemObject> items = new();
+    private readonly Dictionary<ulong, PendingItemSelection> pendingByPlayer = new();
+    private readonly Dictionary<ulong, Queue<PendingItemSelection>> queuedByPlayer = new();
+    private readonly List<PendingItemSelection> timedOutSelections = new();
+    private readonly Queue<ItemSelectionOfferMessage> outgoingOffers = new();
+    private readonly Queue<ItemSelectionResultMessage> outgoingResults = new();
     private readonly System.Random random = new();
 
     private Server_GamePlay gamePlay;
     private StageCollisionSystem collisionSystem;
     private ItemEffectCatalog effectCatalog;
     private int maxActiveItemCount;
+    private float selectionTimeoutSeconds = DefaultSelectionTimeoutSeconds;
     private float spawnTimer;
     private uint nextItemId = 1;
-
-    public System.Random Random => random;
+    private uint nextSelectionRequestId = 1;
 
     // - Role: Bind needed links.
-    public void Bind(Server_GamePlay gamePlay, ItemEffectCatalog effectCatalog, int maxActiveItemCount)
+    public void Bind(
+        Server_GamePlay gamePlay,
+        ItemEffectCatalog effectCatalog,
+        int maxActiveItemCount,
+        float selectionTimeoutSeconds)
     {
         this.gamePlay = gamePlay;
         this.effectCatalog = effectCatalog;
         collisionSystem = gamePlay != null ? gamePlay.CollisionSystem : null;
         this.maxActiveItemCount = Mathf.Clamp(maxActiveItemCount, 0, GameNetProtocol.MaxItems);
+        this.selectionTimeoutSeconds = Mathf.Max(0.1f, selectionTimeoutSeconds);
     }
 
     // - Role: Tick item spawning.
     public void Tick(float deltaTime)
     {
+        TickSelections(deltaTime);
+
         if (maxActiveItemCount <= 0 || effectCatalog == null || collisionSystem == null)
         {
             return;
@@ -98,10 +135,290 @@ public sealed class ServerItemSystem
         }
     }
 
-    // - Role: Queue item applied event.
-    public void QueueItemAppliedEvent(PlayerObject player, ItemObject item)
+    // - Role: Start item selection.
+    public bool StartSelection(ItemObject item, PlayerObject player, ItemType itemType)
     {
-        if (gamePlay == null || player == null || item == null)
+        if (item == null || player == null || effectCatalog == null)
+        {
+            return false;
+        }
+
+        List<ItemData> candidates = new();
+        if (!effectCatalog.TryGetRandomCandidates(itemType, SelectionCandidateCount, random, candidates))
+        {
+            return false;
+        }
+
+        if (!Remove(item.itemId))
+        {
+            return false;
+        }
+
+        PendingItemSelection pending = new PendingItemSelection
+        {
+            playerId = player.playerId,
+            requestId = nextSelectionRequestId++,
+            itemId = item.itemId,
+            itemType = itemType,
+            position = item.position,
+            remainingSeconds = selectionTimeoutSeconds
+        };
+
+        for (int i = 0; i < SelectionCandidateCount; i++)
+        {
+            pending.candidateIds[i] = i < candidates.Count ? candidates[i].id : 0;
+        }
+
+        if (pendingByPlayer.ContainsKey(player.playerId))
+        {
+            EnqueueSelection(pending);
+            return true;
+        }
+
+        ActivateSelection(pending);
+        return true;
+    }
+
+    // - Role: Enqueue item selection.
+    private void EnqueueSelection(PendingItemSelection pending)
+    {
+        if (!queuedByPlayer.TryGetValue(pending.playerId, out Queue<PendingItemSelection> queue))
+        {
+            queue = new Queue<PendingItemSelection>();
+            queuedByPlayer.Add(pending.playerId, queue);
+        }
+
+        queue.Enqueue(pending);
+    }
+
+    // - Role: Activate item selection.
+    private void ActivateSelection(PendingItemSelection pending)
+    {
+        if (pending == null)
+        {
+            return;
+        }
+
+        pending.remainingSeconds = selectionTimeoutSeconds;
+        pendingByPlayer[pending.playerId] = pending;
+        outgoingOffers.Enqueue(new ItemSelectionOfferMessage
+        {
+            clientId = pending.playerId,
+            packet = new ServerItemSelectionOfferPacket
+            {
+                protocolVersion = GameNetProtocol.ProtocolVersion,
+                requestId = pending.requestId,
+                itemType = pending.itemType,
+                candidateId0 = pending.candidateIds[0],
+                candidateId1 = pending.candidateIds[1],
+                candidateId2 = pending.candidateIds[2],
+                timeoutSeconds = selectionTimeoutSeconds
+            }
+        });
+    }
+
+    // - Role: Choose item effect.
+    public bool Choose(ulong playerId, uint requestId, int selectedId)
+    {
+        if (!pendingByPlayer.TryGetValue(playerId, out PendingItemSelection pending))
+        {
+            return false;
+        }
+
+        if (pending.requestId != requestId || !HasCandidate(pending, selectedId))
+        {
+            return false;
+        }
+
+        CompleteSelection(pending, selectedId, ItemSelectionResultType.PlayerSelected, true);
+        return true;
+    }
+
+    // - Role: Cancel one player selection.
+    public void CancelPlayerSelection(ulong playerId)
+    {
+        queuedByPlayer.Remove(playerId);
+        if (pendingByPlayer.TryGetValue(playerId, out PendingItemSelection pending))
+        {
+            CompleteSelection(pending, 0, ItemSelectionResultType.Cancelled, false, activateNext: false);
+        }
+    }
+
+    // - Role: Cancel all selections.
+    public void CancelAllSelections()
+    {
+        timedOutSelections.Clear();
+        foreach (var pair in pendingByPlayer)
+        {
+            timedOutSelections.Add(pair.Value);
+        }
+
+        for (int i = 0; i < timedOutSelections.Count; i++)
+        {
+            CompleteSelection(timedOutSelections[i], 0, ItemSelectionResultType.Cancelled, false, activateNext: false);
+        }
+
+        timedOutSelections.Clear();
+        queuedByPlayer.Clear();
+    }
+
+    // - Role: Try to get next offer.
+    public bool TryDequeueOffer(out ItemSelectionOfferMessage message)
+    {
+        if (outgoingOffers.Count > 0)
+        {
+            message = outgoingOffers.Dequeue();
+            return true;
+        }
+
+        message = default;
+        return false;
+    }
+
+    // - Role: Try to get next result.
+    public bool TryDequeueResult(out ItemSelectionResultMessage message)
+    {
+        if (outgoingResults.Count > 0)
+        {
+            message = outgoingResults.Dequeue();
+            return true;
+        }
+
+        message = default;
+        return false;
+    }
+
+    // - Role: Tick pending selections.
+    private void TickSelections(float deltaTime)
+    {
+        if (pendingByPlayer.Count == 0)
+        {
+            return;
+        }
+
+        float safeDeltaTime = Mathf.Max(0f, deltaTime);
+        timedOutSelections.Clear();
+        foreach (var pair in pendingByPlayer)
+        {
+            PendingItemSelection pending = pair.Value;
+            pending.remainingSeconds -= safeDeltaTime;
+            if (pending.remainingSeconds <= 0f)
+            {
+                timedOutSelections.Add(pending);
+            }
+        }
+
+        for (int i = 0; i < timedOutSelections.Count; i++)
+        {
+            PendingItemSelection pending = timedOutSelections[i];
+            int selectedId = PickCandidateId(pending);
+            CompleteSelection(pending, selectedId, ItemSelectionResultType.TimeoutRandom, selectedId > 0);
+        }
+
+        timedOutSelections.Clear();
+    }
+
+    // - Role: Complete item selection.
+    private void CompleteSelection(
+        PendingItemSelection pending,
+        int selectedId,
+        ItemSelectionResultType resultType,
+        bool success,
+        bool activateNext = true)
+    {
+        if (pending == null)
+        {
+            return;
+        }
+
+        pendingByPlayer.Remove(pending.playerId);
+        bool applied = false;
+        if (success
+            && selectedId > 0
+            && gamePlay != null
+            && gamePlay.TryGetPlayer(pending.playerId, out PlayerObject player)
+            && effectCatalog != null
+            && effectCatalog.TryGetById(selectedId, out ItemData selected))
+        {
+            applied = ApplyItemData(player, selected, pending, resultType);
+        }
+
+        outgoingResults.Enqueue(new ItemSelectionResultMessage
+        {
+            clientId = pending.playerId,
+            packet = new ServerItemSelectionResultPacket
+            {
+                protocolVersion = GameNetProtocol.ProtocolVersion,
+                requestId = pending.requestId,
+                selectedId = selectedId,
+                resultType = applied ? resultType : ItemSelectionResultType.Cancelled,
+                success = applied
+            }
+        });
+
+        if (activateNext)
+        {
+            ActivateNextSelection(pending.playerId);
+        }
+    }
+
+    // - Role: Activate next queued selection.
+    private void ActivateNextSelection(ulong playerId)
+    {
+        if (!queuedByPlayer.TryGetValue(playerId, out Queue<PendingItemSelection> queue))
+        {
+            return;
+        }
+
+        if (queue.Count <= 0)
+        {
+            queuedByPlayer.Remove(playerId);
+            return;
+        }
+
+        ActivateSelection(queue.Dequeue());
+        if (queue.Count <= 0)
+        {
+            queuedByPlayer.Remove(playerId);
+        }
+    }
+
+    // - Role: Apply selected item data.
+    private bool ApplyItemData(
+        PlayerObject player,
+        ItemData selected,
+        PendingItemSelection pending,
+        ItemSelectionResultType resultType)
+    {
+        if (player == null || !selected.IsValid())
+        {
+            return false;
+        }
+
+        if (player.itemEffects == null)
+        {
+            player.itemEffects = new PlayerItemEffects();
+        }
+
+        player.itemEffects.Add(selected);
+        if (selected.type == ItemType.Skill && selected.skillEffect == SkillItemEffect.Cooldown)
+        {
+            player.skill?.StateMachine?.ScaleCooldown(selected.GetMultiplier());
+        }
+
+        QueueItemAppliedEvent(player, pending.itemId, pending.position);
+        string effectName = selected.type == ItemType.Stats ? selected.statEffect.ToString() : selected.skillEffect.ToString();
+        Debug.Log(
+            $"[ServerItemSystem] Item selected. playerId={player.playerId}, " +
+            $"requestId={pending.requestId}, resultType={resultType}, selectedId={selected.id}, " +
+            $"itemType={selected.type}, effect={effectName}, value={selected.value}, duration={selected.duration}");
+        return true;
+    }
+
+    // - Role: Queue item applied event.
+    private void QueueItemAppliedEvent(PlayerObject player, uint itemId, Vector2 position)
+    {
+        if (gamePlay == null || player == null)
         {
             return;
         }
@@ -110,10 +427,65 @@ public sealed class ServerItemSystem
             gamePlay.Tick,
             GameEventType.ItemApplied,
             player.playerId,
-            item.itemId,
+            itemId,
             GameVfxType.None,
-            item.position,
+            position,
             0f);
+    }
+
+    // - Role: Pick a candidate id.
+    private int PickCandidateId(PendingItemSelection pending)
+    {
+        int count = 0;
+        for (int i = 0; i < SelectionCandidateCount; i++)
+        {
+            if (pending.candidateIds[i] > 0)
+            {
+                count++;
+            }
+        }
+
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int targetIndex = random.Next(0, count);
+        for (int i = 0; i < SelectionCandidateCount; i++)
+        {
+            if (pending.candidateIds[i] <= 0)
+            {
+                continue;
+            }
+
+            if (targetIndex == 0)
+            {
+                return pending.candidateIds[i];
+            }
+
+            targetIndex--;
+        }
+
+        return 0;
+    }
+
+    // - Role: Check candidate id.
+    private static bool HasCandidate(PendingItemSelection pending, int selectedId)
+    {
+        if (pending == null || selectedId <= 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < SelectionCandidateCount; i++)
+        {
+            if (pending.candidateIds[i] == selectedId)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // - Role: Try to spawn item.
@@ -171,8 +543,8 @@ public sealed class ServerItemSystem
     {
         return itemType switch
         {
-            ItemType.Stats => new StatsItemStateMachine(this, effectCatalog),
-            ItemType.Skill => new SkillItemStateMachine(this, effectCatalog),
+            ItemType.Stats => new StatsItemStateMachine(this),
+            ItemType.Skill => new SkillItemStateMachine(this),
             _ => null
         };
     }

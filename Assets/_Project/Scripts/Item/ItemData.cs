@@ -25,15 +25,24 @@ public enum SkillItemEffect : byte
 [Serializable]
 public struct ItemData
 {
+    public int id;
     public ItemType type;
     public StatItemEffect statEffect;
     public SkillItemEffect skillEffect;
     public float value;
     public float duration;
+    public Sprite icon;
+    public string title;
+    [TextArea] public string description;
 
     // - Role: Check if this data can apply.
     public bool IsValid()
     {
+        if (id <= 0)
+        {
+            return false;
+        }
+
         if (type == ItemType.Stats)
         {
             return statEffect != StatItemEffect.None;

@@ -199,6 +199,147 @@ public struct ClientInputPacket
     }
 }
 
+public struct ServerItemSelectionOfferPacket
+{
+    public ushort protocolVersion;
+    public uint requestId;
+    public ItemType itemType;
+    public int candidateId0;
+    public int candidateId1;
+    public int candidateId2;
+    public float timeoutSeconds;
+
+    // - Role: Write this data to the writer.
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+        writer.WriteValueSafe(requestId);
+        writer.WriteValueSafe((byte)itemType);
+        writer.WriteValueSafe(candidateId0);
+        writer.WriteValueSafe(candidateId1);
+        writer.WriteValueSafe(candidateId2);
+        writer.WriteValueSafe(timeoutSeconds);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(ref FastBufferReader reader, out ServerItemSelectionOfferPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        reader.ReadValueSafe(out uint requestId);
+        reader.ReadValueSafe(out byte itemType);
+        reader.ReadValueSafe(out int candidateId0);
+        reader.ReadValueSafe(out int candidateId1);
+        reader.ReadValueSafe(out int candidateId2);
+        reader.ReadValueSafe(out float timeoutSeconds);
+
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new ServerItemSelectionOfferPacket
+        {
+            protocolVersion = protocolVersion,
+            requestId = requestId,
+            itemType = (ItemType)itemType,
+            candidateId0 = candidateId0,
+            candidateId1 = candidateId1,
+            candidateId2 = candidateId2,
+            timeoutSeconds = timeoutSeconds
+        };
+
+        return true;
+    }
+}
+
+public struct ClientItemSelectionChoicePacket
+{
+    public ushort protocolVersion;
+    public uint requestId;
+    public int selectedId;
+
+    // - Role: Write this data to the writer.
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+        writer.WriteValueSafe(requestId);
+        writer.WriteValueSafe(selectedId);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(ref FastBufferReader reader, out ClientItemSelectionChoicePacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        reader.ReadValueSafe(out uint requestId);
+        reader.ReadValueSafe(out int selectedId);
+
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new ClientItemSelectionChoicePacket
+        {
+            protocolVersion = protocolVersion,
+            requestId = requestId,
+            selectedId = selectedId
+        };
+
+        return true;
+    }
+}
+
+public struct ServerItemSelectionResultPacket
+{
+    public ushort protocolVersion;
+    public uint requestId;
+    public int selectedId;
+    public ItemSelectionResultType resultType;
+    public bool success;
+
+    // - Role: Write this data to the writer.
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+        writer.WriteValueSafe(requestId);
+        writer.WriteValueSafe(selectedId);
+        writer.WriteValueSafe((byte)resultType);
+        writer.WriteValueSafe((byte)(success ? 1 : 0));
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(ref FastBufferReader reader, out ServerItemSelectionResultPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        reader.ReadValueSafe(out uint requestId);
+        reader.ReadValueSafe(out int selectedId);
+        reader.ReadValueSafe(out byte resultType);
+        reader.ReadValueSafe(out byte success);
+
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new ServerItemSelectionResultPacket
+        {
+            protocolVersion = protocolVersion,
+            requestId = requestId,
+            selectedId = selectedId,
+            resultType = (ItemSelectionResultType)resultType,
+            success = success != 0
+        };
+
+        return true;
+    }
+}
+
 public struct ServerSnapshotHeaderPacket
 {
     public ushort protocolVersion;

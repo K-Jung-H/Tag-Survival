@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -48,7 +48,7 @@ public static class StageBaker
 
     private struct ColliderMergeKey
     {
-        public StageSurfacePhysicType surfacePhysicType;
+        public StageSurfaceType surfacePhysicType;
         public StageTileFlags flags;
         public int priority;
 

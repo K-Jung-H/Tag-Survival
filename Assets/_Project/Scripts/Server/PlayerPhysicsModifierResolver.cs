@@ -1,4 +1,4 @@
-public static class PlayerPhysicsModifierResolver
+﻿public static class PlayerPhysicsModifierResolver
 {
     // - Role: Find ground.
     public static StagePhysicsModifier ResolveGround(
@@ -7,10 +7,10 @@ public static class PlayerPhysicsModifierResolver
     {
         if (!player.isGrounded)
         {
-            return ResolveSurface(stageDefinition, StageSurfacePhysicType.Normal);
+            return ResolveSurface(stageDefinition, StageSurfaceType.Normal);
         }
 
-        return ResolveSurface(stageDefinition, player.groundSurfacePhysicType);
+        return ResolveSurface(stageDefinition, player.groundSurface);
     }
 
     // - Role: Find jump.
@@ -18,12 +18,12 @@ public static class PlayerPhysicsModifierResolver
         PlayerObject player,
         StageDefinition stageDefinition)
     {
-        if (player.isGrounded || player.coyoteTimeRemaining > 0f)
+        if (player.isGrounded || player.lateJumpTimer > 0f)
         {
-            return ResolveSurface(stageDefinition, player.groundSurfacePhysicType);
+            return ResolveSurface(stageDefinition, player.groundSurface);
         }
 
-        return ResolveSurface(stageDefinition, StageSurfacePhysicType.Normal);
+        return ResolveSurface(stageDefinition, StageSurfaceType.Normal);
     }
 
     // - Role: Find wall.
@@ -31,24 +31,24 @@ public static class PlayerPhysicsModifierResolver
         PlayerObject player,
         StageDefinition stageDefinition)
     {
-        if (!player.isWallSticking)
+        if (!player.isOnWall)
         {
-            return ResolveSurface(stageDefinition, StageSurfacePhysicType.Normal);
+            return ResolveSurface(stageDefinition, StageSurfaceType.Normal);
         }
 
-        return ResolveSurface(stageDefinition, player.wallSurfacePhysicType);
+        return ResolveSurface(stageDefinition, player.wallSurface);
     }
 
     // - Role: Find air.
     public static StagePhysicsModifier ResolveAir(StageDefinition stageDefinition)
     {
-        return ResolveSurface(stageDefinition, StageSurfacePhysicType.Normal);
+        return ResolveSurface(stageDefinition, StageSurfaceType.Normal);
     }
 
     // - Role: Find surface.
     public static StagePhysicsModifier ResolveSurface(
         StageDefinition stageDefinition,
-        StageSurfacePhysicType surfacePhysicType)
+        StageSurfaceType surfacePhysicType)
     {
         if (stageDefinition == null)
         {

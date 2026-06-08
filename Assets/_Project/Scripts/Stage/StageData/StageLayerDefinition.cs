@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 
-// - Role: List stage surface physics types.
-public enum StageSurfacePhysicType
+// - Role: List stage surface types.
+public enum StageSurfaceType
 {
     Default = 0,
     Normal = 1,
@@ -40,13 +40,13 @@ public enum StageBoundaryMode
 [Serializable]
 public struct StageLayerDefinition
 {
-    public StageSurfacePhysicType surfacePhysicType;
+    public StageSurfaceType surfacePhysicType;
     public StageTileFlags flags;
 
     // - Role: Get the default solid layer rule.
     public static StageLayerDefinition Default => new StageLayerDefinition
     {
-        surfacePhysicType = StageSurfacePhysicType.Normal,
+        surfacePhysicType = StageSurfaceType.Normal,
         flags = StageTileFlags.Solid,
     };
 }

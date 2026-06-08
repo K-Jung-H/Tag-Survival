@@ -1,9 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public static class SkillStateMachineFactory
 {
     // - Role: Create a skill state machine.
-    public static Skill_StateMachine Create(SkillDefinition definition)
+    public static SkillStateMachine Create(SkillDefinition definition)
     {
         if (definition == null)
         {
@@ -15,9 +15,9 @@ public static class SkillStateMachineFactory
             case SkillType.None:
                 return null;
             case SkillType.HookGrappling:
-                return new Hook_SkillStateMachine(definition);
+                return new SkillStateMachine_Hook(definition);
             case SkillType.Portal:
-                return new Portal_SkillStateMachine(definition);
+                return new SkillStateMachine_Portal(definition);
             default:
                 Debug.LogWarning(
                     $"[SkillStateMachineFactory] SkillType {definition.SkillType} is not implemented yet. " +

@@ -1,5 +1,5 @@
-using UnityEngine;
-using PlayerRenderState = PlayerRuntimeState;
+﻿using UnityEngine;
+using CharacterRenderState = CharacterRuntimeState;
 using UnityEngine.Animations;
 using UnityEngine.Playables;
 
@@ -20,7 +20,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     private bool hasRenderPosition;
     private PlayableGraph animationGraph;
     private AnimationClipPlayable clipPlayable;
-    private PlayerLocomotionState currentClipState;
+    private LocomotionState currentClipState;
     private bool hasCurrentClipState;
     private bool hasMissingAnimationDataWarning;
     private bool hasMissingClipWarning;
@@ -72,12 +72,12 @@ public sealed class Client_CharacterView : MonoBehaviour
         byte characterId = definition != null ? definition.CharacterId : (byte)0;
         animationData = definition != null ? definition.AnimationData : null;
         ApplyAnimatorController(animationData);
-        stateMachine = new Default_CharacterStateMachine(characterId);
-        stateMachine.ApplyState(new PlayerRenderState
+        stateMachine = new CharacterStateMachine_Default(characterId);
+        stateMachine.ApplyState(new CharacterRenderState
         {
             clientId = clientId,
             characterId = characterId,
-            locomotionState = PlayerLocomotionState.Idle,
+            locomotionState = LocomotionState.Idle,
             aim = Vector2.right,
             facingSign = 1,
         });
@@ -111,7 +111,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     {
         if (stateMachine == null || stateMachine.State.characterId != snapshotState.characterId)
         {
-            stateMachine = new Default_CharacterStateMachine(snapshotState.characterId);
+            stateMachine = new CharacterStateMachine_Default(snapshotState.characterId);
         }
 
         stateMachine.ApplySnapshotState(snapshotState);
@@ -235,7 +235,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     }
 
     // - Role: Update facing.
-    private void UpdateFacing(PlayerRenderState state)
+    private void UpdateFacing(CharacterRenderState state)
     {
         if (body == null)
         {
@@ -246,7 +246,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     }
 
     // - Role: Play locomotion clip.
-    private void PlayLocomotionClip(PlayerLocomotionState locomotionState)
+    private void PlayLocomotionClip(LocomotionState locomotionState)
     {
         if (animator == null || animationData == null)
         {
@@ -304,7 +304,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     }
 
     // - Role: Try to play animator state.
-    private bool TryPlayAnimatorState(string stateName, PlayerLocomotionState locomotionState)
+    private bool TryPlayAnimatorState(string stateName, LocomotionState locomotionState)
     {
         if (animator == null || animator.runtimeAnimatorController == null)
         {

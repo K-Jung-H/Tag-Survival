@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 public interface IWorldObject
@@ -21,7 +21,7 @@ public enum WorldObjectType : byte
     Item = 4
 }
 
-public enum SkillObjectStageMode : byte
+public enum SkillStageMode : byte
 {
     None = 0,
     MoveWithStageCollision = 1,
@@ -97,11 +97,10 @@ public sealed class PlayerObject : IWorldObject
     public Vector2 position;
     public Vector2 velocity;
     public Vector2 aim;
-    public float speed;
-    public CharacterMovementStats movementStats;
-    public CharacterMovementStats effectiveMovementStats;
+    public CharacterMovementStats baseMoveStats;
+    public CharacterMovementStats moveStats;
     public sbyte facingSign;
-    public PlayerLocomotionState locomotionState;
+    public LocomotionState locomotionState;
     public Vector2 input;
     public PlayerInputButtons buttons;
     public Vector2 collisionHalfExtent;
@@ -110,16 +109,16 @@ public sealed class PlayerObject : IWorldObject
     public float stunnedTimer;
     public float taggerAccumulatedTime;
     public bool isGrounded;
-    public StageSurfacePhysicType groundSurfacePhysicType;
-    public bool isWallSticking;
-    public sbyte wallNormalX;
-    public StageSurfacePhysicType wallSurfacePhysicType;
+    public StageSurfaceType groundSurface;
+    public bool isOnWall;
+    public sbyte wallDirX;
+    public StageSurfaceType wallSurface;
     public bool isJumpPressed;
     public bool jumpQueued;
     public bool isSkillPressed;
     public bool skillQueued;
     public bool hasAimInput;
-    public float coyoteTimeRemaining;
+    public float lateJumpTimer;
     public WorldObjectLayer layer = WorldObjectLayer.Player;
     public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
     public WorldCollider collider;
@@ -144,11 +143,10 @@ public sealed class PlayerObject : IWorldObject
         position = Vector2.zero;
         velocity = Vector2.zero;
         aim = Vector2.right;
-        movementStats = CharacterMovementStats.Default;
-        effectiveMovementStats = movementStats;
-        speed = movementStats.moveSpeed;
+        baseMoveStats = CharacterMovementStats.Default;
+        moveStats = baseMoveStats;
         facingSign = 1;
-        locomotionState = PlayerLocomotionState.Idle;
+        locomotionState = LocomotionState.Idle;
         input = Vector2.zero;
         buttons = PlayerInputButtons.None;
         collisionHalfExtent = DefaultCollisionHalfExtent;
@@ -157,16 +155,16 @@ public sealed class PlayerObject : IWorldObject
         stunnedTimer = 0f;
         taggerAccumulatedTime = 0f;
         isGrounded = false;
-        groundSurfacePhysicType = StageSurfacePhysicType.Normal;
-        isWallSticking = false;
-        wallNormalX = 0;
-        wallSurfacePhysicType = StageSurfacePhysicType.Normal;
+        groundSurface = StageSurfaceType.Normal;
+        isOnWall = false;
+        wallDirX = 0;
+        wallSurface = StageSurfaceType.Normal;
         isJumpPressed = false;
         jumpQueued = false;
         isSkillPressed = false;
         skillQueued = false;
         hasAimInput = false;
-        coyoteTimeRemaining = 0f;
+        lateJumpTimer = 0f;
         layer = WorldObjectLayer.Player;
         collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
         collider = new WorldCollider(collisionOffset, collisionHalfExtent);
@@ -190,16 +188,15 @@ public sealed class PlayerObject : IWorldObject
             : characterId;
         this.skillId = skillId;
         this.skill = skill;
-        characterStateMachine = new Default_CharacterStateMachine(characterId);
+        characterStateMachine = new CharacterStateMachine_Default(characterId);
         position = spawnPosition;
         velocity = Vector2.zero;
         aim = Vector2.right;
-        movementStats = characterDefinition != null
+        baseMoveStats = characterDefinition != null
             ? characterDefinition.MovementStats
             : CharacterMovementStats.Default;
         itemEffects.Clear();
-        effectiveMovementStats = movementStats;
-        speed = effectiveMovementStats.moveSpeed;
+        moveStats = baseMoveStats;
         collisionHalfExtent = characterDefinition != null
             ? characterDefinition.CollisionExtent
             : DefaultCollisionHalfExtent;
@@ -218,7 +215,7 @@ public sealed class PlayerObject : IWorldObject
             return;
         }
 
-        PlayerRuntimeState runtimeState = characterStateMachine.State;
+        CharacterRuntimeState runtimeState = characterStateMachine.State;
         runtimeState.clientId = playerId;
         runtimeState.position = position;
         runtimeState.velocity = velocity;
@@ -267,7 +264,7 @@ public sealed class SkillObject : IWorldObject
     public Vector2 velocity;
     public float rotation;
     public float interactionCooldownSeconds;
-    public SkillObjectStageMode stageMode;
+    public SkillStageMode stageMode;
     public int stageSearchDistance;
     public WorldObjectLayer layer = WorldObjectLayer.SkillObject;
     public WorldObjectLayer collisionMask = WorldObjectLayer.Player;

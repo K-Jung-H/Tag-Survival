@@ -40,6 +40,7 @@ public class Server_GamePlay
             : null;
         collisionSystem = new StageCollisionSystem(stageBakeData, PlayerObject.DefaultCollisionHalfExtent, GameSimulationConfig.CollisionSkinWidth);
         skillSystem.Bind(this);
+        playerSystem.Bind(skillSystem, collisionSystem, stageDefinition);
         itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount, itemSelectionTimeoutSeconds);
     }
 
@@ -177,7 +178,7 @@ public class Server_GamePlay
 
         for (int i = 0; i < subSteps; i++)
         {
-            playerSystem.SimulatePlayers(skillSystem, collisionSystem, stageDefinition, stepDeltaTime);
+            playerSystem.Simulate(stepDeltaTime);
             ResolveWorldCollisions();
         }
     }

@@ -932,7 +932,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6c9712769cf7484e9bba22a2f2fa687d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionSlot
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionSlot
 --- !u!1 &230785985
 GameObject:
   m_ObjectHideFlags: 0
@@ -1572,7 +1572,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Client_WorldVfxSpawner
   gameEventReceiver: {fileID: 1941727315}
   vfxRoot: {fileID: 515449760}
-  vfxDefinitionData: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
+  vfxCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -2942,7 +2942,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 203620d2a8544e7bb4bcaaf9a73d7b9d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionView
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionView
   receiver: {fileID: 1941727316}
   itemEffectCatalog: {fileID: 11400000, guid: 201007d370f95064080b807c828d4353, type: 2}
   selectionPanel: {fileID: 1961030230}
@@ -3204,7 +3204,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6c9712769cf7484e9bba22a2f2fa687d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionSlot
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionSlot
 --- !u!1 &971640466
 GameObject:
   m_ObjectHideFlags: 0
@@ -4969,7 +4969,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: 0, y: 10}
-  m_SizeDelta: {x: -20, y: 20}
+  m_SizeDelta: {x: -40, y: 20}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &1589532311
 MonoBehaviour:
@@ -4991,11 +4991,11 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: -5483215198695101708, guid: 61a0bff7b57a55246a956328fa848d1e, type: 3}
+  m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
-  m_FillMethod: 4
+  m_FillMethod: 0
   m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
@@ -5856,7 +5856,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 1
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -5918,7 +5918,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 203620d2a8544e7bb4bcaaf9a73d7b9d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionView
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionView
   receiver: {fileID: 1941727316}
   itemEffectCatalog: {fileID: 11400000, guid: 201007d370f95064080b807c828d4353, type: 2}
   selectionPanel: {fileID: 0}
@@ -6384,7 +6384,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e78f0d77ef44bbdb711d2f9338a7a01, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionReceiver
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionReceiver
   networkDelaySimulator: {fileID: 1941727312}
 --- !u!1 &1943225131
 GameObject:
@@ -6525,7 +6525,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f6502b111e6b4541912b3c3c9a1a6f1d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionPanel
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionPanel
   itemTypeText: {fileID: 151920233}
   timerFillImage: {fileID: 1589532311}
   optionSlots:
@@ -7340,7 +7340,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6c9712769cf7484e9bba22a2f2fa687d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_ItemSelectionSlot
+  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionSlot
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

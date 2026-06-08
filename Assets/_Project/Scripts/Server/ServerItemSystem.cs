@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class ServerItemSystem
@@ -6,13 +6,13 @@ public sealed class ServerItemSystem
     public struct ItemSelectionOfferMessage
     {
         public ulong clientId;
-        public ServerItemSelectionOfferPacket packet;
+        public ItemSelectionOfferPacket packet;
     }
 
     public struct ItemSelectionResultMessage
     {
         public ulong clientId;
-        public ServerItemSelectionResultPacket packet;
+        public ItemSelectionResultPacket packet;
     }
 
     private sealed class PendingItemSelection
@@ -204,7 +204,7 @@ public sealed class ServerItemSystem
         outgoingOffers.Enqueue(new ItemSelectionOfferMessage
         {
             clientId = pending.playerId,
-            packet = new ServerItemSelectionOfferPacket
+            packet = new ItemSelectionOfferPacket
             {
                 protocolVersion = GameNetProtocol.ProtocolVersion,
                 requestId = pending.requestId,
@@ -346,7 +346,7 @@ public sealed class ServerItemSystem
         outgoingResults.Enqueue(new ItemSelectionResultMessage
         {
             clientId = pending.playerId,
-            packet = new ServerItemSelectionResultPacket
+            packet = new ItemSelectionResultPacket
             {
                 protocolVersion = GameNetProtocol.ProtocolVersion,
                 requestId = pending.requestId,
@@ -423,14 +423,7 @@ public sealed class ServerItemSystem
             return;
         }
 
-        gamePlay.GameEventQueue.Queue(
-            gamePlay.Tick,
-            GameEventType.ItemApplied,
-            player.playerId,
-            itemId,
-            GameVfxType.None,
-            position,
-            0f);
+        gamePlay.GameEventQueue.QueueItemApplied(gamePlay.Tick, player.playerId, itemId, position);
     }
 
     // - Role: Pick a candidate id.

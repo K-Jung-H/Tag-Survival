@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -142,25 +142,25 @@ public sealed class StageCollisionSystem
             sizeInCells.y * stageBakeData.CellSize * 0.5f);
     }
 
-    // - Role: Move a player with stage collision.
-    public Vector2 MovePlayerWithStageCollision(Vector2 startPosition, Vector2 delta)
+    // - Role: Move with stage collision.
+    public Vector2 Move(Vector2 startPosition, Vector2 delta)
     {
-        return MovePlayerWithStageCollision(startPosition, delta, defaultPlayerHalfExtent);
+        return Move(startPosition, delta, defaultPlayerHalfExtent);
     }
 
-    // - Role: Move a player with stage collision.
-    public Vector2 MovePlayerWithStageCollision(Vector2 startPosition, Vector2 delta, Vector2 playerHalfExtent)
+    // - Role: Move with stage collision.
+    public Vector2 Move(Vector2 startPosition, Vector2 delta, Vector2 halfExtent)
     {
-        return MovePlayerWithStageCollisionDetailed(startPosition, delta, playerHalfExtent).position;
+        return MoveDetailed(startPosition, delta, halfExtent).position;
     }
 
-    // - Role: Move a player and return collision details.
-    public StageCollisionMoveResult MovePlayerWithStageCollisionDetailed(
+    // - Role: Move and return collision details.
+    public StageCollisionMoveResult MoveDetailed(
         Vector2 startPosition,
         Vector2 delta,
-        Vector2 playerHalfExtent)
+        Vector2 halfExtent)
     {
-        Vector2 halfExtent = ClampHalfExtent(playerHalfExtent);
+        halfExtent = ClampHalfExtent(halfExtent);
         StageCollisionMoveResult result = new StageCollisionMoveResult
         {
             position = startPosition + delta,
@@ -172,7 +172,7 @@ public sealed class StageCollisionSystem
             return result;
         }
 
-        result.position = MoveWithStageCollision(startPosition, delta, halfExtent, allowSlide: true, ref result);
+        result.position = MoveWithCollision(startPosition, delta, halfExtent, allowSlide: true, ref result);
         result.position = ResolveStageBoundaries(result.position, halfExtent, ref result);
         return result;
     }
@@ -261,7 +261,7 @@ public sealed class StageCollisionSystem
     }
 
     // - Role: Move with stage collision.
-    private Vector2 MoveWithStageCollision(
+    private Vector2 MoveWithCollision(
         Vector2 startPosition,
         Vector2 delta,
         Vector2 playerHalfExtent,
@@ -297,7 +297,7 @@ public sealed class StageCollisionSystem
             return resolvedPosition;
         }
 
-        return MoveWithStageCollision(
+        return MoveWithCollision(
             resolvedPosition,
             slideDelta,
             playerHalfExtent,
@@ -856,7 +856,7 @@ public sealed class StageCollisionSystem
             if (clampedY > resolvedPosition.y)
             {
                 result.isGrounded = true;
-                result.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
+                result.groundSurface = StageSurfaceType.Normal;
             }
 
             resolvedPosition.y = clampedY;
@@ -868,7 +868,7 @@ public sealed class StageCollisionSystem
             if (clampedY < resolvedPosition.y)
             {
                 result.hitCeiling = true;
-                result.ceilingSurfacePhysicType = StageSurfacePhysicType.Normal;
+                result.ceilingSurface = StageSurfaceType.Normal;
             }
 
             resolvedPosition.y = clampedY;
@@ -912,50 +912,50 @@ public sealed class StageCollisionSystem
     // - Role: Add contact normal.
     private static void AddContactNormal(
         Vector2 normal,
-        StageSurfacePhysicType surfacePhysicType,
+        StageSurfaceType surfacePhysicType,
         ref StageCollisionMoveResult result)
     {
         if (normal.y > 0.5f)
         {
             result.isGrounded = true;
-            result.groundSurfacePhysicType = surfacePhysicType;
+            result.groundSurface = surfacePhysicType;
         }
         else if (normal.y < -0.5f)
         {
             result.hitCeiling = true;
-            result.ceilingSurfacePhysicType = surfacePhysicType;
+            result.ceilingSurface = surfacePhysicType;
         }
 
         if (Mathf.Abs(normal.x) > 0.5f)
         {
             result.hitWall = true;
-            result.wallNormalX = normal.x > 0f ? (sbyte)1 : (sbyte)-1;
-            result.wallSurfacePhysicType = surfacePhysicType;
+            result.wallDirX = normal.x > 0f ? (sbyte)1 : (sbyte)-1;
+            result.wallSurface = surfacePhysicType;
         }
     }
 
     // - Role: Add push contact.
     private static void AddPushContact(
         Vector2 push,
-        StageSurfacePhysicType surfacePhysicType,
+        StageSurfaceType surfacePhysicType,
         ref StageCollisionMoveResult result)
     {
         if (push.y > 0.000001f)
         {
             result.isGrounded = true;
-            result.groundSurfacePhysicType = surfacePhysicType;
+            result.groundSurface = surfacePhysicType;
         }
         else if (push.y < -0.000001f)
         {
             result.hitCeiling = true;
-            result.ceilingSurfacePhysicType = surfacePhysicType;
+            result.ceilingSurface = surfacePhysicType;
         }
 
         if (Mathf.Abs(push.x) > 0.000001f)
         {
             result.hitWall = true;
-            result.wallNormalX = push.x > 0f ? (sbyte)1 : (sbyte)-1;
-            result.wallSurfacePhysicType = surfacePhysicType;
+            result.wallDirX = push.x > 0f ? (sbyte)1 : (sbyte)-1;
+            result.wallSurface = surfacePhysicType;
         }
     }
 
@@ -963,7 +963,7 @@ public sealed class StageCollisionSystem
     {
         public float fraction;
         public Vector2 normal;
-        public StageSurfacePhysicType surfacePhysicType;
+        public StageSurfaceType surfacePhysicType;
     }
 }
 
@@ -973,8 +973,8 @@ public struct StageCollisionMoveResult
     public bool isGrounded;
     public bool hitCeiling;
     public bool hitWall;
-    public sbyte wallNormalX;
-    public StageSurfacePhysicType groundSurfacePhysicType;
-    public StageSurfacePhysicType wallSurfacePhysicType;
-    public StageSurfacePhysicType ceilingSurfacePhysicType;
+    public sbyte wallDirX;
+    public StageSurfaceType groundSurface;
+    public StageSurfaceType wallSurface;
+    public StageSurfaceType ceilingSurface;
 }

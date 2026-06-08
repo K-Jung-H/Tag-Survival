@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
@@ -199,7 +199,7 @@ public struct ClientInputPacket
     }
 }
 
-public struct ServerItemSelectionOfferPacket
+public struct ItemSelectionOfferPacket
 {
     public ushort protocolVersion;
     public uint requestId;
@@ -222,7 +222,7 @@ public struct ServerItemSelectionOfferPacket
     }
 
     // - Role: Try to read this data from the reader.
-    public static bool TryRead(ref FastBufferReader reader, out ServerItemSelectionOfferPacket packet)
+    public static bool TryRead(ref FastBufferReader reader, out ItemSelectionOfferPacket packet)
     {
         packet = default;
 
@@ -239,7 +239,7 @@ public struct ServerItemSelectionOfferPacket
             return false;
         }
 
-        packet = new ServerItemSelectionOfferPacket
+        packet = new ItemSelectionOfferPacket
         {
             protocolVersion = protocolVersion,
             requestId = requestId,
@@ -254,7 +254,7 @@ public struct ServerItemSelectionOfferPacket
     }
 }
 
-public struct ClientItemSelectionChoicePacket
+public struct ItemSelectionChoicePacket
 {
     public ushort protocolVersion;
     public uint requestId;
@@ -269,7 +269,7 @@ public struct ClientItemSelectionChoicePacket
     }
 
     // - Role: Try to read this data from the reader.
-    public static bool TryRead(ref FastBufferReader reader, out ClientItemSelectionChoicePacket packet)
+    public static bool TryRead(ref FastBufferReader reader, out ItemSelectionChoicePacket packet)
     {
         packet = default;
 
@@ -282,7 +282,7 @@ public struct ClientItemSelectionChoicePacket
             return false;
         }
 
-        packet = new ClientItemSelectionChoicePacket
+        packet = new ItemSelectionChoicePacket
         {
             protocolVersion = protocolVersion,
             requestId = requestId,
@@ -293,7 +293,7 @@ public struct ClientItemSelectionChoicePacket
     }
 }
 
-public struct ServerItemSelectionResultPacket
+public struct ItemSelectionResultPacket
 {
     public ushort protocolVersion;
     public uint requestId;
@@ -312,7 +312,7 @@ public struct ServerItemSelectionResultPacket
     }
 
     // - Role: Try to read this data from the reader.
-    public static bool TryRead(ref FastBufferReader reader, out ServerItemSelectionResultPacket packet)
+    public static bool TryRead(ref FastBufferReader reader, out ItemSelectionResultPacket packet)
     {
         packet = default;
 
@@ -327,7 +327,7 @@ public struct ServerItemSelectionResultPacket
             return false;
         }
 
-        packet = new ServerItemSelectionResultPacket
+        packet = new ItemSelectionResultPacket
         {
             protocolVersion = protocolVersion,
             requestId = requestId,
@@ -442,7 +442,7 @@ public struct PlayerSnapshotPacket
     public Vector2 velocity;
     public Vector2 aim;
     public PlayerInputButtons buttons;
-    public PlayerLocomotionState locomotionState;
+    public LocomotionState locomotionState;
     public byte characterId;
     public byte skillId;
     public float skillCooldownSeconds;
@@ -495,7 +495,7 @@ public struct PlayerSnapshotPacket
             velocity = new Vector2(velocityX, velocityY),
             aim = new Vector2(aimX, aimY),
             buttons = (PlayerInputButtons)buttons,
-            locomotionState = (PlayerLocomotionState)locomotionState,
+            locomotionState = (LocomotionState)locomotionState,
             characterId = characterId,
             skillId = skillId,
             skillCooldownSeconds = skillCooldownSeconds,
@@ -517,7 +517,7 @@ public struct ClientSnapshotState
     public Vector2 velocity;
     public Vector2 aim;
     public PlayerInputButtons buttons;
-    public PlayerLocomotionState locomotionState;
+    public LocomotionState locomotionState;
     public byte characterId;
     public byte skillId;
     public float skillCooldownSeconds;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -170,7 +170,7 @@ public sealed class StageBakerWindow : EditorWindow
         {
             entry.includeInBake = EditorGUILayout.Toggle("Include", entry.includeInBake);
             entry.priority = EditorGUILayout.IntField("Priority", entry.priority);
-            entry.definition.surfacePhysicType = (StageSurfacePhysicType)EditorGUILayout.EnumPopup("Surface Physic Type", entry.definition.surfacePhysicType);
+            entry.definition.surfacePhysicType = (StageSurfaceType)EditorGUILayout.EnumPopup("Surface Type", entry.definition.surfacePhysicType);
             entry.definition.flags = (StageTileFlags)EditorGUILayout.EnumFlagsField("Flags", entry.definition.flags);
         }
 
@@ -302,6 +302,8 @@ public sealed class StageBakerWindow : EditorWindow
         }
 
         Debug.Log(
-            $"{label} complete. Baked cells: {report.bakedCellCount}, colliders: {report.colliderCount}, spatial buckets: {report.spatialBucketCount}, scanned cells: {report.scannedCellCount}.");
+            $"{label} complete. Baked cells: {report.bakedCellCount}, " +
+            $"colliders: {report.colliderCount}, spatial buckets: {report.spatialBucketCount}, " +
+            $"scanned cells: {report.scannedCellCount}.");
     }
 }

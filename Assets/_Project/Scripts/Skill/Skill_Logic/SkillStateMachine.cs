@@ -1,0 +1,92 @@
+﻿using UnityEngine;
+
+public abstract class SkillStateMachine
+{
+    protected readonly SkillDefinition definition;
+
+    // - Role: Create skill state machine.
+    protected SkillStateMachine(SkillDefinition definition)
+    {
+        this.definition = definition;
+    }
+
+    public byte SkillId => definition != null ? definition.SkillId : (byte)0;
+    public SkillType SkillType => definition != null ? definition.SkillType : SkillType.None;
+    public SkillObjectState State { get; protected set; }
+    public float CooldownRemaining { get; protected set; }
+
+    // - Role: Get cooldown for player.
+    public float GetCooldownSeconds(PlayerObject player)
+    {
+        float baseCooldown = definition != null ? definition.Cooldown : 0f;
+        float multiplier = player != null && player.itemEffects != null
+            ? player.itemEffects.GetSkillCooldownMultiplier()
+            : 1f;
+        return Mathf.Max(0f, baseCooldown * multiplier);
+    }
+
+    // - Role: Scale current cooldown.
+    public void ScaleCooldown(float multiplier)
+    {
+        CooldownRemaining = Mathf.Max(0f, CooldownRemaining * Mathf.Max(0f, multiplier));
+    }
+
+    // - Role: Constrain owner movement.
+    public virtual void ConstrainOwner(
+        PlayerObject player,
+        float deltaTime)
+    {
+    }
+
+    // - Role: Simulate this object.
+    public abstract void Simulate(
+        PlayerObject player,
+        float deltaTime,
+        bool skillPressedThisTick);
+
+    // - Role: Handle collision.
+    public virtual void OnCollision(SkillObject self, IWorldObject other)
+    {
+    }
+
+    // - Role: Handle stage move result.
+    public virtual void OnStageMoveResult(SkillObject self, StageCollisionMoveResult moveResult)
+    {
+    }
+
+    // - Role: Check if stage placement cell blocked is true.
+    public virtual bool IsStagePlacementCellBlocked(SkillObject self, Vector2Int cell)
+    {
+        return false;
+    }
+
+    // - Role: Handle stage placement result.
+    public virtual void OnStagePlacementResult(
+        SkillObject self,
+        bool success,
+        Vector2Int cell,
+        Vector2 position,
+        Vector2 halfExtent)
+    {
+    }
+
+    // - Role: Sync skill objects.
+    public virtual void SyncSkillObjects(Skill skill)
+    {
+    }
+
+    // - Role: Update cooldown by time.
+    protected void TickCooldown(float deltaTime)
+    {
+        if (CooldownRemaining > 0f)
+        {
+            CooldownRemaining = Mathf.Max(0f, CooldownRemaining - deltaTime);
+        }
+    }
+
+    // - Role: Start cooldown for player.
+    protected void StartCooldown(PlayerObject player)
+    {
+        CooldownRemaining = GetCooldownSeconds(player);
+    }
+}

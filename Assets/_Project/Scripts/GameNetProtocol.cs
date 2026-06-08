@@ -45,7 +45,7 @@ public enum PlayerInputButtons : ushort
 }
 
 // 서버가 결정해 클라이언트 렌더와 스냅샷에 전달하는 플레이어 이동 상태입니다.
-public enum PlayerLocomotionState : byte
+public enum LocomotionState : byte
 {
     Idle = 0,
     Run = 1,

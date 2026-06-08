@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 // - Role: Store stage size and edge rules.
@@ -17,7 +17,7 @@ public struct StageBoundsData
 public struct StageTileCellData
 {
     public Vector2Int cell;
-    public StageSurfacePhysicType surfacePhysicType;
+    public StageSurfaceType surfacePhysicType;
     public StageTileFlags flags;
     public int layerPriority;
 }
@@ -27,7 +27,7 @@ public struct StageTileCellData
 public struct StageColliderData
 {
     public StageColliderType type;
-    public StageSurfacePhysicType surfacePhysicType;
+    public StageSurfaceType surfacePhysicType;
     public StageTileFlags flags;
     public int layerPriority;
     public Rect rect;

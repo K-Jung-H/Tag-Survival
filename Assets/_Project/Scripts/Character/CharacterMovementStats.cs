@@ -1,57 +1,57 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public struct CharacterMovementStats
 {
     public float moveSpeed;
     public float jumpHeight;
-    public float timeToApex;
-    public float timeToFall;
-    public float jumpVelocity;
-    public float upGravity;
-    public float downGravity;
+    public float jumpRiseTime;
+    public float fallTime;
+    public float jumpStartSpeed;
+    public float jumpGravity;
+    public float fallGravity;
     public float maxFallSpeed;
-    public float groundAcceleration;
-    public float groundDeceleration;
-    public float airAcceleration;
-    public float airDeceleration;
-    public float overSpeedDeceleration;
-    public float wallMoveSpeedMultiplier;
-    public float coyoteTime;
+    public float moveAccel;
+    public float moveDecel;
+    public float airAccel;
+    public float airDecel;
+    public float overSpeedDecel;
+    public float wallMoveRate;
+    public float lateJumpTime;
 
     // - Role: Create character movement stats.
     public CharacterMovementStats(
         float moveSpeed,
         float jumpHeight,
-        float timeToApex,
-        float timeToFall,
+        float jumpRiseTime,
+        float fallTime,
         float maxFallSpeed,
-        float groundAcceleration,
-        float groundDeceleration,
-        float airAcceleration,
-        float airDeceleration,
-        float overSpeedDeceleration,
-        float wallMoveSpeedMultiplier,
-        float coyoteTime)
+        float moveAccel,
+        float moveDecel,
+        float airAccel,
+        float airDecel,
+        float overSpeedDecel,
+        float wallMoveRate,
+        float lateJumpTime)
     {
         float safeJumpHeight = Mathf.Max(0.0001f, jumpHeight);
-        float safeTimeToApex = Mathf.Max(0.0001f, timeToApex);
-        float safeTimeToFall = Mathf.Max(0.0001f, timeToFall);
+        float safeJumpRiseTime = Mathf.Max(0.0001f, jumpRiseTime);
+        float safeFallTime = Mathf.Max(0.0001f, fallTime);
 
         this.moveSpeed = Mathf.Max(0f, moveSpeed);
         this.jumpHeight = safeJumpHeight;
-        this.timeToApex = safeTimeToApex;
-        this.timeToFall = safeTimeToFall;
-        this.jumpVelocity = 2f * safeJumpHeight / safeTimeToApex;
-        this.upGravity = -(2f * safeJumpHeight) / (safeTimeToApex * safeTimeToApex);
-        this.downGravity = -(2f * safeJumpHeight) / (safeTimeToFall * safeTimeToFall);
+        this.jumpRiseTime = safeJumpRiseTime;
+        this.fallTime = safeFallTime;
+        this.jumpStartSpeed = 2f * safeJumpHeight / safeJumpRiseTime;
+        this.jumpGravity = -(2f * safeJumpHeight) / (safeJumpRiseTime * safeJumpRiseTime);
+        this.fallGravity = -(2f * safeJumpHeight) / (safeFallTime * safeFallTime);
         this.maxFallSpeed = Mathf.Max(0.0001f, maxFallSpeed);
-        this.groundAcceleration = Mathf.Max(0f, groundAcceleration);
-        this.groundDeceleration = Mathf.Max(0f, groundDeceleration);
-        this.airAcceleration = Mathf.Max(0f, airAcceleration);
-        this.airDeceleration = Mathf.Max(0f, airDeceleration);
-        this.overSpeedDeceleration = Mathf.Max(0f, overSpeedDeceleration);
-        this.wallMoveSpeedMultiplier = Mathf.Max(0f, wallMoveSpeedMultiplier);
-        this.coyoteTime = Mathf.Max(0f, coyoteTime);
+        this.moveAccel = Mathf.Max(0f, moveAccel);
+        this.moveDecel = Mathf.Max(0f, moveDecel);
+        this.airAccel = Mathf.Max(0f, airAccel);
+        this.airDecel = Mathf.Max(0f, airDecel);
+        this.overSpeedDecel = Mathf.Max(0f, overSpeedDecel);
+        this.wallMoveRate = Mathf.Max(0f, wallMoveRate);
+        this.lateJumpTime = Mathf.Max(0f, lateJumpTime);
     }
 
     public static CharacterMovementStats Default => Create(
@@ -65,36 +65,36 @@ public struct CharacterMovementStats
         35f,
         12f,
         18f,
-        GameSimulationConfig.PlayerWallMoveSpeedMultiplier,
+        GameSimulationConfig.PlayerWallMoveRate,
         0.08f);
 
     // - Role: Create movement stats from simple values.
     public static CharacterMovementStats Create(
         float moveSpeed,
         float jumpHeight,
-        float timeToApex,
-        float timeToFall,
+        float jumpRiseTime,
+        float fallTime,
         float maxFallSpeed,
-        float groundAcceleration,
-        float groundDeceleration,
-        float airAcceleration,
-        float airDeceleration,
-        float overSpeedDeceleration,
-        float wallMoveSpeedMultiplier,
-        float coyoteTime)
+        float moveAccel,
+        float moveDecel,
+        float airAccel,
+        float airDecel,
+        float overSpeedDecel,
+        float wallMoveRate,
+        float lateJumpTime)
     {
         return new CharacterMovementStats(
             moveSpeed,
             jumpHeight,
-            timeToApex,
-            timeToFall,
+            jumpRiseTime,
+            fallTime,
             maxFallSpeed,
-            groundAcceleration,
-            groundDeceleration,
-            airAcceleration,
-            airDeceleration,
-            overSpeedDeceleration,
-            wallMoveSpeedMultiplier,
-            coyoteTime);
+            moveAccel,
+            moveDecel,
+            airAccel,
+            airDecel,
+            overSpeedDecel,
+            wallMoveRate,
+            lateJumpTime);
     }
 }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class ServerWorldCollisionSystem
@@ -138,11 +138,11 @@ public sealed class ServerWorldCollisionSystem
     private static void ApplyGroundContact(PlayerObject player)
     {
         player.isGrounded = true;
-        player.groundSurfacePhysicType = StageSurfacePhysicType.Normal;
-        player.isWallSticking = false;
-        player.wallNormalX = 0;
-        player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-        player.coyoteTimeRemaining = player.effectiveMovementStats.coyoteTime;
+        player.groundSurface = StageSurfaceType.Normal;
+        player.isOnWall = false;
+        player.wallDirX = 0;
+        player.wallSurface = StageSurfaceType.Normal;
+        player.lateJumpTimer = player.moveStats.lateJumpTime;
         if (player.velocity.y < 0f)
         {
             player.velocity.y = 0f;

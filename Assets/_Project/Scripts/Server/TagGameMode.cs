@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class TagGameMode : IServerGameMode
@@ -119,18 +119,11 @@ public sealed class TagGameMode : IServerGameMode
             : GamePhase.Playing);
         gameElapsedSeconds = Phase == GamePhase.Ended ? gameDurationSeconds : 0f;
 
-        eventQueue.Queue(
-            serverTick,
-            GameEventType.GameStarted,
-            starterClientId,
-            starterClientId,
-            GameVfxType.None,
-            eventPosition,
-            0f);
+        eventQueue.QueueGameStarted(serverTick, starterClientId, eventPosition);
 
         if (Phase == GamePhase.Ended)
         {
-            QueueGameEnded(eventQueue, serverTick, eventPosition);
+            eventQueue.QueueGameEnded(serverTick, eventPosition);
         }
 
         return true;
@@ -177,14 +170,7 @@ public sealed class TagGameMode : IServerGameMode
         player.isTagger = true;
         player.stunnedTimer = 0f;
 
-        eventQueue.Queue(
-            serverTick,
-            GameEventType.TaggerChanged,
-            previousTaggerClientId,
-            fallbackClientId,
-            GameVfxType.None,
-            player.position,
-            0f);
+        eventQueue.QueueTaggerChanged(serverTick, previousTaggerClientId, fallbackClientId, player.position);
         return true;
     }
 
@@ -251,41 +237,18 @@ public sealed class TagGameMode : IServerGameMode
         oldTagger.isTagger = false;
         newTagger.isTagger = true;
         newTagger.stunnedTimer = tagStunDurationSeconds;
-        newTagger.isWallSticking = false;
-        newTagger.wallNormalX = 0;
-        newTagger.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
+        newTagger.isOnWall = false;
+        newTagger.wallDirX = 0;
+        newTagger.wallSurface = StageSurfaceType.Normal;
         ServerPlayerSystem.ClearInput(newTagger);
 
-        eventQueue.Queue(
-            serverTick,
-            GameEventType.TaggerChanged,
-            oldTagger.playerId,
-            newTagger.playerId,
-            GameVfxType.None,
-            transferPosition,
-            0f);
+        eventQueue.QueueTaggerChanged(serverTick, oldTagger.playerId, newTagger.playerId, transferPosition);
         eventQueue.QueueSpawnVfx(
             serverTick,
             GameVfxType.TaggerTransfer,
             oldTagger.playerId,
             newTagger.playerId,
             transferPosition,
-            0f);
-    }
-
-    // - Role: Queue game ended.
-    private static void QueueGameEnded(
-        ServerGameEventQueue eventQueue,
-        uint serverTick,
-        Vector2 eventPosition)
-    {
-        eventQueue.Queue(
-            serverTick,
-            GameEventType.GameEnded,
-            0,
-            0,
-            GameVfxType.None,
-            eventPosition,
             0f);
     }
 
@@ -443,7 +406,7 @@ public sealed class TagGameMode : IServerGameMode
             }
 
             owner.TransitionTo(GamePhase.Ended);
-            QueueGameEnded(eventQueue, serverTick, eventPosition);
+            eventQueue.QueueGameEnded(serverTick, eventPosition);
             return true;
         }
 

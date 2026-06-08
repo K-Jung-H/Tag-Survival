@@ -12,7 +12,8 @@ public enum StatItemEffect : byte
 {
     None = 0,
     Speed = 1,
-    Jump = 2
+    Jump = 2,
+    FallSpeed = 3,
 }
 
 public enum SkillItemEffect : byte

@@ -1,47 +1,56 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [Serializable]
 public struct StagePhysicsModifier
 {
-    public StageSurfacePhysicType surfacePhysicType;
-    public float moveSpeedMultiplier;
-    public float groundAccelerationMultiplier;
-    public float groundDecelerationMultiplier;
-    public float overSpeedDecelerationMultiplier;
-    public float jumpVelocityMultiplier;
+    public StageSurfaceType surfacePhysicType;
+    [FormerlySerializedAs("moveSpeedMultiplier")]
+    public float moveSpeedRate;
+    [FormerlySerializedAs("groundAccelerationMultiplier")]
+    public float moveAccelRate;
+    [FormerlySerializedAs("groundDecelerationMultiplier")]
+    public float moveDecelRate;
+    [FormerlySerializedAs("overSpeedDecelerationMultiplier")]
+    public float overSpeedDecelRate;
+    [FormerlySerializedAs("jumpVelocityMultiplier")]
+    public float jumpStartSpeedRate;
     public float gravityScale;
-    public float maxFallSpeedMultiplier;
-    public float wallUpMoveMultiplier;
-    public float wallDownMoveMultiplier;
+    [FormerlySerializedAs("maxFallSpeedMultiplier")]
+    public float maxFallSpeedRate;
+    [FormerlySerializedAs("wallUpMoveMultiplier")]
+    public float wallUpMoveRate;
+    [FormerlySerializedAs("wallDownMoveMultiplier")]
+    public float wallDownMoveRate;
     public float wallIdleSlideAcceleration;
     public float wallMaxSlideSpeed;
 
-    public float MoveSpeedMultiplier => Mathf.Max(0f, moveSpeedMultiplier);
-    public float GroundAccelerationMultiplier => Mathf.Max(0f, groundAccelerationMultiplier);
-    public float GroundDecelerationMultiplier => Mathf.Max(0f, groundDecelerationMultiplier);
-    public float OverSpeedDecelerationMultiplier => Mathf.Max(0f, overSpeedDecelerationMultiplier);
-    public float JumpVelocityMultiplier => Mathf.Max(0f, jumpVelocityMultiplier);
+    public float MoveSpeedRate => Mathf.Max(0f, moveSpeedRate);
+    public float MoveAccelRate => Mathf.Max(0f, moveAccelRate);
+    public float MoveDecelRate => Mathf.Max(0f, moveDecelRate);
+    public float OverSpeedDecelRate => Mathf.Max(0f, overSpeedDecelRate);
+    public float JumpStartSpeedRate => Mathf.Max(0f, jumpStartSpeedRate);
     public float GravityScale => Mathf.Max(0f, gravityScale);
-    public float MaxFallSpeedMultiplier => Mathf.Max(0.0001f, maxFallSpeedMultiplier);
-    public float WallUpMoveMultiplier => Mathf.Max(0f, wallUpMoveMultiplier);
-    public float WallDownMoveMultiplier => Mathf.Max(0f, wallDownMoveMultiplier);
+    public float MaxFallSpeedRate => Mathf.Max(0.0001f, maxFallSpeedRate);
+    public float WallUpMoveRate => Mathf.Max(0f, wallUpMoveRate);
+    public float WallDownMoveRate => Mathf.Max(0f, wallDownMoveRate);
     public float WallIdleSlideAcceleration => Mathf.Max(0f, wallIdleSlideAcceleration);
     public float WallMaxSlideSpeed => Mathf.Max(0f, wallMaxSlideSpeed);
 
     public static StagePhysicsModifier Normal => new StagePhysicsModifier
     {
-        surfacePhysicType = StageSurfacePhysicType.Normal,
-        moveSpeedMultiplier = 1f,
-        groundAccelerationMultiplier = 1f,
-        groundDecelerationMultiplier = 1f,
-        overSpeedDecelerationMultiplier = 1f,
-        jumpVelocityMultiplier = 1f,
+        surfacePhysicType = StageSurfaceType.Normal,
+        moveSpeedRate = 1f,
+        moveAccelRate = 1f,
+        moveDecelRate = 1f,
+        overSpeedDecelRate = 1f,
+        jumpStartSpeedRate = 1f,
         gravityScale = 1f,
-        maxFallSpeedMultiplier = 1f,
-        wallUpMoveMultiplier = 1f,
-        wallDownMoveMultiplier = 1f,
+        maxFallSpeedRate = 1f,
+        wallUpMoveRate = 1f,
+        wallDownMoveRate = 1f,
         wallIdleSlideAcceleration = 0f,
         wallMaxSlideSpeed = 0f,
     };
@@ -60,11 +69,11 @@ public sealed class StageDefinition : ScriptableObject
     public StageBakeData StageBakeData => stageBakeData;
     public Grid StageGridPrefab => stageGridPrefab;
     public StagePhysicsModifier[] PhysicsModifiers => physicsModifiers ?? Array.Empty<StagePhysicsModifier>();
-    public float GravityScale => ResolvePhysicsModifier(StageSurfacePhysicType.Normal).GravityScale;
-    public float MaxFallSpeedMultiplier => ResolvePhysicsModifier(StageSurfacePhysicType.Normal).MaxFallSpeedMultiplier;
+    public float GravityScale => ResolvePhysicsModifier(StageSurfaceType.Normal).GravityScale;
+    public float MaxFallSpeedRate => ResolvePhysicsModifier(StageSurfaceType.Normal).MaxFallSpeedRate;
 
     // - Role: Try to get physics modifier.
-    public bool TryGetPhysicsModifier(StageSurfacePhysicType surfacePhysicType, out StagePhysicsModifier modifier)
+    public bool TryGetPhysicsModifier(StageSurfaceType surfacePhysicType, out StagePhysicsModifier modifier)
     {
         StagePhysicsModifier[] modifiers = PhysicsModifiers;
         for (int i = 0; i < modifiers.Length; i++)
@@ -83,21 +92,21 @@ public sealed class StageDefinition : ScriptableObject
     }
 
     // - Role: Find physics modifier.
-    public StagePhysicsModifier ResolvePhysicsModifier(StageSurfacePhysicType surfacePhysicType)
+    public StagePhysicsModifier ResolvePhysicsModifier(StageSurfaceType surfacePhysicType)
     {
         if (TryGetPhysicsModifier(surfacePhysicType, out StagePhysicsModifier modifier))
         {
             return modifier;
         }
 
-        if (surfacePhysicType != StageSurfacePhysicType.Normal
-            && TryGetPhysicsModifier(StageSurfacePhysicType.Normal, out StagePhysicsModifier normalModifier))
+        if (surfacePhysicType != StageSurfaceType.Normal
+            && TryGetPhysicsModifier(StageSurfaceType.Normal, out StagePhysicsModifier normalModifier))
         {
             return normalModifier;
         }
 
-        if (surfacePhysicType != StageSurfacePhysicType.Default
-            && TryGetPhysicsModifier(StageSurfacePhysicType.Default, out StagePhysicsModifier defaultModifier))
+        if (surfacePhysicType != StageSurfaceType.Default
+            && TryGetPhysicsModifier(StageSurfaceType.Default, out StagePhysicsModifier defaultModifier))
         {
             return defaultModifier;
         }
@@ -108,14 +117,14 @@ public sealed class StageDefinition : ScriptableObject
     // - Role: Check editor values after they change.
     private void OnValidate()
     {
-        HashSet<StageSurfacePhysicType> modifierTypes = CollectModifierTypes();
+        HashSet<StageSurfaceType> modifierTypes = CollectModifierTypes();
         if (stageBakeData == null || stageBakeData.Cells == null || stageBakeData.Cells.Length == 0)
         {
             return;
         }
 
-        HashSet<StageSurfacePhysicType> bakedSurfaceTypes = CollectBakedSurfaceTypes();
-        foreach (StageSurfacePhysicType bakedSurfaceType in bakedSurfaceTypes)
+        HashSet<StageSurfaceType> bakedSurfaceTypes = CollectBakedSurfaceTypes();
+        foreach (StageSurfaceType bakedSurfaceType in bakedSurfaceTypes)
         {
             if (!modifierTypes.Contains(bakedSurfaceType))
             {
@@ -125,7 +134,7 @@ public sealed class StageDefinition : ScriptableObject
             }
         }
 
-        foreach (StageSurfacePhysicType modifierType in modifierTypes)
+        foreach (StageSurfaceType modifierType in modifierTypes)
         {
             if (!bakedSurfaceTypes.Contains(modifierType))
             {
@@ -137,17 +146,18 @@ public sealed class StageDefinition : ScriptableObject
     }
 
     // - Role: Collect modifier types.
-    private HashSet<StageSurfacePhysicType> CollectModifierTypes()
+    private HashSet<StageSurfaceType> CollectModifierTypes()
     {
-        HashSet<StageSurfacePhysicType> modifierTypes = new HashSet<StageSurfacePhysicType>();
+        HashSet<StageSurfaceType> modifierTypes = new HashSet<StageSurfaceType>();
         StagePhysicsModifier[] modifiers = PhysicsModifiers;
         for (int i = 0; i < modifiers.Length; i++)
         {
-            StageSurfacePhysicType type = modifiers[i].surfacePhysicType;
+            StageSurfaceType type = modifiers[i].surfacePhysicType;
             if (!modifierTypes.Add(type))
             {
                 Debug.LogWarning(
-                    $"[StageDefinition] Duplicate StagePhysicsModifier for surface type '{type}' found at index {i}. The first definition will be used.",
+                    $"[StageDefinition] Duplicate StagePhysicsModifier for surface type '{type}' found at index {i}. " +
+                    "The first definition will be used.",
                     this);
             }
         }
@@ -156,9 +166,9 @@ public sealed class StageDefinition : ScriptableObject
     }
 
     // - Role: Collect baked surface types.
-    private HashSet<StageSurfacePhysicType> CollectBakedSurfaceTypes()
+    private HashSet<StageSurfaceType> CollectBakedSurfaceTypes()
     {
-        HashSet<StageSurfacePhysicType> bakedSurfaceTypes = new HashSet<StageSurfacePhysicType>();
+        HashSet<StageSurfaceType> bakedSurfaceTypes = new HashSet<StageSurfaceType>();
         StageTileCellData[] cells = stageBakeData.Cells;
         for (int i = 0; i < cells.Length; i++)
         {

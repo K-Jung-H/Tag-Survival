@@ -1,5 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class Client_WorldVfxSpawner : MonoBehaviour
 {
@@ -7,7 +8,8 @@ public class Client_WorldVfxSpawner : MonoBehaviour
 
     [SerializeField] private Client_GameEventReceiver gameEventReceiver;
     [SerializeField] private Transform vfxRoot;
-    [SerializeField] private WorldVfxDefinitionDataSO vfxDefinitionData;
+    [FormerlySerializedAs("vfxDefinitionData")]
+    [SerializeField] private WorldVfxCatalog vfxCatalog;
 
     private readonly Dictionary<GameVfxType, WorldVfxDefinition> definitionsByType = new();
     private readonly HashSet<GameVfxType> warnedMissingDefinitions = new();
@@ -90,12 +92,12 @@ public class Client_WorldVfxSpawner : MonoBehaviour
         definitionsByType.Clear();
         warnedDuplicateDefinitions.Clear();
 
-        if (vfxDefinitionData == null)
+        if (vfxCatalog == null)
         {
             return;
         }
 
-        WorldVfxDefinition[] definitions = vfxDefinitionData.Definitions;
+        WorldVfxDefinition[] definitions = vfxCatalog.Definitions;
         for (int i = 0; i < definitions.Length; i++)
         {
             WorldVfxDefinition definition = definitions[i];
@@ -149,9 +151,9 @@ public class Client_WorldVfxSpawner : MonoBehaviour
             return;
         }
 
-        if (vfxDefinitionData == null)
+        if (vfxCatalog == null)
         {
-            Debug.LogWarning($"[Client_WorldVfxSpawner] VFX definition data is not assigned. Cannot spawn {vfxType}.", this);
+            Debug.LogWarning($"[Client_WorldVfxSpawner] VFX catalog is not assigned. Cannot spawn {vfxType}.", this);
             return;
         }
 

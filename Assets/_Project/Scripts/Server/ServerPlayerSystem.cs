@@ -1,6 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
-using PlayerRenderState = PlayerRuntimeState;
+using CharacterRenderState = CharacterRuntimeState;
 
 public sealed class ServerPlayerSystem
 {
@@ -11,8 +11,19 @@ public sealed class ServerPlayerSystem
     private readonly Dictionary<ulong, PlayerObject> playersById = new();
     private readonly List<PlayerObject> players = new();
     private readonly List<ulong> simulationTargets = new();
+    private ServerSkillSystem skillSystem;
+    private StageCollisionSystem collisionSystem;
+    private StageDefinition stageDefinition;
 
     public IReadOnlyList<PlayerObject> Players => players;
+
+    // - Role: Bind needed links.
+    public void Bind(ServerSkillSystem skillSystem, StageCollisionSystem collisionSystem, StageDefinition stageDefinition)
+    {
+        this.skillSystem = skillSystem;
+        this.collisionSystem = collisionSystem;
+        this.stageDefinition = stageDefinition;
+    }
 
     // - Role: Register a player object.
     public PlayerObject Register(PlayerObject player)
@@ -126,11 +137,7 @@ public sealed class ServerPlayerSystem
     }
 
     // - Role: Simulate all players.
-    public void SimulatePlayers(
-        ServerSkillSystem skillSystem,
-        StageCollisionSystem collisionSystem,
-        StageDefinition stageDefinition,
-        float deltaTime)
+    public void Simulate(float deltaTime)
     {
         if (skillSystem == null || collisionSystem == null)
         {
@@ -153,37 +160,29 @@ public sealed class ServerPlayerSystem
 
             UpdateStunTimer(player, deltaTime);
             UpdateItemEffects(player, deltaTime);
-            UpdateCoyoteTime(player, deltaTime);
+            UpdateLateJumpTimer(player, deltaTime);
 
-            float horizontalInput = PlayerMovementController.GetPlatformerHorizontalInput(player.input);
-            float verticalInput = PlayerMovementController.GetPlatformerVerticalInput(player.input);
-            PlayerMovementController.ApplyPlatformerVelocity(
-                player,
-                stageDefinition,
-                horizontalInput,
-                verticalInput,
-                deltaTime);
+            PlayerMovementController.ApplyVelocity(player, stageDefinition, deltaTime);
             skillSystem.Tick(player, deltaTime);
             skillSystem.Constrain(player, deltaTime);
 
             Vector2 collisionCenter = player.position + player.collisionOffset;
-            StageCollisionMoveResult moveResult = collisionSystem.MovePlayerWithStageCollisionDetailed(
+            StageCollisionMoveResult moveResult = collisionSystem.MoveDetailed(
                 collisionCenter,
                 player.velocity * deltaTime,
-                player.collisionHalfExtent
-            );
+                player.collisionHalfExtent);
 
             player.position = moveResult.position - player.collisionOffset;
             player.isGrounded = moveResult.isGrounded;
             if (moveResult.isGrounded)
             {
-                player.groundSurfacePhysicType = moveResult.groundSurfacePhysicType;
+                player.groundSurface = moveResult.groundSurface;
             }
 
             if (moveResult.isGrounded && player.velocity.y < 0f)
             {
                 player.velocity.y = 0f;
-                player.coyoteTimeRemaining = player.effectiveMovementStats.coyoteTime;
+                player.lateJumpTimer = player.moveStats.lateJumpTime;
             }
 
             if (moveResult.hitCeiling && player.velocity.y > 0f)
@@ -191,13 +190,7 @@ public sealed class ServerPlayerSystem
                 player.velocity.y = 0f;
             }
 
-            PlayerMovementController.UpdateWallStickAfterStageMove(
-                player,
-                stageDefinition,
-                moveResult,
-                horizontalInput,
-                verticalInput,
-                deltaTime);
+            PlayerMovementController.UpdateWallStick(player, stageDefinition, moveResult, deltaTime);
             UpdateRenderState(player);
             UpdateCharacterStateMachine(player);
         }
@@ -226,27 +219,27 @@ public sealed class ServerPlayerSystem
         }
 
         bool isMovingHorizontally = Mathf.Abs(player.velocity.x) > MovementStateThresholdSqr;
-        PlayerLocomotionState locomotionState;
+        LocomotionState locomotionState;
         if (player.stunnedTimer > 0f)
         {
-            locomotionState = PlayerLocomotionState.Stunned;
+            locomotionState = LocomotionState.Stunned;
         }
-        else if (player.isWallSticking)
+        else if (player.isOnWall)
         {
-            locomotionState = PlayerLocomotionState.WallStick;
+            locomotionState = LocomotionState.WallStick;
         }
         else if (!player.isGrounded)
         {
             locomotionState = player.velocity.y > 0f
-                ? PlayerLocomotionState.Jump
-                : PlayerLocomotionState.Fall;
+                ? LocomotionState.Jump
+                : LocomotionState.Fall;
         }
         else
         {
-            locomotionState = isMovingHorizontally ? PlayerLocomotionState.Run : PlayerLocomotionState.Idle;
+            locomotionState = isMovingHorizontally ? LocomotionState.Run : LocomotionState.Idle;
         }
 
-        PlayerRenderState renderState = player.characterStateMachine.State;
+        CharacterRenderState renderState = player.characterStateMachine.State;
         player.locomotionState = locomotionState;
         player.facingSign = ResolveFacingSign(player, renderState.facingSign);
         renderState.locomotionState = player.locomotionState;
@@ -282,9 +275,9 @@ public sealed class ServerPlayerSystem
     private static sbyte ResolveFacingSign(PlayerObject player, sbyte currentFacingSign)
     {
         sbyte fallbackFacingSign = currentFacingSign == 0 ? (sbyte)1 : currentFacingSign;
-        float horizontalInput = PlayerMovementController.GetPlatformerHorizontalInput(player.input);
+        float horizontalInput = PlayerMovementController.GetHorizontalInput(player.input);
 
-        if (player.isWallSticking)
+        if (player.isOnWall)
         {
             if (horizontalInput > FacingDirectionThreshold) return 1;
             if (horizontalInput < -FacingDirectionThreshold) return -1;
@@ -318,22 +311,22 @@ public sealed class ServerPlayerSystem
         ClearInput(player);
     }
 
-    // - Role: Update coyote time.
-    private static void UpdateCoyoteTime(PlayerObject player, float deltaTime)
+    // - Role: Update late jump timer.
+    private static void UpdateLateJumpTimer(PlayerObject player, float deltaTime)
     {
         if (player.isGrounded)
         {
-            player.coyoteTimeRemaining = player.effectiveMovementStats.coyoteTime;
+            player.lateJumpTimer = player.moveStats.lateJumpTime;
             return;
         }
 
-        if (player.isWallSticking)
+        if (player.isOnWall)
         {
-            player.coyoteTimeRemaining = 0f;
+            player.lateJumpTimer = 0f;
             return;
         }
 
-        player.coyoteTimeRemaining = Mathf.Max(0f, player.coyoteTimeRemaining - deltaTime);
+        player.lateJumpTimer = Mathf.Max(0f, player.lateJumpTimer - deltaTime);
     }
 
     // - Role: Update item effects.
@@ -345,7 +338,6 @@ public sealed class ServerPlayerSystem
         }
 
         player.itemEffects.Tick(deltaTime);
-        player.effectiveMovementStats = player.itemEffects.ApplyMovementStats(player.movementStats);
-        player.speed = player.effectiveMovementStats.moveSpeed;
+        player.moveStats = player.itemEffects.ApplyMovementStats(player.baseMoveStats);
     }
 }

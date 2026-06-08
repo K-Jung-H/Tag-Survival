@@ -1,4 +1,4 @@
-using Unity.Collections;
+﻿using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -194,7 +194,9 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientJoinProfile, OnClientJoinProfileReceived);
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientInput, OnClientInputReceived);
-        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientItemSelectionChoice, OnClientItemSelectionChoiceReceived);
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+            GameNetMessages.ClientItemSelectionChoice,
+            OnClientItemSelectionChoiceReceived);
 
         areClientMessageHandlersRegistered = true;
     }
@@ -272,7 +274,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (!CanUseServerState())
             return;
 
-        if (!ClientItemSelectionChoicePacket.TryRead(ref reader, out ClientItemSelectionChoicePacket packet))
+        if (!ItemSelectionChoicePacket.TryRead(ref reader, out ItemSelectionChoicePacket packet))
             return;
 
         gamePlay.ChooseItemCandidate(senderClientId, packet.requestId, packet.selectedId);

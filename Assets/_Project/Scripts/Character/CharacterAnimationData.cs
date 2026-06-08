@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Serialization;
 
 [CreateAssetMenu(menuName = "Tag Survival/Character/Character Animation Data")]
@@ -21,19 +21,19 @@ public sealed class CharacterAnimationData : ScriptableObject
     public AnimationClip StunClip => stunClip;
 
     // - Role: Get clip.
-    public AnimationClip GetClip(PlayerLocomotionState state)
+    public AnimationClip GetClip(LocomotionState state)
     {
         switch (state)
         {
-            case PlayerLocomotionState.Run:
+            case LocomotionState.Run:
                 return runClip;
-            case PlayerLocomotionState.Jump:
+            case LocomotionState.Jump:
                 return jumpClip;
-            case PlayerLocomotionState.Fall:
+            case LocomotionState.Fall:
                 return fallClip;
-            case PlayerLocomotionState.WallStick:
+            case LocomotionState.WallStick:
                 return wallStickClip;
-            case PlayerLocomotionState.Stunned:
+            case LocomotionState.Stunned:
                 return stunClip;
             default:
                 return idleClip;

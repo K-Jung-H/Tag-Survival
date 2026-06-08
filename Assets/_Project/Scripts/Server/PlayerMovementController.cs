@@ -1,95 +1,88 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public static class PlayerMovementController
 {
     private const float FacingDirectionThreshold = 0.0001f;
     private const float JumpInputThreshold = 0.5f;
 
-    // - Role: Apply platformer velocity.
-    public static void ApplyPlatformerVelocity(
-        PlayerObject player,
-        StageDefinition stageDefinition,
-        float horizontalInput,
-        float verticalInput,
-        float deltaTime)
+    // - Role: Apply velocity.
+    public static void ApplyVelocity(PlayerObject player, StageDefinition stageDefinition, float deltaTime)
     {
-        if (player.isWallSticking && player.wallNormalX != 0)
+        float horizontalInput = GetHorizontalInput(player.input);
+        float verticalInput = GetVerticalInput(player.input);
+        if (player.isOnWall && player.wallDirX != 0)
         {
             if (verticalInput > JumpInputThreshold
-                && !IsMovingIntoWall(horizontalInput, player.wallNormalX))
+                && !IsMovingIntoWall(horizontalInput, player.wallDirX))
             {
-                float wallExitSpeedMultiplier = IsMovingAwayFromWall(horizontalInput, player.wallNormalX)
+                float wallExitRate = IsMovingAwayFromWall(horizontalInput, player.wallDirX)
                     ? 1f
-                    : player.effectiveMovementStats.wallMoveSpeedMultiplier;
+                    : player.moveStats.wallMoveRate;
 
-                player.velocity.x = player.wallNormalX * player.speed * wallExitSpeedMultiplier;
-                player.velocity.y = player.effectiveMovementStats.jumpVelocity
-                    * PlayerPhysicsModifierResolver.ResolveJump(player, stageDefinition).JumpVelocityMultiplier;
+                player.velocity.x = player.wallDirX * player.moveStats.moveSpeed * wallExitRate;
+                player.velocity.y = player.moveStats.jumpStartSpeed
+                    * PlayerPhysicsModifierResolver.ResolveJump(player, stageDefinition).JumpStartSpeedRate;
                 player.isGrounded = false;
-                player.isWallSticking = false;
-                player.wallNormalX = 0;
-                player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
+                player.isOnWall = false;
+                player.wallDirX = 0;
+                player.wallSurface = StageSurfaceType.Normal;
                 player.jumpQueued = false;
-                player.coyoteTimeRemaining = 0f;
+                player.lateJumpTimer = 0f;
                 return;
             }
 
-            if (IsMovingIntoWall(horizontalInput, player.wallNormalX))
+            if (IsMovingIntoWall(horizontalInput, player.wallDirX))
             {
-                player.velocity.x = horizontalInput * player.speed;
+                player.velocity.x = horizontalInput * player.moveStats.moveSpeed;
                 player.velocity.y = GetWallStickVerticalSpeed(player, stageDefinition, verticalInput, deltaTime);
                 player.isGrounded = false;
                 player.jumpQueued = false;
                 return;
             }
 
-            player.isWallSticking = false;
-            player.wallNormalX = 0;
-            player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
+            player.isOnWall = false;
+            player.wallDirX = 0;
+            player.wallSurface = StageSurfaceType.Normal;
         }
 
-        ApplyPlatformerHorizontalVelocity(player, stageDefinition, horizontalInput, deltaTime);
+        ApplyHorizontalVelocity(player, stageDefinition, horizontalInput, deltaTime);
         ApplyJumpAndGravity(player, stageDefinition, deltaTime);
     }
 
-    // - Role: Update wall stick after stage move.
-    public static void UpdateWallStickAfterStageMove(
-        PlayerObject player,
-        StageDefinition stageDefinition,
-        StageCollisionMoveResult moveResult,
-        float horizontalInput,
-        float verticalInput,
-        float deltaTime)
+    // - Role: Update wall stick.
+    public static void UpdateWallStick(PlayerObject player, StageDefinition stageDefinition, StageCollisionMoveResult moveResult, float deltaTime)
     {
+        float horizontalInput = GetHorizontalInput(player.input);
+        float verticalInput = GetVerticalInput(player.input);
         bool canWallStick = !moveResult.isGrounded
             && !moveResult.hitCeiling
             && moveResult.hitWall
-            && moveResult.wallNormalX != 0
-            && IsMovingIntoWall(horizontalInput, moveResult.wallNormalX);
+            && moveResult.wallDirX != 0
+            && IsMovingIntoWall(horizontalInput, moveResult.wallDirX);
 
         if (!canWallStick)
         {
             if (moveResult.isGrounded || moveResult.hitCeiling || !moveResult.hitWall)
             {
-                player.isWallSticking = false;
-                player.wallNormalX = 0;
-                player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
+                player.isOnWall = false;
+                player.wallDirX = 0;
+                player.wallSurface = StageSurfaceType.Normal;
             }
 
             return;
         }
 
-        player.isWallSticking = true;
-        player.wallNormalX = moveResult.wallNormalX;
-        player.wallSurfacePhysicType = moveResult.wallSurfacePhysicType;
+        player.isOnWall = true;
+        player.wallDirX = moveResult.wallDirX;
+        player.wallSurface = moveResult.wallSurface;
         player.isGrounded = false;
-        player.coyoteTimeRemaining = 0f;
+        player.lateJumpTimer = 0f;
         player.velocity.x = 0f;
         player.velocity.y = GetWallStickVerticalSpeed(player, stageDefinition, verticalInput, deltaTime);
     }
 
-    // - Role: Get platformer horizontal input.
-    public static float GetPlatformerHorizontalInput(Vector2 input)
+    // - Role: Get horizontal input.
+    public static float GetHorizontalInput(Vector2 input)
     {
         float horizontal = Mathf.Clamp(input.x, -1f, 1f);
         if (Mathf.Abs(horizontal) > 0.5f)
@@ -100,8 +93,8 @@ public static class PlayerMovementController
         return horizontal;
     }
 
-    // - Role: Get platformer vertical input.
-    public static float GetPlatformerVerticalInput(Vector2 input)
+    // - Role: Get vertical input.
+    public static float GetVerticalInput(Vector2 input)
     {
         float vertical = Mathf.Clamp(input.y, -1f, 1f);
         if (Mathf.Abs(vertical) > 0.5f)
@@ -119,47 +112,47 @@ public static class PlayerMovementController
         float deltaTime)
     {
         bool wantsGroundJump = player.isGrounded && player.isJumpPressed;
-        bool wantsCoyoteJump = !player.isGrounded
-            && player.coyoteTimeRemaining > 0f
+        bool wantsLateJump = !player.isGrounded
+            && player.lateJumpTimer > 0f
             && player.jumpQueued;
 
-        if (wantsGroundJump || wantsCoyoteJump)
+        if (wantsGroundJump || wantsLateJump)
         {
             StagePhysicsModifier jumpModifier = PlayerPhysicsModifierResolver.ResolveJump(player, stageDefinition);
-            player.velocity.y = player.effectiveMovementStats.jumpVelocity * jumpModifier.JumpVelocityMultiplier;
+            player.velocity.y = player.moveStats.jumpStartSpeed * jumpModifier.JumpStartSpeedRate;
             player.isGrounded = false;
-            player.isWallSticking = false;
-            player.wallNormalX = 0;
-            player.wallSurfacePhysicType = StageSurfacePhysicType.Normal;
-            player.coyoteTimeRemaining = 0f;
+            player.isOnWall = false;
+            player.wallDirX = 0;
+            player.wallSurface = StageSurfaceType.Normal;
+            player.lateJumpTimer = 0f;
         }
 
         player.jumpQueued = false;
 
         float gravity = player.velocity.y > 0f
-            ? player.effectiveMovementStats.upGravity
-            : player.effectiveMovementStats.downGravity;
+            ? player.moveStats.jumpGravity
+            : player.moveStats.fallGravity;
 
         StagePhysicsModifier airModifier = PlayerPhysicsModifierResolver.ResolveAir(stageDefinition);
         gravity *= airModifier.GravityScale;
         player.velocity.y += gravity * deltaTime;
 
-        float maxFallSpeed = player.effectiveMovementStats.maxFallSpeed * airModifier.MaxFallSpeedMultiplier;
+        float maxFallSpeed = player.moveStats.maxFallSpeed * airModifier.MaxFallSpeedRate;
         player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
     }
 
-    // - Role: Apply platformer horizontal velocity.
-    private static void ApplyPlatformerHorizontalVelocity(
+    // - Role: Apply horizontal velocity.
+    private static void ApplyHorizontalVelocity(
         PlayerObject player,
         StageDefinition stageDefinition,
         float horizontalInput,
         float deltaTime)
     {
         StagePhysicsModifier groundModifier = PlayerPhysicsModifierResolver.ResolveGround(player, stageDefinition);
-        float targetVelocityX = horizontalInput * player.speed;
+        float targetVelocityX = horizontalInput * player.moveStats.moveSpeed;
         if (player.isGrounded)
         {
-            targetVelocityX *= groundModifier.MoveSpeedMultiplier;
+            targetVelocityX *= groundModifier.MoveSpeedRate;
         }
 
         float currentVelocityX = player.velocity.x;
@@ -168,11 +161,11 @@ public static class PlayerMovementController
         if (inputMagnitude <= FacingDirectionThreshold)
         {
             float deceleration = player.isGrounded
-                ? player.effectiveMovementStats.groundDeceleration
-                : player.effectiveMovementStats.airDeceleration;
+                ? player.moveStats.moveDecel
+                : player.moveStats.airDecel;
             if (player.isGrounded)
             {
-                deceleration *= groundModifier.GroundDecelerationMultiplier;
+                deceleration *= groundModifier.MoveDecelRate;
             }
 
             player.velocity.x = Mathf.MoveTowards(currentVelocityX, 0f, deceleration * deltaTime);
@@ -180,25 +173,25 @@ public static class PlayerMovementController
         }
 
         float acceleration = player.isGrounded
-            ? player.effectiveMovementStats.groundAcceleration
-            : player.effectiveMovementStats.airAcceleration;
+            ? player.moveStats.moveAccel
+            : player.moveStats.airAccel;
         if (player.isGrounded)
         {
-            acceleration *= groundModifier.GroundAccelerationMultiplier;
+            acceleration *= groundModifier.MoveAccelRate;
         }
 
         bool sameDirection = Mathf.Sign(currentVelocityX) == Mathf.Sign(targetVelocityX);
         bool isOverTargetSpeed = sameDirection
             && Mathf.Abs(currentVelocityX) > Mathf.Abs(targetVelocityX);
 
-        float overSpeedDeceleration = player.effectiveMovementStats.overSpeedDeceleration;
+        float overSpeedDecel = player.moveStats.overSpeedDecel;
         if (player.isGrounded)
         {
-            overSpeedDeceleration *= groundModifier.OverSpeedDecelerationMultiplier;
+            overSpeedDecel *= groundModifier.OverSpeedDecelRate;
         }
 
         float maxDelta = isOverTargetSpeed
-            ? overSpeedDeceleration * deltaTime
+            ? overSpeedDecel * deltaTime
             : acceleration * deltaTime;
 
         player.velocity.x = Mathf.MoveTowards(currentVelocityX, targetVelocityX, maxDelta);
@@ -212,15 +205,15 @@ public static class PlayerMovementController
         float deltaTime)
     {
         StagePhysicsModifier wallModifier = PlayerPhysicsModifierResolver.ResolveWall(player, stageDefinition);
-        float wallMoveSpeed = player.speed * player.effectiveMovementStats.wallMoveSpeedMultiplier;
+        float wallMoveSpeed = player.moveStats.moveSpeed * player.moveStats.wallMoveRate;
         if (verticalInput > JumpInputThreshold)
         {
-            return wallMoveSpeed * wallModifier.WallUpMoveMultiplier;
+            return wallMoveSpeed * wallModifier.WallUpMoveRate;
         }
 
         if (verticalInput < -JumpInputThreshold)
         {
-            return -wallMoveSpeed * wallModifier.WallDownMoveMultiplier;
+            return -wallMoveSpeed * wallModifier.WallDownMoveRate;
         }
 
         if (wallModifier.WallIdleSlideAcceleration <= 0f || wallModifier.WallMaxSlideSpeed <= 0f)
@@ -235,18 +228,18 @@ public static class PlayerMovementController
     }
 
     // - Role: Check if moving into wall is true.
-    private static bool IsMovingIntoWall(float horizontalInput, sbyte wallNormalX)
+    private static bool IsMovingIntoWall(float horizontalInput, sbyte wallDirX)
     {
-        return wallNormalX != 0
+        return wallDirX != 0
             && Mathf.Abs(horizontalInput) > FacingDirectionThreshold
-            && Mathf.Sign(horizontalInput) == -wallNormalX;
+            && Mathf.Sign(horizontalInput) == -wallDirX;
     }
 
     // - Role: Check if moving away from wall is true.
-    private static bool IsMovingAwayFromWall(float horizontalInput, sbyte wallNormalX)
+    private static bool IsMovingAwayFromWall(float horizontalInput, sbyte wallDirX)
     {
-        return wallNormalX != 0
+        return wallDirX != 0
             && Mathf.Abs(horizontalInput) > FacingDirectionThreshold
-            && Mathf.Sign(horizontalInput) == wallNormalX;
+            && Mathf.Sign(horizontalInput) == wallDirX;
     }
 }

@@ -1,7 +1,7 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
-using PlayerRenderState = PlayerRuntimeState;
+using CharacterRenderState = CharacterRuntimeState;
 
 public sealed class ServerSnapshotBuilder
 {
@@ -15,7 +15,7 @@ public sealed class ServerSnapshotBuilder
         foreach (var pair in players)
         {
             PlayerObject player = pair.Value;
-            PlayerRenderState renderState = player.characterStateMachine.State;
+            CharacterRenderState renderState = player.characterStateMachine.State;
 
             target.Add(new PlayerSnapshotPacket
             {

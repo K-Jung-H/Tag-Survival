@@ -8,8 +8,32 @@ public sealed class ServerGameEventQueue
 
     public int Count => pendingEvents.Count;
 
+    // - Role: Queue game started.
+    public void QueueGameStarted(uint serverTick, ulong starterClientId, Vector2 position)
+    {
+        Queue(serverTick, GameEventType.GameStarted, starterClientId, starterClientId, GameVfxType.None, position, 0f);
+    }
+
+    // - Role: Queue game ended.
+    public void QueueGameEnded(uint serverTick, Vector2 position)
+    {
+        Queue(serverTick, GameEventType.GameEnded, 0, 0, GameVfxType.None, position, 0f);
+    }
+
+    // - Role: Queue tagger changed.
+    public void QueueTaggerChanged(uint serverTick, ulong oldTaggerId, ulong newTaggerId, Vector2 position)
+    {
+        Queue(serverTick, GameEventType.TaggerChanged, oldTaggerId, newTaggerId, GameVfxType.None, position, 0f);
+    }
+
+    // - Role: Queue item applied.
+    public void QueueItemApplied(uint serverTick, ulong playerId, uint itemId, Vector2 position)
+    {
+        Queue(serverTick, GameEventType.ItemApplied, playerId, itemId, GameVfxType.None, position, 0f);
+    }
+
     // - Role: Queue one game event.
-    public void Queue(
+    private void Queue(
         uint serverTick,
         GameEventType eventType,
         ulong subjectClientId,

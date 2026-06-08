@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class PlayerItemEffects
@@ -52,13 +52,23 @@ public sealed class PlayerItemEffects
     // - Role: Apply movement item effects.
     public CharacterMovementStats ApplyMovementStats(CharacterMovementStats baseStats)
     {
-        CharacterMovementStats stats = baseStats;
-        float speedMultiplier = GetStackedStatMultiplier(StatItemEffect.Speed);
-        float jumpMultiplier = GetStackedStatMultiplier(StatItemEffect.Jump);
-        stats.moveSpeed *= speedMultiplier;
-        stats.jumpVelocity *= jumpMultiplier;
-        stats.jumpHeight *= jumpMultiplier;
-        return stats;
+        float speedBonus = GetStackedStat(StatItemEffect.Speed);
+        float jumpBonus = GetStackedStat(StatItemEffect.Jump);
+        float fallSpeedBonuus = GetStackedStat(StatItemEffect.FallSpeed);
+
+        return CharacterMovementStats.Create(
+            Mathf.Max(0f, baseStats.moveSpeed + speedBonus),
+            Mathf.Max(0f, baseStats.jumpHeight + jumpBonus),
+            baseStats.jumpRiseTime,
+            baseStats.fallTime,
+            Mathf.Max(0f, baseStats.maxFallSpeed + fallSpeedBonuus),
+            baseStats.moveAccel,
+            baseStats.moveDecel,
+            baseStats.airAccel,
+            baseStats.airDecel,
+            baseStats.overSpeedDecel,
+            baseStats.wallMoveRate,
+            baseStats.lateJumpTime);
     }
 
     // - Role: Get skill cooldown multiplier.
@@ -73,20 +83,20 @@ public sealed class PlayerItemEffects
         return GetStackedSkillMultiplier(SkillItemEffect.Range);
     }
 
-    // - Role: Get stacked stat multiplier.
-    private float GetStackedStatMultiplier(StatItemEffect effect)
+    // - Role: Get stacked stat value.
+    private float GetStackedStat(StatItemEffect effect)
     {
-        float multiplier = 1f;
+        float value = 0f;
         for (int i = 0; i < activeItems.Count; i++)
         {
             ItemData data = activeItems[i].data;
             if (data.type == ItemType.Stats && data.statEffect == effect)
             {
-                multiplier *= data.GetMultiplier();
+                value += data.value;
             }
         }
 
-        return multiplier;
+        return value;
     }
 
     // - Role: Get stacked skill multiplier.

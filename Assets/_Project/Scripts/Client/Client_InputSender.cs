@@ -11,7 +11,7 @@ public class Client_InputSender : MonoBehaviour
         public float sendTime;
     }
 
-    [SerializeField] private InputProvider_Client_Base inputProvider;
+    [SerializeField] private InputProvider_Client_Base[] inputProviders;
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
     [SerializeField] private float maxInputAccumulatedTime = 0.15f;
     [SerializeField] private bool sendImmediatelyOnInputChanged = true;
@@ -34,14 +34,9 @@ public class Client_InputSender : MonoBehaviour
     // - Role: Set up needed links before start.
     private void Awake()
     {
-        if (inputProvider == null)
+        if (!HasInputProvider())
         {
-            inputProvider = GetComponent<InputProvider_Client_Base>();
-        }
-
-        if (inputProvider == null)
-        {
-            Debug.LogError("[Client_InputSender] InputProvider is not assigned.");
+            Debug.LogError("[Client_InputSender] InputProviders are not assigned.");
             enabled = false;
             return;
         }
@@ -93,7 +88,7 @@ public class Client_InputSender : MonoBehaviour
             inputAccumulator = maxInputAccumulatedTime;
         }
 
-        ClientInputState inputState = inputProvider.GetInputState();
+        ClientInputState inputState = ClientInputProviderMixer.Mix(inputProviders);
 
         if (ShouldSendImmediately(inputState))
         {
@@ -152,10 +147,28 @@ public class Client_InputSender : MonoBehaviour
         if (!inputWriterCreated)
             return false;
 
-        if (inputProvider == null)
+        if (!HasInputProvider())
             return false;
 
         return true;
+    }
+
+    private bool HasInputProvider()
+    {
+        if (inputProviders == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < inputProviders.Length; i++)
+        {
+            if (inputProviders[i] != null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // - Role: Send input packet.

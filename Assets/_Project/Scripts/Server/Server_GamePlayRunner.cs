@@ -1,9 +1,18 @@
 ﻿using Unity.Collections;
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
+public enum ServerGamePlayRunMode
+{
+    NetworkServer,
+    LocalSimulation
+}
+
+[DefaultExecutionOrder(0)]
 public class Server_GamePlayRunner : MonoBehaviour
 {
+    [SerializeField] private ServerGamePlayRunMode runMode = ServerGamePlayRunMode.NetworkServer;
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
@@ -47,12 +56,35 @@ public class Server_GamePlayRunner : MonoBehaviour
     private float gameStateTimer;
     private float fullGameStateTimer;
     private bool areClientMessageHandlersRegistered;
+    private bool hasLocalDirectClient;
+    private ulong localDirectClientId;
     private uint snapshotSeq;
     private uint gameStateSeq;
     private uint rosterSeq;
     private uint lastSentGameStateVersion;
 
     public Server_GamePlay GamePlay => gamePlay;
+    public ServerGamePlayRunMode RunMode => runMode;
+    public event Action<ItemSelectionOfferPacket> LocalItemSelectionOfferReady;
+    public event Action<ItemSelectionResultPacket> LocalItemSelectionResultReady;
+    public event Action<GameEventEntryPacket> LocalGameEventReady;
+
+    public void ConfigureRunMode(ServerGamePlayRunMode mode)
+    {
+        runMode = mode;
+    }
+
+    public void ConfigureLocalDirectClient(ulong clientId)
+    {
+        localDirectClientId = clientId;
+        hasLocalDirectClient = true;
+    }
+
+    public void ClearLocalDirectClient()
+    {
+        localDirectClientId = 0;
+        hasLocalDirectClient = false;
+    }
 
     // - Role: Set up needed links before start.
     private void Awake()
@@ -86,6 +118,11 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Set up this object when it starts.
     private void Start()
     {
+        if (runMode == ServerGamePlayRunMode.LocalSimulation)
+        {
+            return;
+        }
+
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError("[Server_GamePlayRunner] NetworkManager.Singleton is null.");
@@ -142,6 +179,12 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Update this object each frame.
     private void Update()
     {
+        if (runMode == ServerGamePlayRunMode.LocalSimulation)
+        {
+            RunLocalSimulationTickLoop();
+            return;
+        }
+
         TryRegisterClientMessageHandlers();
 
         if (!CanRunServerLoop())
@@ -317,6 +360,23 @@ public class Server_GamePlayRunner : MonoBehaviour
         }
     }
 
+    // - Role: Process local server ticks without network transport.
+    private void RunLocalSimulationTickLoop()
+    {
+        if (gamePlay == null)
+        {
+            return;
+        }
+
+        tickTimer += Time.deltaTime;
+
+        while (tickTimer >= serverDeltaTime)
+        {
+            tickTimer -= serverDeltaTime;
+            gamePlay.Simulate(serverDeltaTime);
+        }
+    }
+
     // - Role: Send item selection messages.
     private void SendItemSelectionMessages()
     {
@@ -343,6 +403,12 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Send item selection offer.
     private void SendItemSelectionOffer(ServerItemSystem.ItemSelectionOfferMessage message)
     {
+        if (IsLocalDirectClient(message.clientId))
+        {
+            LocalItemSelectionOfferReady?.Invoke(message.packet);
+            return;
+        }
+
         if (!IsClientConnected(message.clientId))
             return;
 
@@ -358,6 +424,12 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Send item selection result.
     private void SendItemSelectionResult(ServerItemSystem.ItemSelectionResultMessage message)
     {
+        if (IsLocalDirectClient(message.clientId))
+        {
+            LocalItemSelectionResultReady?.Invoke(message.packet);
+            return;
+        }
+
         if (!IsClientConnected(message.clientId))
             return;
 
@@ -511,12 +583,6 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (gamePlay.PendingGameEventCount <= 0)
             return;
 
-        if (NetworkManager.Singleton.CustomMessagingManager == null)
-            return;
-
-        if (NetworkManager.Singleton.ConnectedClientsList.Count == 0)
-            return;
-
         if (!gameEventWriterCreated)
             return;
 
@@ -526,28 +592,37 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (eventCount <= 0)
             return;
 
+        bool canSendNetworkEvents = NetworkManager.Singleton.CustomMessagingManager != null
+            && NetworkManager.Singleton.ConnectedClientsList.Count > 0;
+        if (!hasLocalDirectClient && !canSendNetworkEvents)
+            return;
+
         for (int i = 0; i < eventCount; i++)
         {
             gameEventBuffer[i] = gameEvents[i];
+            LocalGameEventReady?.Invoke(gameEvents[i]);
         }
 
-        GameEventBatchPacket packet = new GameEventBatchPacket
+        if (canSendNetworkEvents)
         {
-            protocolVersion = GameNetProtocol.ProtocolVersion,
-            eventCount = (ushort)eventCount,
-            events = gameEventBuffer
-        };
+            GameEventBatchPacket packet = new GameEventBatchPacket
+            {
+                protocolVersion = GameNetProtocol.ProtocolVersion,
+                eventCount = (ushort)eventCount,
+                events = gameEventBuffer
+            };
 
-        packet.Write(ref gameEventWriter);
+            packet.Write(ref gameEventWriter);
 
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-        {
-            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
-                GameNetMessages.ServerGameEvent,
-                client.ClientId,
-                gameEventWriter,
-                NetworkDelivery.ReliableSequenced
-            );
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                    GameNetMessages.ServerGameEvent,
+                    client.ClientId,
+                    gameEventWriter,
+                    NetworkDelivery.ReliableSequenced
+                );
+            }
         }
 
         gamePlay.ClearPendingGameEvents(eventCount);
@@ -682,5 +757,10 @@ public class Server_GamePlayRunner : MonoBehaviour
         }
 
         return false;
+    }
+
+    private bool IsLocalDirectClient(ulong clientId)
+    {
+        return hasLocalDirectClient && clientId == localDirectClientId;
     }
 }

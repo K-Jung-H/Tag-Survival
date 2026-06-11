@@ -6,7 +6,7 @@ public class Client_WorldVfxSpawner : MonoBehaviour
 {
     private const float DefaultVfxLifetimeSeconds = 2f;
 
-    [SerializeField] private Client_GameEventReceiver gameEventReceiver;
+    [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private Transform vfxRoot;
     [FormerlySerializedAs("vfxDefinitionData")]
     [SerializeField] private WorldVfxCatalog vfxCatalog;
@@ -25,20 +25,19 @@ public class Client_WorldVfxSpawner : MonoBehaviour
     private void OnEnable()
     {
         CacheDefinitions();
-        ResolveGameEventReceiver();
 
-        if (gameEventReceiver != null)
+        if (syncManager != null)
         {
-            gameEventReceiver.GameEventReceived += OnGameEventReceived;
+            syncManager.GameEventReceived += OnGameEventReceived;
         }
     }
 
     // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
-        if (gameEventReceiver != null)
+        if (syncManager != null)
         {
-            gameEventReceiver.GameEventReceived -= OnGameEventReceived;
+            syncManager.GameEventReceived -= OnGameEventReceived;
         }
     }
 
@@ -117,32 +116,6 @@ public class Client_WorldVfxSpawner : MonoBehaviour
     }
 
     // - Role: Find game event receiver.
-    private void ResolveGameEventReceiver()
-    {
-        if (gameEventReceiver != null)
-        {
-            return;
-        }
-
-        gameEventReceiver = GetComponent<Client_GameEventReceiver>();
-        if (gameEventReceiver != null)
-        {
-            return;
-        }
-
-        gameEventReceiver = GetComponentInParent<Client_GameEventReceiver>();
-        if (gameEventReceiver != null)
-        {
-            return;
-        }
-
-        gameEventReceiver = FindAnyObjectByType<Client_GameEventReceiver>();
-        if (gameEventReceiver == null)
-        {
-            Debug.LogWarning("[Client_WorldVfxSpawner] GameEventReceiver is not assigned. World VFX events will be ignored.", this);
-        }
-    }
-
     // - Role: Warn about missing definition.
     private void WarnMissingDefinition(GameVfxType vfxType)
     {

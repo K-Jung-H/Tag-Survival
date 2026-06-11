@@ -10,11 +10,12 @@ public struct ClientWorldPlayerViewRef
     public Transform nameplateAnchor;
 }
 
+[DefaultExecutionOrder(200)]
 public class Client_WorldView : MonoBehaviour
 {
     private static readonly Color TaggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
 
-    [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
+    [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private Client_CameraFollow cameraFollow;
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
@@ -41,9 +42,9 @@ public class Client_WorldView : MonoBehaviour
     // - Role: Set up needed links before start.
     private void Awake()
     {
-        if (snapshotReceiver == null)
+        if (syncManager == null)
         {
-            Debug.LogError("[Client_WorldView] SnapshotReceiver is not assigned.");
+            Debug.LogError("[Client_WorldView] SyncManager is not assigned.");
             enabled = false;
             return;
         }
@@ -115,39 +116,19 @@ public class Client_WorldView : MonoBehaviour
     {
         snapshotState = default;
 
-        if (snapshotReceiver == null)
-        {
-            return false;
-        }
-
-        return snapshotReceiver.TryGetSnapshot(clientId, out snapshotState);
+        return syncManager != null && syncManager.TryGetSnapshot(clientId, out snapshotState);
     }
 
     // - Role: Check if render world can happen.
     private bool CanRenderWorld()
     {
-        if (snapshotReceiver == null)
-            return false;
-
-        if (NetworkManager.Singleton == null)
-            return false;
-
-        if (!NetworkManager.Singleton.IsClient)
-            return false;
-
-        if (!NetworkManager.Singleton.IsConnectedClient)
-            return false;
-
-        if (NetworkManager.Singleton.IsServer)
-            return false;
-
-        return true;
+        return syncManager != null && syncManager.IsReadyForView;
     }
 
     // - Role: Sync player views.
     private void SyncPlayerViews()
     {
-        foreach (var pair in snapshotReceiver.Snapshots)
+        foreach (var pair in syncManager.Snapshots)
         {
             ulong clientId = pair.Key;
             ClientSnapshotState snapshotState = pair.Value;
@@ -155,9 +136,10 @@ public class Client_WorldView : MonoBehaviour
             if (!TryGetOrCreatePlayerView(clientId, snapshotState.characterId, out Client_CharacterView view))
                 continue;
 
+            bool isLocalPlayer = IsLocalPlayer(clientId);
             view.ApplySnapshot(
                 snapshotState,
-                IsLocalPlayer(clientId),
+                isLocalPlayer,
                 Time.deltaTime,
                 localFollowSpeed,
                 remoteFollowSpeed,
@@ -169,10 +151,7 @@ public class Client_WorldView : MonoBehaviour
     // - Role: Check if local player is true.
     private bool IsLocalPlayer(ulong clientId)
     {
-        if (NetworkManager.Singleton == null)
-            return false;
-
-        return clientId == NetworkManager.Singleton.LocalClientId;
+        return syncManager != null && clientId == syncManager.LocalClientId;
     }
 
     // - Role: Try to get or create player view.
@@ -254,7 +233,7 @@ public class Client_WorldView : MonoBehaviour
 
         foreach (ulong clientId in playerViews.Keys)
         {
-            if (!snapshotReceiver.Snapshots.ContainsKey(clientId))
+            if (!syncManager.Snapshots.ContainsKey(clientId))
             {
                 removeTargets.Add(clientId);
             }
@@ -275,7 +254,7 @@ public class Client_WorldView : MonoBehaviour
     // - Role: Sync skill views.
     private void SyncSkillViews()
     {
-        foreach (var pair in snapshotReceiver.SkillSnapshots)
+        foreach (var pair in syncManager.SkillSnapshots)
         {
             ulong ownerClientId = pair.Key;
             ClientSkillSnapshotState snapshotState = pair.Value;
@@ -365,7 +344,7 @@ public class Client_WorldView : MonoBehaviour
 
         foreach (ulong ownerClientId in skillViews.Keys)
         {
-            if (!snapshotReceiver.SkillSnapshots.ContainsKey(ownerClientId))
+            if (!syncManager.SkillSnapshots.ContainsKey(ownerClientId))
             {
                 removeTargets.Add(ownerClientId);
             }
@@ -391,7 +370,7 @@ public class Client_WorldView : MonoBehaviour
     // - Role: Sync item views.
     private void SyncItemViews()
     {
-        foreach (var pair in snapshotReceiver.ItemSnapshots)
+        foreach (var pair in syncManager.ItemSnapshots)
         {
             uint itemId = pair.Key;
             ClientItemSnapshotState snapshotState = pair.Value;
@@ -432,7 +411,7 @@ public class Client_WorldView : MonoBehaviour
 
         foreach (uint itemId in itemViews.Keys)
         {
-            if (!snapshotReceiver.ItemSnapshots.ContainsKey(itemId))
+            if (!syncManager.ItemSnapshots.ContainsKey(itemId))
             {
                 removeItemTargets.Add(itemId);
             }
@@ -470,10 +449,7 @@ public class Client_WorldView : MonoBehaviour
     // - Role: Try to assign local camera target.
     private void TryAssignLocalCameraTarget(ulong clientId, Transform root)
     {
-        if (NetworkManager.Singleton == null)
-            return;
-
-        if (clientId != NetworkManager.Singleton.LocalClientId)
+        if (!IsLocalPlayer(clientId))
             return;
 
         if (cameraFollow == null)
@@ -488,10 +464,7 @@ public class Client_WorldView : MonoBehaviour
     // - Role: Clear local camera target if needed.
     private void ClearLocalCameraTargetIfNeeded(ulong clientId, Transform root)
     {
-        if (NetworkManager.Singleton == null)
-            return;
-
-        if (clientId != NetworkManager.Singleton.LocalClientId)
+        if (!IsLocalPlayer(clientId))
             return;
 
         if (cameraFollow == null)

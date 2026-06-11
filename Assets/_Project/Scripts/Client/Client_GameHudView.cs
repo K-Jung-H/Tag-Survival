@@ -5,8 +5,7 @@ using UnityEngine;
 
 public class Client_GameHudView : MonoBehaviour
 {
-    [SerializeField] private Client_GameStateReceiver gameStateReceiver;
-    [SerializeField] private Client_RosterReceiver rosterReceiver;
+    [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI leaderboardTitleText;
     [SerializeField] private List<TextMeshProUGUI> leaderboardRows = new();
@@ -32,7 +31,7 @@ public class Client_GameHudView : MonoBehaviour
     // - Role: Update this object after normal updates.
     private void LateUpdate()
     {
-        if (gameStateReceiver == null || !gameStateReceiver.TryGetGameState(out ClientGameStateSnapshotState state))
+        if (syncManager == null || !syncManager.TryGetGameState(out ClientGameStateSnapshotState state))
         {
             ClearHud();
             return;
@@ -141,7 +140,7 @@ public class Client_GameHudView : MonoBehaviour
     // - Role: Find player name.
     private string ResolvePlayerName(ulong clientId)
     {
-        if (rosterReceiver != null && rosterReceiver.TryGetNickname(clientId, out string nickname))
+        if (syncManager != null && syncManager.TryGetNickname(clientId, out string nickname))
         {
             return nickname;
         }
@@ -187,12 +186,7 @@ public class Client_GameHudView : MonoBehaviour
     // - Role: Find local client ID.
     private ulong ResolveLocalClientId()
     {
-        if (NetworkManager.Singleton == null)
-        {
-            return ulong.MaxValue;
-        }
-
-        return NetworkManager.Singleton.LocalClientId;
+        return syncManager != null ? syncManager.LocalClientId : ulong.MaxValue;
     }
 
     // - Role: Log missing references once.
@@ -203,14 +197,9 @@ public class Client_GameHudView : MonoBehaviour
 
         hasLoggedMissingReferences = true;
 
-        if (gameStateReceiver == null)
+        if (syncManager == null)
         {
-            Debug.LogWarning("[Client_GameHudView] GameStateReceiver is not assigned.", this);
-        }
-
-        if (rosterReceiver == null)
-        {
-            Debug.LogWarning("[Client_GameHudView] RosterReceiver is not assigned.", this);
+            Debug.LogWarning("[Client_GameHudView] SyncManager is not assigned.", this);
         }
 
         if (timerText == null)

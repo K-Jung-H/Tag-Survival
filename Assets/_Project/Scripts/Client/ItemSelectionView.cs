@@ -3,7 +3,7 @@ using UnityEngine;
 
 public sealed class ItemSelectionView : MonoBehaviour
 {
-    [SerializeField] private ItemSelectionReceiver receiver;
+    [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private ItemEffectCatalog itemEffectCatalog;
     [SerializeField] private ItemSelectionPanel selectionPanel;
     [SerializeField] private float resultCloseDelay = 0.65f;
@@ -23,7 +23,6 @@ public sealed class ItemSelectionView : MonoBehaviour
     // - Role: Set up view before start.
     private void Awake()
     {
-        ResolveReceiver();
         ResolvePanel();
         SetPanelVisible(false);
     }
@@ -31,28 +30,25 @@ public sealed class ItemSelectionView : MonoBehaviour
     // - Role: Subscribe to receiver.
     private void OnEnable()
     {
-        ResolveReceiver();
-        if (receiver == null)
+        if (syncManager == null)
         {
-            Debug.LogWarning("[ItemSelectionView] ItemSelectionReceiver is not assigned.", this);
+            Debug.LogWarning("[ItemSelectionView] SyncManager is not assigned.", this);
             return;
         }
 
-        receiver.OfferReceived += OnOfferReceived;
-        receiver.ResultReceived += OnResultReceived;
+        syncManager.ItemSelectionOfferReceived += OnOfferReceived;
+        syncManager.ItemSelectionResultReceived += OnResultReceived;
     }
 
     // - Role: Unsubscribe from receiver.
     private void OnDisable()
     {
         queuedOffers.Clear();
-        if (receiver == null)
+        if (syncManager != null)
         {
-            return;
+            syncManager.ItemSelectionOfferReceived -= OnOfferReceived;
+            syncManager.ItemSelectionResultReceived -= OnResultReceived;
         }
-
-        receiver.OfferReceived -= OnOfferReceived;
-        receiver.ResultReceived -= OnResultReceived;
     }
 
     // - Role: Update timer.
@@ -154,14 +150,17 @@ public sealed class ItemSelectionView : MonoBehaviour
     // - Role: Select item id.
     private void Select(int selectedId)
     {
-        if (!isOpen || isWaitingResult || receiver == null)
+        if (!isOpen || isWaitingResult)
         {
             return;
         }
 
         isWaitingResult = true;
         SetButtonsInteractable(false);
-        receiver.SendChoice(currentRequestId, selectedId);
+        if (syncManager != null)
+        {
+            syncManager.SendItemSelectionChoice(currentRequestId, selectedId);
+        }
     }
 
     // - Role: Set buttons interactable.
@@ -238,15 +237,6 @@ public sealed class ItemSelectionView : MonoBehaviour
         if (selectionPanel != null)
         {
             selectionPanel.SetVisible(active);
-        }
-    }
-
-    // - Role: Resolve receiver.
-    private void ResolveReceiver()
-    {
-        if (receiver == null)
-        {
-            receiver = FindAnyObjectByType<ItemSelectionReceiver>();
         }
     }
 

@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(300)]
 public sealed class Client_CameraFollow : MonoBehaviour
 {
     [SerializeField] private Transform target;

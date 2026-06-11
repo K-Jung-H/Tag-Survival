@@ -13,7 +13,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
     }
 
     [SerializeField] private Client_WorldView worldView;
-    [SerializeField] private Client_RosterReceiver rosterReceiver;
+    [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private Camera worldCamera;
     [SerializeField] private Canvas targetCanvas;
     [SerializeField] private RectTransform labelLayer;
@@ -59,9 +59,9 @@ public sealed class Client_NameplateManager : MonoBehaviour
             SyncExistingPlayerViews();
         }
 
-        if (rosterReceiver != null)
+        if (syncManager != null)
         {
-            rosterReceiver.RosterUpdated += RefreshAllLabelTexts;
+            syncManager.RosterUpdated += RefreshAllLabelTexts;
         }
     }
 
@@ -74,9 +74,9 @@ public sealed class Client_NameplateManager : MonoBehaviour
             worldView.PlayerViewRemoved -= OnPlayerViewRemoved;
         }
 
-        if (rosterReceiver != null)
+        if (syncManager != null)
         {
-            rosterReceiver.RosterUpdated -= RefreshAllLabelTexts;
+            syncManager.RosterUpdated -= RefreshAllLabelTexts;
         }
     }
 
@@ -238,7 +238,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
     // - Role: Find nickname.
     private string ResolveNickname(ulong clientId)
     {
-        if (rosterReceiver != null && rosterReceiver.TryGetNickname(clientId, out string nickname))
+        if (syncManager != null && syncManager.TryGetNickname(clientId, out string nickname))
         {
             return nickname;
         }
@@ -321,9 +321,9 @@ public sealed class Client_NameplateManager : MonoBehaviour
             Debug.LogWarning("[Client_NameplateManager] WorldView is not assigned.", this);
         }
 
-        if (rosterReceiver == null)
+        if (syncManager == null)
         {
-            Debug.LogWarning("[Client_NameplateManager] RosterReceiver is not assigned.", this);
+            Debug.LogWarning("[Client_NameplateManager] SyncManager is not assigned.", this);
         }
 
         if (worldCamera == null)

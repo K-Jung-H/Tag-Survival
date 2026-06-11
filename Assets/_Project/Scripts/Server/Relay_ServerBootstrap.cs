@@ -14,25 +14,25 @@ public class Relay_ServerBootstrap : MonoBehaviour
     private const int MAX_CONNECTIONS = 10;
     private const string RELAY_PROTOCOL = "dtls";
 
-    [SerializeField] private bool autoStartServer = true;
-
     private string currentJoinCode = "";
     private string statusMessage = "Idle";
 
     private bool isProcessing;
     private bool isServerStarted;
+    private bool isInitialized;
+    private bool hasInitializationFailed;
+    private Task initializeTask;
+
+    public string CurrentJoinCode => currentJoinCode;
+    public string StatusMessage => statusMessage;
+    public bool IsProcessing => isProcessing;
+    public bool IsServerStarted => isServerStarted;
+    public bool IsInitialized => isInitialized;
 
     // - Role: Set up this object when it starts.
     private async void Start()
     {
-        // - Role: Set up Unity services.
-        await InitializeUnityServices();
-
-        if (autoStartServer)
-        {
-            // - Role: Start server async.
-            await StartServerAsync();
-        }
+        await InitializeAsync();
     }
 
     // - Role: Draw simple debug GUI.
@@ -51,11 +51,22 @@ public class Relay_ServerBootstrap : MonoBehaviour
         GUILayout.EndArea();
     }
 
-    // - Role: Set up Unity services.
+    public async Task<bool> InitializeAsync()
+    {
+        if (initializeTask == null || hasInitializationFailed)
+        {
+            initializeTask = InitializeUnityServices();
+        }
+
+        await initializeTask;
+        return isInitialized && !hasInitializationFailed;
+    }
+
     private async Task InitializeUnityServices()
     {
         try
         {
+            hasInitializationFailed = false;
             statusMessage = "Initializing Unity Services";
 
             await UnityServices.InitializeAsync();
@@ -66,28 +77,46 @@ public class Relay_ServerBootstrap : MonoBehaviour
             }
 
             statusMessage = "Unity Services Ready";
+            isInitialized = true;
         }
         catch (Exception e)
         {
             statusMessage = "Unity Services Failed";
+            isInitialized = false;
+            hasInitializationFailed = true;
             Debug.LogError($"[Relay_ServerBootstrap] UGS initialization failed: {e.Message}");
         }
     }
 
     // - Role: Start server async.
-    public async Task StartServerAsync()
+    public async Task<bool> StartServerAsync()
     {
-        if (isProcessing || isServerStarted)
-            return;
+        while (isProcessing)
+        {
+            await Task.Yield();
+        }
+
+        if (isServerStarted)
+        {
+            return true;
+        }
+
+        if (!await InitializeAsync())
+        {
+            return false;
+        }
 
         if (NetworkManager.Singleton == null)
         {
             statusMessage = "NetworkManager Missing";
-            return;
+            return false;
         }
 
         if (NetworkManager.Singleton.IsListening)
-            return;
+        {
+            isServerStarted = NetworkManager.Singleton.IsServer;
+            return isServerStarted;
+        }
 
         isProcessing = true;
         statusMessage = "Creating Relay Allocation";
@@ -96,6 +125,7 @@ public class Relay_ServerBootstrap : MonoBehaviour
         {
             Allocation allocation = await RelayService.Instance.CreateAllocationAsync(MAX_CONNECTIONS);
             currentJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            Debug.Log($"[Relay_ServerBootstrap] JoinCode: {currentJoinCode}");
 
             var endpoint = allocation.ServerEndpoints.First(e => e.ConnectionType == RELAY_PROTOCOL);
             UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
@@ -119,11 +149,12 @@ public class Relay_ServerBootstrap : MonoBehaviour
             {
                 statusMessage = "StartServer Failed";
                 isProcessing = false;
-                return;
+                return false;
             }
 
             isServerStarted = true;
             statusMessage = "Server Started";
+            Debug.Log($"[Relay_ServerBootstrap] Server started. JoinCode: {currentJoinCode}");
 
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
@@ -132,9 +163,12 @@ public class Relay_ServerBootstrap : MonoBehaviour
         {
             statusMessage = "Server Start Failed";
             Debug.LogError($"[Relay_ServerBootstrap] Server start failed: {e.Message}");
+            isProcessing = false;
+            return false;
         }
 
         isProcessing = false;
+        return true;
     }
 
     // - Role: Clean up links before this object is destroyed.

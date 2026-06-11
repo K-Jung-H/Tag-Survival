@@ -3,10 +3,9 @@ using UnityEngine;
 
 public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
 {
-    [SerializeField] private InputProvider_Client_Base fallbackInputProvider;
     [SerializeField] private Client_MobileJoystick moveJoystick;
     [SerializeField] private Client_MobileJoystick skillAimJoystick;
-    [SerializeField] private Client_SnapshotReceiver snapshotReceiver;
+    [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private Vector2 defaultAim = Vector2.right;
     [SerializeField] private bool releaseSkillOnAimJoystickUp = true;
     [SerializeField] private bool blockSkillInputDuringLocalCooldown = true;
@@ -46,19 +45,9 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     {
         TickLocalCooldown();
 
-        ClientInputState fallbackState = fallbackInputProvider != null
-            ? fallbackInputProvider.GetInputState()
-            : ClientInputState.Empty();
-
-        Vector2 move = fallbackState.move;
-        Vector2 aim = NormalizeOrDefault(fallbackState.aim, lastAim);
-        PlayerInputButtons buttons = fallbackState.buttons;
-
-        if ((buttons & PlayerInputButtons.Skill1) != 0)
-        {
-            buttons &= ~PlayerInputButtons.Skill1;
-            TryQueueLocalSkillFire();
-        }
+        Vector2 move = Vector2.zero;
+        Vector2 aim = lastAim;
+        PlayerInputButtons buttons = PlayerInputButtons.None;
 
         if (moveJoystick != null && moveJoystick.IsPressed)
         {
@@ -173,9 +162,13 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     // - Role: Find skill cooldown seconds.
     private float ResolveSkillCooldownSeconds()
     {
-        if (snapshotReceiver != null
-            && NetworkManager.Singleton != null
-            && snapshotReceiver.TryGetSnapshot(NetworkManager.Singleton.LocalClientId, out ClientSnapshotState snapshot))
+        ulong localClientId = syncManager != null
+            ? syncManager.LocalClientId
+            : NetworkManager.Singleton != null
+                ? NetworkManager.Singleton.LocalClientId
+                : ulong.MaxValue;
+
+        if (syncManager != null && syncManager.TryGetSnapshot(localClientId, out ClientSnapshotState snapshot))
         {
             return Mathf.Max(0f, snapshot.skillCooldownSeconds);
         }
@@ -210,4 +203,5 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
 
         return Vector2.right;
     }
+
 }

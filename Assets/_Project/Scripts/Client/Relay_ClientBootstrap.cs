@@ -22,7 +22,11 @@ public class Relay_ClientBootstrap : MonoBehaviour
     private const byte DefaultCharacterId = 0;
     private const byte DefaultSkillId = 1;
 
+    [Header("Debug GUI")]
+    [SerializeField] private bool showConnectionDebugGui = true;
+
     [Header("Connection UI References")]
+    [SerializeField] private ClientCanvasPanelController canvasPanelController;
     [SerializeField] private GameObject HudPanel;
     [SerializeField] private GameObject connectionPanel;
     [SerializeField] private TMP_InputField joinCodeInput;
@@ -41,6 +45,10 @@ public class Relay_ClientBootstrap : MonoBehaviour
 
     private bool isProcessing;
     private bool isConnected;
+    private string currentJoinCode = "";
+    private string connectionStatus = "Idle";
+    private bool inactiveClientMode;
+    private bool inactiveClientModeShowHud;
     private bool hasWarnedMissingConnectionUi;
     private bool hasWarnedMissingDelayUi;
     private bool hasWarnedMissingDelaySimulator;
@@ -122,6 +130,39 @@ public class Relay_ClientBootstrap : MonoBehaviour
         DisposeJoinProfileWriter();
     }
 
+    public void ConfigureInactiveClientMode(bool showHud, string joinCode = "", string status = "Local Host")
+    {
+        inactiveClientMode = true;
+        inactiveClientModeShowHud = showHud;
+        isProcessing = false;
+        isConnected = false;
+        currentJoinCode = string.IsNullOrWhiteSpace(joinCode) ? "" : joinCode.Trim();
+        connectionStatus = status;
+        UnbindNetworkCallbacks();
+        ClearPendingJoinProfile();
+        SetConnectionUIInteractable(false);
+        ApplyPanelVisibility();
+    }
+
+    private void OnGUI()
+    {
+        if (!showConnectionDebugGui || (!isConnected && !inactiveClientModeShowHud))
+        {
+            return;
+        }
+
+        GUILayout.BeginArea(new Rect(10, 10, 260, 130));
+        GUILayout.BeginVertical("box");
+
+        GUILayout.Label("[ Role: CLIENT ]", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
+        GUILayout.Space(5);
+        GUILayout.Label($"ConnectionState: {connectionStatus}");
+        GUILayout.Label($"JoinCode: {GetJoinCodeText()}");
+
+        GUILayout.EndVertical();
+        GUILayout.EndArea();
+    }
+
     // - Role: Set up Unity services.
     private async Task InitializeUnityServices()
     {
@@ -136,6 +177,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
         catch (Exception e)
         {
+            connectionStatus = "Unity Services Failed";
             Debug.LogError($"[Relay_ClientBootstrap] UGS initialization failed: {e.Message}");
         }
     }
@@ -183,11 +225,22 @@ public class Relay_ClientBootstrap : MonoBehaviour
             delaySlider.onValueChanged.AddListener(OnNetworkDelaySliderChanged);
         }
 
-        if (NetworkManager.Singleton == null)
+        if (inactiveClientMode || NetworkManager.Singleton == null)
             return;
 
         NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+    }
+
+    private void UnbindNetworkCallbacks()
+    {
+        if (NetworkManager.Singleton == null)
+        {
+            return;
+        }
+
+        NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+        NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
     }
 
     // - Role: Handle connect button clicked.
@@ -321,6 +374,9 @@ public class Relay_ClientBootstrap : MonoBehaviour
         if (isProcessing || isConnected)
             return;
 
+        inactiveClientMode = false;
+        inactiveClientModeShowHud = false;
+
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError("[Relay_ClientBootstrap] NetworkManager.Singleton is null.");
@@ -331,6 +387,8 @@ public class Relay_ClientBootstrap : MonoBehaviour
             return;
 
         isProcessing = true;
+        currentJoinCode = joinCode.Trim();
+        connectionStatus = "Joining Relay";
         ApplyNetworkDelaySettings();
         SetConnectionUIInteractable(false);
 
@@ -356,6 +414,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
 
             if (!started)
             {
+                connectionStatus = "StartClient Failed";
                 isProcessing = false;
                 ClearPendingJoinProfile();
                 SetConnectionUIInteractable(true);
@@ -364,6 +423,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
         catch (Exception e)
         {
+            connectionStatus = "Client Join Failed";
             Debug.LogError($"[Relay_ClientBootstrap] Client join failed: {e.Message}");
             isProcessing = false;
             ClearPendingJoinProfile();
@@ -383,6 +443,9 @@ public class Relay_ClientBootstrap : MonoBehaviour
 
         isConnected = true;
         isProcessing = false;
+        inactiveClientMode = false;
+        inactiveClientModeShowHud = false;
+        connectionStatus = $"Connected: {clientId}";
 
         SetConnectionUIInteractable(false);
         ApplyNetworkDelaySettings();
@@ -402,6 +465,9 @@ public class Relay_ClientBootstrap : MonoBehaviour
 
         isConnected = false;
         isProcessing = false;
+        inactiveClientMode = false;
+        inactiveClientModeShowHud = false;
+        connectionStatus = $"Disconnected: {clientId}";
         ClearPendingJoinProfile();
 
         SetConnectionUIInteractable(true);
@@ -482,6 +548,16 @@ public class Relay_ClientBootstrap : MonoBehaviour
         joinProfileSendAttempts = 0;
         joinProfileRetryTimer = 0f;
         pendingJoinProfile = default;
+    }
+
+    private string GetJoinCodeText()
+    {
+        if (string.IsNullOrWhiteSpace(currentJoinCode))
+        {
+            return "-";
+        }
+
+        return currentJoinCode;
     }
 
     // - Role: Set connection UI interactable.
@@ -581,6 +657,38 @@ public class Relay_ClientBootstrap : MonoBehaviour
     // - Role: Apply panel visibility.
     private void ApplyPanelVisibility()
     {
+        if (canvasPanelController != null)
+        {
+            if (inactiveClientMode)
+            {
+                canvasPanelController.ApplyMode(ClientStageUiMode.LocalHost);
+                return;
+            }
+
+            canvasPanelController.ApplyOnlineConnectionState(isConnected);
+            return;
+        }
+
+        if (inactiveClientMode)
+        {
+            if (connectionPanel != null)
+            {
+                connectionPanel.SetActive(false);
+            }
+
+            if (delayPanel != null)
+            {
+                delayPanel.SetActive(false);
+            }
+
+            if (HudPanel != null)
+            {
+                HudPanel.SetActive(inactiveClientModeShowHud);
+            }
+
+            return;
+        }
+
         if (connectionPanel != null)
         {
             connectionPanel.SetActive(!isConnected);
@@ -591,7 +699,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
             delayPanel.SetActive(isConnected);
         }
 
-        if(HudPanel != null)
+        if (HudPanel != null)
         {
             HudPanel.SetActive(isConnected);
         }

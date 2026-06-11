@@ -1290,7 +1290,6 @@ RectTransform:
   m_Children:
   - {fileID: 1408532842}
   - {fileID: 1936571948}
-  - {fileID: 2000001001}
   m_Father: {fileID: 1795723599}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1491,7 +1490,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7accc1d769577ba49a5b743fbc3a3713, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_WorldView
-  snapshotReceiver: {fileID: 1941727307}
+  syncManager: {fileID: 1941727314}
   cameraFollow: {fileID: 519420033}
   characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
   skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
@@ -1543,8 +1542,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e63cf1d40968054c93a9e3c45919333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_GameHudView
-  gameStateReceiver: {fileID: 1941727313}
-  rosterReceiver: {fileID: 1941727314}
+  syncManager: {fileID: 1941727314}
   timerText: {fileID: 826204756}
   leaderboardTitleText: {fileID: 354342387}
   leaderboardRows:
@@ -1570,7 +1568,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26a9a62d7f7b4c24ab8e4f1c51d79132, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_WorldVfxSpawner
-  gameEventReceiver: {fileID: 1941727315}
+  syncManager: {fileID: 1941727314}
   vfxRoot: {fileID: 515449760}
   vfxCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
 --- !u!1 &519420028
@@ -2500,6 +2498,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 681813941}
+  - component: {fileID: 681813942}
   m_Layer: 0
   m_Name: GameSystem
   m_TagString: Untagged
@@ -2522,6 +2521,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &681813942
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681813940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14e61fa5d5284a95bbf746c6e92d3ccb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ClientStageBuilder
+  networkRuntimeRoot: {fileID: 1689506089}
+  syncManager: {fileID: 1941727314}
+  canvasPanelController: {fileID: 1795723600}
+  localInputBridge: {fileID: 1236628308}
+  networkReceiverHub: {fileID: 1941727313}
+  networkInputSender: {fileID: 1236628307}
+  relayClientBootstrap: {fileID: 1895810909}
 --- !u!1 &726830480
 GameObject:
   m_ObjectHideFlags: 0
@@ -2910,7 +2928,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &836321422
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2943,7 +2961,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 203620d2a8544e7bb4bcaaf9a73d7b9d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionView
-  receiver: {fileID: 1941727316}
+  syncManager: {fileID: 1941727314}
   itemEffectCatalog: {fileID: 11400000, guid: 201007d370f95064080b807c828d4353, type: 2}
   selectionPanel: {fileID: 1961030230}
   resultCloseDelay: 0.5
@@ -3948,6 +3966,8 @@ GameObject:
   - component: {fileID: 1236628305}
   - component: {fileID: 1236628304}
   - component: {fileID: 1236628306}
+  - component: {fileID: 1236628307}
+  - component: {fileID: 1236628308}
   m_Layer: 0
   m_Name: Input
   m_TagString: Untagged
@@ -3996,15 +4016,55 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2eac5407d154fa6bdf784229f91452c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InputProvider_Client_Mobile
-  fallbackInputProvider: {fileID: 1236628304}
   moveJoystick: {fileID: 2000001104}
   skillAimJoystick: {fileID: 2000001204}
-  snapshotReceiver: {fileID: 1941727307}
+  syncManager: {fileID: 1941727314}
   defaultAim: {x: 1, y: 0}
   releaseSkillOnAimJoystickUp: 1
   blockSkillInputDuringLocalCooldown: 1
   fallbackSkillCooldownSeconds: 0.25
   skillFireHoldSeconds: 0.08
+--- !u!114 &1236628307
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1236628302}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa61d7cc935044247a380045bfdc477b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_InputSender
+  inputProviders:
+  - {fileID: 1236628304}
+  - {fileID: 1236628306}
+  networkDelaySimulator: {fileID: 1941727312}
+  maxInputAccumulatedTime: 0.15
+  sendImmediatelyOnInputChanged: 1
+  inputChangeThreshold: 0.001
+  minImmediateSendInterval: 0.0083
+--- !u!114 &1236628308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1236628302}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d4a5b2c3e2e4f9f9ce0bb86c6ffb54f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalClient_InputBridge
+  serverRunner: {fileID: 0}
+  inputProviders:
+  - {fileID: 1236628304}
+  - {fileID: 1236628306}
+  localClientId: 0
+  maxInputAccumulatedTime: 0.15
+  sendImmediatelyOnInputChanged: 1
+  inputChangeThreshold: 0.001
+  minImmediateSendInterval: 0.0083
 --- !u!1 &1304396816
 GameObject:
   m_ObjectHideFlags: 0
@@ -5614,6 +5674,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1739542463}
+  - component: {fileID: 1739542464}
   m_Layer: 5
   m_Name: Panel_Nameplate
   m_TagString: Untagged
@@ -5640,6 +5701,28 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1739542464
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739542462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1c366f3e5d9414ab6b969d0438576bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_NameplateManager
+  worldView: {fileID: 515449761}
+  syncManager: {fileID: 1941727314}
+  worldCamera: {fileID: 519420031}
+  targetCanvas: {fileID: 1795723598}
+  labelLayer: {fileID: 1739542463}
+  labelPrefab: {fileID: 6769193256410286183, guid: 833e544fa582e5d47b31a1c0513d4664, type: 3}
+  screenOffset: {x: 0, y: 0}
+  defaultTextColor: {r: 1, g: 1, b: 1, a: 1}
+  taggerTextColor: {r: 1, g: 0.3137255, b: 0.3137255, a: 1}
+  hideWhenBehindCamera: 1
 --- !u!1 &1741708511
 GameObject:
   m_ObjectHideFlags: 0
@@ -5790,7 +5873,6 @@ GameObject:
   - component: {fileID: 1795723597}
   - component: {fileID: 1795723596}
   - component: {fileID: 1795723600}
-  - component: {fileID: 1795723601}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -5873,10 +5955,11 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1304396817}
-  - {fileID: 91990075}
   - {fileID: 411244613}
   - {fileID: 1739542463}
+  - {fileID: 2000001001}
+  - {fileID: 1304396817}
+  - {fileID: 91990075}
   - {fileID: 836321422}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -5894,35 +5977,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 1795723595}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b1c366f3e5d9414ab6b969d0438576bb, type: 3}
+  m_Script: {fileID: 11500000, guid: 9cb8e083eebcc0442a599d85aef0d0ee, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_NameplateManager
-  worldView: {fileID: 515449761}
-  rosterReceiver: {fileID: 1941727314}
-  worldCamera: {fileID: 519420031}
-  targetCanvas: {fileID: 1795723598}
-  labelLayer: {fileID: 1739542463}
-  labelPrefab: {fileID: 6769193256410286183, guid: 833e544fa582e5d47b31a1c0513d4664, type: 3}
-  screenOffset: {x: 0, y: 0}
-  defaultTextColor: {r: 1, g: 1, b: 1, a: 1}
-  taggerTextColor: {r: 1, g: 0.3137255, b: 0.3137255, a: 1}
-  hideWhenBehindCamera: 1
---- !u!114 &1795723601
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1795723595}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 203620d2a8544e7bb4bcaaf9a73d7b9d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionView
-  receiver: {fileID: 1941727316}
-  itemEffectCatalog: {fileID: 11400000, guid: 201007d370f95064080b807c828d4353, type: 2}
-  selectionPanel: {fileID: 0}
-  resultCloseDelay: 0.65
+  m_EditorClassIdentifier: Assembly-CSharp::ClientCanvasPanelController
+  hudPanel: {fileID: 411244612}
+  nameplatePanel: {fileID: 1739542462}
+  mobileInputPanel: {fileID: 2000001000}
+  connectionPanel: {fileID: 1304396816}
+  networkDelayPanel: {fileID: 91990074}
+  itemSelectionRoot: {fileID: 836321421}
 --- !u!1 &1817718182
 GameObject:
   m_ObjectHideFlags: 0
@@ -6126,6 +6189,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1895810908}
+  - component: {fileID: 1895810909}
   m_Layer: 0
   m_Name: Client
   m_TagString: Untagged
@@ -6151,6 +6215,32 @@ Transform:
   - {fileID: 515449760}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1895810909
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1895810903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cb18a831b5716248a37ee3f80ea4a45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Relay_ClientBootstrap
+  showConnectionDebugGui: 1
+  canvasPanelController: {fileID: 1795723600}
+  HudPanel: {fileID: 411244612}
+  connectionPanel: {fileID: 1304396816}
+  joinCodeInput: {fileID: 634403168}
+  nicknameInput: {fileID: 1316875854}
+  characterIdInput: {fileID: 1382167480}
+  skillIdInput: {fileID: 623495506}
+  connectButton: {fileID: 1222203328}
+  delayPanel: {fileID: 91990074}
+  delayModeToggle: {fileID: 1943225133}
+  delaySlider: {fileID: 1523789057}
+  delayValueText: {fileID: 1468279618}
+  networkDelaySimulator: {fileID: 1941727312}
 --- !u!1 &1936571947
 GameObject:
   m_ObjectHideFlags: 0
@@ -6236,13 +6326,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1941727306}
-  - component: {fileID: 1941727309}
-  - component: {fileID: 1941727308}
   - component: {fileID: 1941727314}
-  - component: {fileID: 1941727315}
   - component: {fileID: 1941727313}
-  - component: {fileID: 1941727307}
-  - component: {fileID: 1941727316}
   - component: {fileID: 1941727312}
   m_Layer: 0
   m_Name: Network
@@ -6266,61 +6351,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1895810908}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1941727307
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1941727305}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c76e5b3cf6cbac143be2fc1ff57a0415, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_SnapshotReceiver
-  networkDelaySimulator: {fileID: 1941727312}
---- !u!114 &1941727308
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1941727305}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fa61d7cc935044247a380045bfdc477b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_InputSender
-  inputProvider: {fileID: 1236628306}
-  networkDelaySimulator: {fileID: 1941727312}
-  maxInputAccumulatedTime: 0.15
-  sendImmediatelyOnInputChanged: 1
-  inputChangeThreshold: 0.001
-  minImmediateSendInterval: 0.0083
---- !u!114 &1941727309
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1941727305}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4cb18a831b5716248a37ee3f80ea4a45, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Relay_ClientBootstrap
-  HudPanel: {fileID: 411244612}
-  connectionPanel: {fileID: 1304396816}
-  joinCodeInput: {fileID: 634403168}
-  nicknameInput: {fileID: 1316875854}
-  characterIdInput: {fileID: 1382167480}
-  skillIdInput: {fileID: 623495506}
-  connectButton: {fileID: 1222203328}
-  delayPanel: {fileID: 91990074}
-  delayModeToggle: {fileID: 1943225133}
-  delaySlider: {fileID: 1523789057}
-  delayValueText: {fileID: 1468279618}
-  networkDelaySimulator: {fileID: 1941727312}
 --- !u!114 &1941727312
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6344,9 +6374,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1941727305}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 75c69d0a0551c7b46a1983a8586a8908, type: 3}
+  m_Script: {fileID: 11500000, guid: c0c4188c607a4e92a72729e84bb8fcb8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_GameStateReceiver
+  m_EditorClassIdentifier: Assembly-CSharp::Client_NetworkReceiverHub
+  syncManager: {fileID: 1941727314}
   networkDelaySimulator: {fileID: 1941727312}
 --- !u!114 &1941727314
 MonoBehaviour:
@@ -6357,35 +6388,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 1941727305}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d464d6b5192f477cbec4f7e2b5bf3a2e, type: 3}
+  m_Script: {fileID: 11500000, guid: f90f4382f1b74c8da90ac5a6f0435ab8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_RosterReceiver
---- !u!114 &1941727315
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1941727305}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8e5296121ef14a04989b34c06e62562a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_GameEventReceiver
-  networkDelaySimulator: {fileID: 1941727312}
---- !u!114 &1941727316
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1941727305}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7e78f0d77ef44bbdb711d2f9338a7a01, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ItemSelectionReceiver
-  networkDelaySimulator: {fileID: 1941727312}
+  m_EditorClassIdentifier: Assembly-CSharp::Client_SyncManager
+  syncMode: 0
+  localServerRunner: {fileID: 0}
+  localServerClientId: 0
 --- !u!1 &1943225131
 GameObject:
   m_ObjectHideFlags: 0
@@ -6586,7 +6594,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2000001001
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6594,14 +6602,14 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2000001000}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2000001101}
   - {fileID: 2000001201}
-  m_Father: {fileID: 411244613}
+  m_Father: {fileID: 1795723599}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}

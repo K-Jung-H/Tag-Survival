@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class Client_InputSender : MonoBehaviour
 {
@@ -11,7 +12,8 @@ public class Client_InputSender : MonoBehaviour
         public float sendTime;
     }
 
-    [SerializeField] private InputProvider_Client_Base[] inputProviders;
+    [FormerlySerializedAs("inputProviders")]
+    [SerializeField] private InputProvider_Client_Base[] inputProviderList;
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
     [SerializeField] private float maxInputAccumulatedTime = 0.15f;
     [SerializeField] private bool sendImmediatelyOnInputChanged = true;
@@ -88,7 +90,7 @@ public class Client_InputSender : MonoBehaviour
             inputAccumulator = maxInputAccumulatedTime;
         }
 
-        ClientInputState inputState = ClientInputProviderMixer.Mix(inputProviders);
+        ClientInputState inputState = ClientInputProviderMixer.Mix(inputProviderList);
 
         if (ShouldSendImmediately(inputState))
         {
@@ -155,14 +157,14 @@ public class Client_InputSender : MonoBehaviour
 
     private bool HasInputProvider()
     {
-        if (inputProviders == null)
+        if (inputProviderList == null)
         {
             return false;
         }
 
-        for (int i = 0; i < inputProviders.Length; i++)
+        for (int i = 0; i < inputProviderList.Length; i++)
         {
-            if (inputProviders[i] != null)
+            if (inputProviderList[i] != null)
             {
                 return true;
             }

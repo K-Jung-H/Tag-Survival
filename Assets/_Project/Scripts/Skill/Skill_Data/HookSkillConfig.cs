@@ -5,7 +5,6 @@ public sealed class HookSkillConfig : SkillConfig
 {
     [SerializeField] private float hookSpeed = 18f;
     [SerializeField] private float returnSpeedMultiplier = 2f;
-    [SerializeField] private float maxRopeLength = 12f;
     [SerializeField] private float hookHitHalfExtent = 0.08f;
     [SerializeField] private float returnCompleteDistance = 0.18f;
     [SerializeField] private float swingInputAcceleration = 18f;
@@ -16,7 +15,6 @@ public sealed class HookSkillConfig : SkillConfig
     public override SkillType SkillType => SkillType.HookGrappling;
     public float HookSpeed => Mathf.Max(0f, hookSpeed);
     public float ReturnSpeedMultiplier => Mathf.Max(0f, returnSpeedMultiplier);
-    public float MaxRopeLength => Mathf.Max(0f, maxRopeLength);
     public float HookHitHalfExtent => Mathf.Max(0.0001f, hookHitHalfExtent);
     public float ReturnCompleteDistance => Mathf.Max(0.0001f, returnCompleteDistance);
     public float SwingInputAcceleration => Mathf.Max(0f, swingInputAcceleration);

@@ -11,12 +11,14 @@ public sealed class Skill
     {
         this.gamePlay = gamePlay;
         OwnerId = ownerId;
+        Definition = definition;
         SkillId = definition != null ? definition.SkillId : (byte)0;
         SkillType = definition != null ? definition.SkillType : SkillType.None;
         StateMachine = SkillStateMachineFactory.Create(definition);
     }
 
     public ulong OwnerId { get; }
+    public SkillDefinition Definition { get; }
     public byte SkillId { get; }
     public SkillType SkillType { get; }
     public SkillStateMachine StateMachine { get; }

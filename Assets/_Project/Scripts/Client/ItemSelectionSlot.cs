@@ -18,6 +18,8 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     private bool hasData;
     private bool isFadingAlpha;
     private float targetAlpha = 1f;
+    private AnimationClip activeIconAnimationClip;
+    private float activeIconAnimationTime;
 
     // - Role: Set up slot links.
     private void Awake()
@@ -29,6 +31,8 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Update alpha fade.
     private void Update()
     {
+        TickIconAnimation();
+
         if (!isFadingAlpha || canvasGroup == null)
         {
             return;
@@ -51,8 +55,7 @@ public sealed class ItemSelectionSlot : MonoBehaviour
 
         if (iconImage != null)
         {
-            iconImage.sprite = itemData.icon;
-            iconImage.enabled = itemData.icon != null;
+            ApplyIcon(itemData.icon);
         }
 
         if (titleText != null)
@@ -85,6 +88,7 @@ public sealed class ItemSelectionSlot : MonoBehaviour
             iconImage.sprite = null;
             iconImage.enabled = false;
         }
+        StopIconAnimation();
 
         if (titleText != null)
         {
@@ -190,6 +194,48 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Format fallback title.
     private static string FormatFallbackTitle(ItemData itemData)
     {
-        return itemData.type == ItemType.Stats ? itemData.statEffect.ToString() : itemData.skillEffect.ToString();
+        return itemData.GetFallbackEffectLabel();
+    }
+
+    // - Role: Apply item icon.
+    private void ApplyIcon(ItemIconData icon)
+    {
+        StopIconAnimation();
+
+        if (icon.viewType == ItemIconViewType.AnimationClip && icon.animationClip != null)
+        {
+            iconImage.sprite = icon.sprite;
+            iconImage.enabled = true;
+            activeIconAnimationClip = icon.animationClip;
+            activeIconAnimationTime = 0f;
+            activeIconAnimationClip.SampleAnimation(iconImage.gameObject, 0f);
+            return;
+        }
+
+        iconImage.sprite = icon.sprite;
+        iconImage.enabled = icon.sprite != null;
+    }
+
+    // - Role: Update item icon animation.
+    private void TickIconAnimation()
+    {
+        if (activeIconAnimationClip == null || iconImage == null)
+        {
+            return;
+        }
+
+        float length = Mathf.Max(0.0001f, activeIconAnimationClip.length);
+        activeIconAnimationTime += Time.deltaTime;
+        float sampleTime = activeIconAnimationClip.isLooping
+            ? Mathf.Repeat(activeIconAnimationTime, length)
+            : Mathf.Min(activeIconAnimationTime, length);
+        activeIconAnimationClip.SampleAnimation(iconImage.gameObject, sampleTime);
+    }
+
+    // - Role: Stop item icon animation.
+    private void StopIconAnimation()
+    {
+        activeIconAnimationClip = null;
+        activeIconAnimationTime = 0f;
     }
 }

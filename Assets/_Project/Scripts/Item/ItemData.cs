@@ -8,58 +8,109 @@ public enum ItemType : byte
     Skill = 2
 }
 
-public enum StatItemEffect : byte
+public readonly struct ItemData
 {
-    None = 0,
-    Speed = 1,
-    Jump = 2,
-    FallSpeed = 3,
-}
+    public readonly int id;
+    public readonly ItemType type;
+    public readonly float duration;
+    public readonly ItemModifier[] modifiers;
+    public readonly ItemIconData icon;
+    public readonly string title;
+    public readonly string description;
 
-public enum SkillItemEffect : byte
-{
-    None = 0,
-    Cooldown = 1,
-    Range = 2
-}
-
-[Serializable]
-public struct ItemData
-{
-    public int id;
-    public ItemType type;
-    public StatItemEffect statEffect;
-    public SkillItemEffect skillEffect;
-    public float value;
-    public float duration;
-    public Sprite icon;
-    public string title;
-    [TextArea] public string description;
+    public ItemData(
+        int id,
+        ItemType type,
+        float duration,
+        ItemIconData icon,
+        string title,
+        string description,
+        ItemModifier[] modifiers)
+    {
+        this.id = id;
+        this.type = type;
+        this.duration = duration;
+        this.icon = icon;
+        this.title = title;
+        this.description = description;
+        this.modifiers = modifiers ?? Array.Empty<ItemModifier>();
+    }
 
     // - Role: Check if this data can apply.
     public bool IsValid()
     {
-        if (id <= 0)
+        return id > 0
+            && type != ItemType.None
+            && HasValidModifier();
+    }
+
+    // - Role: Check if item has a modifier for its type.
+    public bool HasValidModifier()
+    {
+        if (modifiers == null)
         {
             return false;
         }
 
-        if (type == ItemType.Stats)
+        for (int i = 0; i < modifiers.Length; i++)
         {
-            return statEffect != StatItemEffect.None;
-        }
-
-        if (type == ItemType.Skill)
-        {
-            return skillEffect != SkillItemEffect.None;
+            if (modifiers[i].IsValidFor(type))
+            {
+                return true;
+            }
         }
 
         return false;
     }
 
-    // - Role: Get safe multiplier.
-    public float GetMultiplier()
+    // - Role: Check if this skill item can be offered to skill.
+    public bool CanApplyToSkill(SkillDefinition skillDefinition)
     {
-        return Mathf.Max(0f, value);
+        if (type != ItemType.Skill || skillDefinition == null || modifiers == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < modifiers.Length; i++)
+        {
+            ItemModifier modifier = modifiers[i];
+            if (modifier.IsValidFor(ItemType.Skill) && modifier.AppliesTo(skillDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // - Role: Get fallback effect label.
+    public string GetFallbackEffectLabel()
+    {
+        return type == ItemType.Stats
+            ? GetFirstModifierLabel("Stats")
+            : GetFirstModifierLabel("Skill");
+    }
+
+    // - Role: Get first modifier label.
+    private string GetFirstModifierLabel(string fallback)
+    {
+        if (modifiers == null)
+        {
+            return fallback;
+        }
+
+        for (int i = 0; i < modifiers.Length; i++)
+        {
+            if (!modifiers[i].IsValidFor(type))
+            {
+                continue;
+            }
+
+            return type == ItemType.Stats
+                ? modifiers[i].statEffect.ToString()
+                : modifiers[i].parameterKey;
+        }
+
+        return fallback;
     }
 }

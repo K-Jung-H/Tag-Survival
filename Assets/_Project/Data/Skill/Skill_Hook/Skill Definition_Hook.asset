@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Skill Definition_Hook
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
   skillId: 0
+  logicKey: hook
   skillType: 1
+  range: 12
   cooldown: 0.5
   skillObjectViewPrefab: {fileID: 1423317497419455560, guid: 66ee0ab3cd9203946b94dfdd3758b62a, type: 3}
   config: {fileID: 11400000, guid: 93ce5b501c13ceb40b510c1ebd1f5d24, type: 2}

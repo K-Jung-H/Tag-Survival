@@ -1,0 +1,93 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f30aa1dd88946ac4ab30f32162b9cc0d, type: 3}
+  m_Name: Stat Item Set
+  m_EditorClassIdentifier: Assembly-CSharp::StatItemSet
+  items:
+  - entry:
+      id: 100
+      duration: 0
+      icon:
+        viewType: 1
+        sprite: {fileID: 0}
+        animationClip: {fileID: 0}
+      title: Speed
+      description: ' Speed [+]'
+    modifiers:
+    - statEffect: 1
+      operation: 0
+      value: 1
+  - entry:
+      id: 101
+      duration: 0
+      icon:
+        viewType: 0
+        sprite: {fileID: 0}
+        animationClip: {fileID: 0}
+      title: Speed
+      description: ' Speed [++]'
+    modifiers:
+    - statEffect: 1
+      operation: 0
+      value: 2
+  - entry:
+      id: 102
+      duration: 0
+      icon:
+        viewType: 0
+        sprite: {fileID: 0}
+        animationClip: {fileID: 0}
+      title: Speed
+      description: ' Speed [+++]'
+    modifiers:
+    - statEffect: 1
+      operation: 0
+      value: 3
+  - entry:
+      id: 103
+      duration: 0
+      icon:
+        viewType: 0
+        sprite: {fileID: 0}
+        animationClip: {fileID: 0}
+      title: Jump
+      description: ' Jump [+]'
+    modifiers:
+    - statEffect: 2
+      operation: 0
+      value: 1
+  - entry:
+      id: 104
+      duration: 0
+      icon:
+        viewType: 0
+        sprite: {fileID: 0}
+        animationClip: {fileID: 0}
+      title: Jump
+      description: ' Jump [++]'
+    modifiers:
+    - statEffect: 2
+      operation: 0
+      value: 2
+  - entry:
+      id: 105
+      duration: 0
+      icon:
+        viewType: 0
+        sprite: {fileID: 0}
+        animationClip: {fileID: 0}
+      title: Jump
+      description: ' Jump [+++]'
+    modifiers:
+    - statEffect: 2
+      operation: 0
+      value: 3

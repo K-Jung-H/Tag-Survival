@@ -1,32 +1,36 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
+[SkillLogic("portal")]
 public sealed class SkillStateMachine_Portal : SkillStateMachine
 {
     private const byte PortalObjectA = 0;
     private const byte PortalObjectB = 1;
-    private const byte PortalPlacementObject = 2;
-    private const int MaxPortalCount = 2;
-    private const int DefaultPlacementSearchDistance = 2;
+    private const byte PortalPlacementObject = byte.MaxValue;
+    private const int DefaultMaxPortalCount = 2;
     private const float DefaultTeleportCooldown = 2f;
     private const float DefaultSpawnDuration = 0.2f;
     private const float DefaultDestroyDuration = 0.2f;
 
-    private readonly PortalEndpoint[] portals = new PortalEndpoint[MaxPortalCount];
+    private readonly List<PortalEndpoint> portals = new();
     private readonly Dictionary<ulong, float> teleportCooldowns = new();
     private readonly List<ulong> teleportCooldownKeys = new();
+    private readonly List<SkillObject> activePortalObjects = new();
     private readonly PortalSkillConfig config;
 
     private PendingPlacement pendingPlacement;
     private ulong ownerClientId;
     private uint placementOrder;
-    private float rangeMultiplier = 1f;
+    private int maxPortalCount = DefaultMaxPortalCount;
+    private float placementRange;
+    private int placementSearchDistance = 2;
 
     // - Role: Create portal skill state machine.
     public SkillStateMachine_Portal(SkillDefinition definition)
         : base(definition)
     {
         config = definition != null ? definition.GetConfig<PortalSkillConfig>() : null;
+        EnsurePortalCapacity(DefaultMaxPortalCount);
     }
 
     // - Role: Simulate this object.
@@ -36,7 +40,7 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         bool skillPressedThisTick)
     {
         ownerClientId = player.playerId;
-        rangeMultiplier = player.itemEffects != null ? player.itemEffects.GetSkillRangeMultiplier() : 1f;
+        RefreshModifierParameters(player);
         TickCooldown(deltaTime);
         TickTeleportCooldowns(deltaTime);
         TickPortals(deltaTime);
@@ -57,10 +61,11 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
             return;
         }
 
-        for (int i = 0; i < portals.Length; i++)
+        for (int i = 0; i < portals.Count; i++)
         {
-            byte skillObjectId = i == 0 ? PortalObjectA : PortalObjectB;
-            if (!portals[i].exists)
+            byte skillObjectId = GetPortalSkillObjectId(i);
+            PortalEndpoint portal = portals[i];
+            if (!portal.exists)
             {
                 skill.RemoveObject(skillObjectId);
                 continue;
@@ -70,27 +75,44 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
             skillObject.ownerId = ownerClientId;
             skillObject.skillId = SkillId;
             skillObject.skillType = SkillType;
-            skillObject.skillObjectId = portals[i].skillObjectId;
-            skillObject.objectState = portals[i].state;
-            skillObject.position = portals[i].position;
+            skillObject.skillObjectId = portal.skillObjectId;
+            skillObject.objectState = portal.state;
+            skillObject.position = portal.position;
             skillObject.velocity = Vector2.zero;
             skillObject.rotation = 0f;
             skillObject.interactionCooldownSeconds = PortalTeleportCooldown;
             skillObject.stageMode = SkillStageMode.None;
             skillObject.stageSearchDistance = 0;
-            skillObject.collider = new WorldCollider(Vector2.zero, portals[i].halfExtent);
+            skillObject.collider = new WorldCollider(Vector2.zero, portal.halfExtent);
         }
 
         SyncPendingPlacementObject(skill);
-        LinkPortalPair(skill);
+        LinkActivePortals(skill);
     }
 
     // - Role: Check if stage placement cell blocked is true.
     public override bool IsStagePlacementCellBlocked(SkillObject self, Vector2Int cell)
     {
-        return self != null
-            && self.skillObjectId == PortalPlacementObject
-            && IsPortalCellOccupied(cell);
+        if (self == null || self.skillObjectId != PortalPlacementObject)
+        {
+            return false;
+        }
+
+        if (IsPortalCellOccupied(cell))
+        {
+            return true;
+        }
+
+        PlayerObject owner = ResolveOwnerPlayer(self);
+        if (owner == null || owner.gamePlay == null || owner.gamePlay.CollisionSystem == null)
+        {
+            return false;
+        }
+
+        Vector2 ownerCenter = owner.position + owner.collisionOffset;
+        Vector2 cellCenter = owner.gamePlay.CollisionSystem.GetCellCenter(cell);
+        float radius = Mathf.Max(0f, placementRange);
+        return (cellCenter - ownerCenter).sqrMagnitude > radius * radius + 0.0001f;
     }
 
     // - Role: Handle stage placement result.
@@ -108,12 +130,13 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
 
         int slotIndex = pendingPlacement.slotIndex;
         pendingPlacement = default;
-        if (!success || slotIndex < 0 || slotIndex >= portals.Length)
+        if (!success || slotIndex < 0 || slotIndex >= maxPortalCount)
         {
             RefreshState();
             return;
         }
 
+        EnsurePortalCapacity(slotIndex + 1);
         if (portals[slotIndex].exists)
         {
             StartDestroying(slotIndex, cell, position, halfExtent);
@@ -141,29 +164,31 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         TryTeleport(player, self);
     }
 
-    // - Role: Link the portal pair.
-    private void LinkPortalPair(Skill skill)
+    // - Role: Link active portals in order.
+    private void LinkActivePortals(Skill skill)
     {
-        bool hasFirst = skill.TryGetObject(PortalObjectA, out SkillObject firstPortal)
-            && firstPortal.IsActive;
-        bool hasSecond = skill.TryGetObject(PortalObjectB, out SkillObject secondPortal)
-            && secondPortal.IsActive;
-
-        if (hasFirst && hasSecond)
+        activePortalObjects.Clear();
+        for (int i = 0; i < portals.Count; i++)
         {
-            firstPortal.linkedObject = secondPortal;
-            secondPortal.linkedObject = firstPortal;
+            if (skill.TryGetObject(GetPortalSkillObjectId(i), out SkillObject portal))
+            {
+                portal.linkedObject = null;
+                if (portal.IsActive)
+                {
+                    activePortalObjects.Add(portal);
+                }
+            }
+        }
+
+        if (activePortalObjects.Count < 2)
+        {
             return;
         }
 
-        if (firstPortal != null)
+        for (int i = 0; i < activePortalObjects.Count; i++)
         {
-            firstPortal.linkedObject = null;
-        }
-
-        if (secondPortal != null)
-        {
-            secondPortal.linkedObject = null;
+            int nextIndex = (i + 1) % activePortalObjects.Count;
+            activePortalObjects[i].linkedObject = activePortalObjects[nextIndex];
         }
     }
 
@@ -221,41 +246,43 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
     // - Role: Update portals by time.
     private void TickPortals(float deltaTime)
     {
-        for (int i = 0; i < portals.Length; i++)
+        for (int i = 0; i < portals.Count; i++)
         {
-            if (!portals[i].exists)
+            PortalEndpoint portal = portals[i];
+            if (!portal.exists)
             {
                 continue;
             }
 
-            switch (portals[i].state)
+            switch (portal.state)
             {
                 case SkillObjectState.Spawning:
-                    portals[i].stateTimer -= deltaTime;
-                    if (portals[i].stateTimer <= 0f)
+                    portal.stateTimer -= deltaTime;
+                    if (portal.stateTimer <= 0f)
                     {
-                        portals[i].state = SkillObjectState.Active;
-                        portals[i].stateTimer = 0f;
+                        portal.state = SkillObjectState.Active;
+                        portal.stateTimer = 0f;
                     }
                     break;
                 case SkillObjectState.Destroying:
-                    portals[i].stateTimer -= deltaTime;
-                    if (portals[i].stateTimer <= 0f)
+                    portal.stateTimer -= deltaTime;
+                    if (portal.stateTimer <= 0f)
                     {
-                        if (portals[i].hasQueuedSpawn)
+                        if (portal.hasQueuedSpawn)
                         {
-                            Vector2Int queuedCell = portals[i].queuedCell;
-                            Vector2 queuedPosition = portals[i].queuedPosition;
-                            Vector2 queuedHalfExtent = portals[i].queuedHalfExtent;
+                            Vector2Int queuedCell = portal.queuedCell;
+                            Vector2 queuedPosition = portal.queuedPosition;
+                            Vector2 queuedHalfExtent = portal.queuedHalfExtent;
                             StartSpawning(i, queuedCell, queuedPosition, queuedHalfExtent);
+                            continue;
                         }
-                        else
-                        {
-                            portals[i] = default;
-                        }
+
+                        portal = default;
                     }
                     break;
             }
+
+            portals[i] = portal;
         }
     }
 
@@ -336,10 +363,11 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
     // - Role: Start spawning.
     private void StartSpawning(int index, Vector2Int cell, Vector2 position, Vector2 halfExtent)
     {
+        EnsurePortalCapacity(index + 1);
         portals[index] = new PortalEndpoint
         {
             exists = true,
-            skillObjectId = index == 0 ? PortalObjectA : PortalObjectB,
+            skillObjectId = GetPortalSkillObjectId(index),
             cell = cell,
             position = position,
             halfExtent = halfExtent,
@@ -350,20 +378,24 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
 
         if (SpawnDuration <= 0f)
         {
-            portals[index].state = SkillObjectState.Active;
-            portals[index].stateTimer = 0f;
+            PortalEndpoint portal = portals[index];
+            portal.state = SkillObjectState.Active;
+            portal.stateTimer = 0f;
+            portals[index] = portal;
         }
     }
 
     // - Role: Start destroying.
     private void StartDestroying(int index, Vector2Int queuedCell, Vector2 queuedPosition, Vector2 queuedHalfExtent)
     {
-        portals[index].state = SkillObjectState.Destroying;
-        portals[index].stateTimer = DestroyDuration;
-        portals[index].hasQueuedSpawn = true;
-        portals[index].queuedCell = queuedCell;
-        portals[index].queuedPosition = queuedPosition;
-        portals[index].queuedHalfExtent = queuedHalfExtent;
+        PortalEndpoint portal = portals[index];
+        portal.state = SkillObjectState.Destroying;
+        portal.stateTimer = DestroyDuration;
+        portal.hasQueuedSpawn = true;
+        portal.queuedCell = queuedCell;
+        portal.queuedPosition = queuedPosition;
+        portal.queuedHalfExtent = queuedHalfExtent;
+        portals[index] = portal;
 
         if (DestroyDuration <= 0f)
         {
@@ -383,7 +415,7 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         bool hasDestroying = false;
         bool hasActive = false;
 
-        for (int i = 0; i < portals.Length; i++)
+        for (int i = 0; i < portals.Count; i++)
         {
             if (!portals[i].exists)
             {
@@ -418,7 +450,7 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
     // - Role: Check if portal cell occupied is true.
     private bool IsPortalCellOccupied(Vector2Int cell)
     {
-        for (int i = 0; i < portals.Length; i++)
+        for (int i = 0; i < portals.Count; i++)
         {
             if (!portals[i].exists)
             {
@@ -440,13 +472,13 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
     }
 
     // - Role: Find placement origin.
-    private static Vector2 ResolvePlacementOrigin(PlayerObject player)
+    private Vector2 ResolvePlacementOrigin(PlayerObject player)
     {
         Vector2 playerCenter = player.position + player.collisionOffset;
         Vector2 direction = player.aim.sqrMagnitude > 0.0001f
             ? player.aim.normalized
             : Vector2.right;
-        float offsetDistance = Mathf.Max(player.collisionHalfExtent.x, player.collisionHalfExtent.y) * 2f;
+        float offsetDistance = PlacementRangeWorld();
 
         return playerCenter + direction * Mathf.Max(0.0001f, offsetDistance);
     }
@@ -454,7 +486,8 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
     // - Role: Find available slot index.
     private int FindAvailableSlotIndex()
     {
-        for (int i = 0; i < portals.Length; i++)
+        EnsurePortalCapacity(maxPortalCount);
+        for (int i = 0; i < maxPortalCount; i++)
         {
             if (!portals[i].exists)
             {
@@ -471,7 +504,7 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         int oldestIndex = -1;
         uint oldestOrder = uint.MaxValue;
 
-        for (int i = 0; i < portals.Length; i++)
+        for (int i = 0; i < maxPortalCount; i++)
         {
             if (!portals[i].exists || portals[i].hasQueuedSpawn)
             {
@@ -488,12 +521,55 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         return oldestIndex;
     }
 
+    // - Role: Refresh skill modifier parameters.
+    private void RefreshModifierParameters(PlayerObject player)
+    {
+        int evaluatedMaxPortalCount = player.itemEffects != null
+            ? player.itemEffects.EvaluateSkillInt(DefaultMaxPortalCount, player.skill, SkillModifierParameterKeys.MaxPortalCount)
+            : DefaultMaxPortalCount;
+        maxPortalCount = Mathf.Clamp(evaluatedMaxPortalCount, 1, byte.MaxValue - 1);
+        placementRange = GetRange(player);
+        float cellSize = player.gamePlay != null && player.gamePlay.CollisionSystem != null
+            ? player.gamePlay.CollisionSystem.CellSize
+            : 1f;
+        placementSearchDistance = Mathf.Max(
+            0,
+            Mathf.CeilToInt(placementRange / cellSize) + 1);
+        EnsurePortalCapacity(maxPortalCount);
+    }
+
+    // - Role: Ensure portal slot count.
+    private void EnsurePortalCapacity(int count)
+    {
+        while (portals.Count < count)
+        {
+            portals.Add(default);
+        }
+    }
+
+    // - Role: Get portal skill object id.
+    private static byte GetPortalSkillObjectId(int index)
+    {
+        return index switch
+        {
+            0 => PortalObjectA,
+            1 => PortalObjectB,
+            _ => (byte)Mathf.Clamp(index, 0, byte.MaxValue - 1)
+        };
+    }
+
     private float PortalTeleportCooldown => config != null
         ? config.PortalTeleportCooldown
         : DefaultTeleportCooldown;
-    private int PlacementSearchDistance => Mathf.Max(0, Mathf.RoundToInt(DefaultPlacementSearchDistance * Mathf.Max(0f, rangeMultiplier)));
+    private int PlacementSearchDistance => Mathf.Max(0, placementSearchDistance);
     private float SpawnDuration => config != null ? config.SpawnDuration : DefaultSpawnDuration;
     private float DestroyDuration => config != null ? config.DestroyDuration : DefaultDestroyDuration;
+
+    // - Role: Get placement range in world units.
+    private float PlacementRangeWorld()
+    {
+        return Mathf.Max(0f, placementRange);
+    }
 
     // - Role: Find owner player.
     private static PlayerObject ResolveOwnerPlayer(SkillObject self)

@@ -116,11 +116,13 @@ public sealed class Client_CharacterView : MonoBehaviour
 
         stateMachine.ApplySnapshotState(snapshotState);
 
-        renderPosition = SmoothRenderPosition(
-            snapshotState.position,
-            isLocalPlayer ? localFollowSpeed : remoteFollowSpeed,
-            snapDistance,
-            deltaTime);
+        renderPosition = IsTeleportRenderState(snapshotState.locomotionState)
+            ? snapshotState.position
+            : SmoothRenderPosition(
+                snapshotState.position,
+                isLocalPlayer ? localFollowSpeed : remoteFollowSpeed,
+                snapDistance,
+                deltaTime);
         hasRenderPosition = true;
 
         transform.position = new Vector3(renderPosition.x, renderPosition.y, transform.position.z);
@@ -128,6 +130,12 @@ public sealed class Client_CharacterView : MonoBehaviour
         UpdateAimLine(snapshotState.aim, snapshotState.buttons);
         UpdateSkillIndicator();
         PlayLocomotionClip(stateMachine.State.locomotionState);
+    }
+
+    // - Role: Check if render position should snap.
+    private static bool IsTeleportRenderState(LocomotionState locomotionState)
+    {
+        return locomotionState == LocomotionState.BlinkExit;
     }
 
     // - Role: Apply tagger color.

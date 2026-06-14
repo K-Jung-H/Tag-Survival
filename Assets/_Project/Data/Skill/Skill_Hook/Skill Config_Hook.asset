@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HookSkillConfig
   hookSpeed: 18
   returnSpeedMultiplier: 3
-  maxRopeLength: 12
   hookHitHalfExtent: 0.08
   returnCompleteDistance: 0.18
   swingInputAcceleration: 18

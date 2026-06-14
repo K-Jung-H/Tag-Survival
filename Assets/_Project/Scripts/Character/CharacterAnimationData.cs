@@ -11,6 +11,8 @@ public sealed class CharacterAnimationData : ScriptableObject
     [SerializeField] private AnimationClip fallClip;
     [SerializeField] private AnimationClip wallStickClip;
     [SerializeField] private AnimationClip stunClip;
+    [SerializeField] private AnimationClip blinkEnterClip;
+    [SerializeField] private AnimationClip blinkExitClip;
 
     public RuntimeAnimatorController AnimatorController => animatorController;
     public AnimationClip IdleClip => idleClip;
@@ -19,6 +21,8 @@ public sealed class CharacterAnimationData : ScriptableObject
     public AnimationClip FallClip => fallClip;
     public AnimationClip WallStickClip => wallStickClip;
     public AnimationClip StunClip => stunClip;
+    public AnimationClip BlinkEnterClip => blinkEnterClip;
+    public AnimationClip BlinkExitClip => blinkExitClip;
 
     // - Role: Get clip.
     public AnimationClip GetClip(LocomotionState state)
@@ -35,6 +39,10 @@ public sealed class CharacterAnimationData : ScriptableObject
                 return wallStickClip;
             case LocomotionState.Stunned:
                 return stunClip;
+            case LocomotionState.BlinkEnter:
+                return blinkEnterClip;
+            case LocomotionState.BlinkExit:
+                return blinkExitClip;
             default:
                 return idleClip;
         }

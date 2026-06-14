@@ -6229,14 +6229,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Relay_ClientBootstrap
   showConnectionDebugGui: 1
   canvasPanelController: {fileID: 1795723600}
-  HudPanel: {fileID: 411244612}
-  connectionPanel: {fileID: 1304396816}
   joinCodeInput: {fileID: 634403168}
   nicknameInput: {fileID: 1316875854}
   characterIdInput: {fileID: 1382167480}
   skillIdInput: {fileID: 623495506}
   connectButton: {fileID: 1222203328}
-  delayPanel: {fileID: 91990074}
   delayModeToggle: {fileID: 1943225133}
   delaySlider: {fileID: 1523789057}
   delayValueText: {fileID: 1468279618}

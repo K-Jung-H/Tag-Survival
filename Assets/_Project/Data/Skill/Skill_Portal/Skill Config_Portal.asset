@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Skill Config_Portal
   m_EditorClassIdentifier: Assembly-CSharp::PortalSkillConfig
   portalTeleportCooldown: 1
-  spawnDuration: 5
-  destroyDuration: 3
+  spawnDuration: 1
+  destroyDuration: 1

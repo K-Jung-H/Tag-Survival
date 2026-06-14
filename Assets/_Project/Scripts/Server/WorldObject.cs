@@ -118,6 +118,7 @@ public sealed class PlayerObject : IWorldObject
     public bool isSkillPressed;
     public bool skillQueued;
     public bool hasAimInput;
+    public bool isInteractionDisabled;
     public float lateJumpTimer;
     public WorldObjectLayer layer = WorldObjectLayer.Player;
     public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
@@ -164,6 +165,7 @@ public sealed class PlayerObject : IWorldObject
         isSkillPressed = false;
         skillQueued = false;
         hasAimInput = false;
+        isInteractionDisabled = false;
         lateJumpTimer = 0f;
         layer = WorldObjectLayer.Player;
         collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
@@ -204,6 +206,7 @@ public sealed class PlayerObject : IWorldObject
             ? characterDefinition.CollisionOffset
             : DefaultCollisionOffset;
         collider = new WorldCollider(collisionOffset, collisionHalfExtent);
+        isInteractionDisabled = false;
         SyncCharacterStateMachine();
     }
 

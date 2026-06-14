@@ -116,6 +116,12 @@ public sealed class ServerSkillSystem
     // - Role: Place object on stage.
     private void PlaceOnStage(Skill skill, SkillObject skillObject)
     {
+        PlayerObject owner = null;
+        if (gamePlay != null)
+        {
+            gamePlay.TryGetPlayer(skill.OwnerId, out owner);
+        }
+
         bool success = collisionSystem.TryFindNearestEmptyTile(
             skillObject.position,
             skillObject.stageSearchDistance,
@@ -123,6 +129,18 @@ public sealed class ServerSkillSystem
                 && skill.StateMachine.IsStagePlacementCellBlocked(skillObject, cell),
             out Vector2Int placementCell,
             out Vector2 placementPosition);
+
+        if (!success && owner != null)
+        {
+            Vector2 ownerCenter = owner.position + owner.collisionOffset;
+            success = collisionSystem.TryFindNearestEmptyTile(
+                ownerCenter,
+                0,
+                cell => skill.StateMachine != null
+                    && skill.StateMachine.IsStagePlacementCellBlocked(skillObject, cell),
+                out placementCell,
+                out placementPosition);
+        }
         Vector2 placementHalfExtent = Vector2.one * (collisionSystem.CellSize * 0.5f);
 
         if (success)

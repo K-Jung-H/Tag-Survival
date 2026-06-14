@@ -8,17 +8,17 @@ public sealed class Client_SkillObjectView : MonoBehaviour
 {
     private const byte HookObjectIndex = 0;
     private const byte RopeObjectIndex = 1;
-    private const int PlayerMainColorSlotCount = 2;
+    private const byte PortalTemplateObjectIndex = 0;
     private const float PlayerMainColorSecondSlotHueOffset = 0.43f;
 
     [SerializeField] private SkillType skillType = SkillType.None;
     [SerializeField] private List<SkillObjectEntry> skillObjects = new();
 
     private readonly HashSet<byte> activeObjectIds = new();
+    private readonly Dictionary<byte, DynamicSkillObjectRuntime> dynamicPortalObjectsById = new();
 
     private SkillDefinition definition;
     private ulong ownerClientId;
-    private readonly Color[] ownerMainColors = new Color[PlayerMainColorSlotCount];
     private float[] baseRotationZ;
     private Vector3[] baseLocalScale;
     private float[] baseVisualLengthX;
@@ -33,7 +33,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     {
         definition = newDefinition;
         ownerClientId = newOwnerClientId;
-        CacheOwnerMainColors(ownerClientId);
+        ClearDynamicPortalObjects();
         CacheInitialTransforms();
         HideAllObjects();
     }
@@ -107,6 +107,12 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     // - Role: Apply skill object.
     private void ApplySkillObject(SkillObjectSnapshotPacket snapshot)
     {
+        if (EffectiveSkillType == SkillType.Portal)
+        {
+            ApplyPortalSkillObject(snapshot);
+            return;
+        }
+
         if (!TryGetSkillObject(snapshot.skillObjectId, out SkillObjectEntry entry))
         {
             return;
@@ -121,6 +127,37 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         anchor.position = new Vector3(snapshot.position.x, snapshot.position.y, anchor.position.z);
         anchor.rotation = Quaternion.Euler(0f, 0f, snapshot.rotation + GetBaseRotationZ(snapshot.skillObjectId) + entry.rotationOffset);
         ApplyRenderElements(snapshot.skillObjectId, snapshot.skillObjectState);
+        activeObjectIds.Add(snapshot.skillObjectId);
+    }
+
+    // - Role: Apply portal skill object using template clone.
+    private void ApplyPortalSkillObject(SkillObjectSnapshotPacket snapshot)
+    {
+        if (snapshot.skillObjectId == byte.MaxValue)
+        {
+            return;
+        }
+
+        if (!TryGetPortalRuntimeObject(snapshot.skillObjectId, out DynamicSkillObjectRuntime runtimeObject))
+        {
+            return;
+        }
+
+        Transform anchor = runtimeObject.anchor;
+        if (!anchor.gameObject.activeSelf)
+        {
+            anchor.gameObject.SetActive(true);
+        }
+
+        anchor.position = new Vector3(snapshot.position.x, snapshot.position.y, anchor.position.z);
+        anchor.rotation = Quaternion.Euler(
+            0f,
+            0f,
+            snapshot.rotation + runtimeObject.baseRotationZ + runtimeObject.rotationOffset);
+        ApplyRenderElements(
+            runtimeObject.renderElements,
+            runtimeObject.renderElementCaches,
+            snapshot.skillObjectState);
         activeObjectIds.Add(snapshot.skillObjectId);
     }
 
@@ -200,11 +237,20 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         {
             HideRenderElements((byte)i);
         }
+
+        HideAllDynamicPortalObjects();
     }
 
     // - Role: Hide inactive render objects.
     private void HideInactiveObjects()
     {
+        if (EffectiveSkillType == SkillType.Portal)
+        {
+            HideRenderElements(PortalTemplateObjectIndex);
+            HideInactiveDynamicPortalObjects();
+            return;
+        }
+
         for (int i = 0; i < skillObjects.Count; i++)
         {
             if (!activeObjectIds.Contains((byte)i))
@@ -260,6 +306,68 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
 
         int count = Mathf.Min(renderElements.Count, caches.Length);
+        for (int i = 0; i < count; i++)
+        {
+            SkillRenderElementEntry renderElement = renderElements[i];
+            SkillRenderElementCache cache = caches[i];
+            if (cache != null)
+            {
+                HideRenderers(cache);
+            }
+
+            if (renderElement.targetObject != null)
+            {
+                renderElement.targetObject.SetActive(false);
+            }
+        }
+    }
+
+    // - Role: Apply render elements.
+    private void ApplyRenderElements(
+        List<SkillRenderElementEntry> renderElements,
+        SkillRenderElementCache[] caches,
+        SkillObjectState state)
+    {
+        if (renderElements == null || renderElements.Count == 0)
+        {
+            return;
+        }
+
+        int count = Mathf.Min(renderElements.Count, caches != null ? caches.Length : 0);
+        for (int i = 0; i < count; i++)
+        {
+            SkillRenderElementEntry renderElement = renderElements[i];
+            SkillRenderElementCache cache = caches[i];
+            GameObject targetObject = renderElement.targetObject;
+            if (targetObject == null || cache == null)
+            {
+                continue;
+            }
+
+            if (ShouldRender(renderElement, state))
+            {
+                targetObject.SetActive(true);
+                ShowRenderers(cache, state);
+            }
+            else
+            {
+                HideRenderers(cache);
+                targetObject.SetActive(false);
+            }
+        }
+    }
+
+    // - Role: Hide render elements.
+    private static void HideRenderElements(
+        List<SkillRenderElementEntry> renderElements,
+        SkillRenderElementCache[] caches)
+    {
+        if (renderElements == null || renderElements.Count == 0)
+        {
+            return;
+        }
+
+        int count = Mathf.Min(renderElements.Count, caches != null ? caches.Length : 0);
         for (int i = 0; i < count; i++)
         {
             SkillRenderElementEntry renderElement = renderElements[i];
@@ -373,20 +481,10 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
-    // - Role: Cache owner main colors.
-    private void CacheOwnerMainColors(ulong clientId)
-    {
-        for (int i = 0; i < ownerMainColors.Length; i++)
-        {
-            ownerMainColors[i] = GetPlayerMainColor(clientId, i);
-        }
-    }
-
     // - Role: Get owner main color.
     private Color GetOwnerMainColor(int skillObjectIndex)
     {
-        int colorSlot = Mathf.Abs(skillObjectIndex) % ownerMainColors.Length;
-        return ownerMainColors[colorSlot];
+        return GetPlayerMainColor(ownerClientId, Mathf.Abs(skillObjectIndex));
     }
 
     // - Role: Get player main color.
@@ -571,6 +669,184 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return entry.anchor != null;
     }
 
+    // - Role: Try to get portal runtime object.
+    private bool TryGetPortalRuntimeObject(byte skillObjectId, out DynamicSkillObjectRuntime runtimeObject)
+    {
+        if (dynamicPortalObjectsById.TryGetValue(skillObjectId, out runtimeObject))
+        {
+            return runtimeObject != null && runtimeObject.anchor != null;
+        }
+
+        runtimeObject = CreatePortalRuntimeObject(skillObjectId);
+        if (runtimeObject == null)
+        {
+            return false;
+        }
+
+        dynamicPortalObjectsById.Add(skillObjectId, runtimeObject);
+        return true;
+    }
+
+    // - Role: Create portal runtime object.
+    private DynamicSkillObjectRuntime CreatePortalRuntimeObject(byte skillObjectId)
+    {
+        if (!TryGetSkillObject(PortalTemplateObjectIndex, out SkillObjectEntry template) || template.anchor == null)
+        {
+            return null;
+        }
+
+        GameObject clone = Instantiate(
+            template.anchor.gameObject,
+            template.anchor.parent);
+        clone.name = $"{template.anchor.name}_{skillObjectId}";
+        clone.SetActive(false);
+
+        Transform cloneAnchor = clone.transform;
+        DynamicSkillObjectRuntime runtimeObject = new()
+        {
+            anchor = cloneAnchor,
+            rotationOffset = template.rotationOffset,
+            baseRotationZ = template.anchor.localEulerAngles.z,
+            renderElements = CreateClonedRenderElements(template, cloneAnchor)
+        };
+
+        runtimeObject.renderElementCaches = new SkillRenderElementCache[runtimeObject.renderElements.Count];
+        for (int i = 0; i < runtimeObject.renderElements.Count; i++)
+        {
+            SkillRenderElementEntry renderElement = runtimeObject.renderElements[i];
+            SkillRenderElementCache cache = CreateRenderElementCache(renderElement.targetObject);
+            runtimeObject.renderElementCaches[i] = cache;
+            ApplyMainColor(cache, renderElement, skillObjectId);
+        }
+
+        HideRenderElements(runtimeObject.renderElements, runtimeObject.renderElementCaches);
+        return runtimeObject;
+    }
+
+    // - Role: Create cloned render elements from template.
+    private static List<SkillRenderElementEntry> CreateClonedRenderElements(
+        SkillObjectEntry template,
+        Transform cloneAnchor)
+    {
+        List<SkillRenderElementEntry> clonedRenderElements = new();
+        if (template.renderElements == null || template.anchor == null || cloneAnchor == null)
+        {
+            return clonedRenderElements;
+        }
+
+        for (int i = 0; i < template.renderElements.Count; i++)
+        {
+            SkillRenderElementEntry source = template.renderElements[i];
+            GameObject clonedTarget = FindClonedTargetObject(template.anchor, cloneAnchor, source.targetObject);
+            clonedRenderElements.Add(new SkillRenderElementEntry
+            {
+                targetObject = clonedTarget,
+                renderStates = source.renderStates,
+                overrideMainColor = source.overrideMainColor,
+                mainColor = source.mainColor
+            });
+        }
+
+        return clonedRenderElements;
+    }
+
+    // - Role: Find cloned target object.
+    private static GameObject FindClonedTargetObject(
+        Transform templateAnchor,
+        Transform cloneAnchor,
+        GameObject templateTarget)
+    {
+        if (templateAnchor == null || cloneAnchor == null || templateTarget == null)
+        {
+            return null;
+        }
+
+        Transform templateTargetTransform = templateTarget.transform;
+        if (templateTargetTransform == templateAnchor)
+        {
+            return cloneAnchor.gameObject;
+        }
+
+        if (!templateTargetTransform.IsChildOf(templateAnchor))
+        {
+            return null;
+        }
+
+        string relativePath = GetRelativePath(templateAnchor, templateTargetTransform);
+        Transform clonedTargetTransform = cloneAnchor.Find(relativePath);
+        return clonedTargetTransform != null ? clonedTargetTransform.gameObject : null;
+    }
+
+    // - Role: Get relative path between transforms.
+    private static string GetRelativePath(Transform root, Transform target)
+    {
+        if (root == null || target == null || target == root)
+        {
+            return string.Empty;
+        }
+
+        List<string> path = new();
+        Transform current = target;
+        while (current != null && current != root)
+        {
+            path.Add(current.name);
+            current = current.parent;
+        }
+
+        path.Reverse();
+        return string.Join("/", path);
+    }
+
+    // - Role: Hide inactive dynamic portal objects.
+    private void HideInactiveDynamicPortalObjects()
+    {
+        foreach (var pair in dynamicPortalObjectsById)
+        {
+            if (!activeObjectIds.Contains(pair.Key))
+            {
+                HideDynamicPortalObject(pair.Value);
+            }
+        }
+    }
+
+    // - Role: Hide all dynamic portal objects.
+    private void HideAllDynamicPortalObjects()
+    {
+        foreach (var pair in dynamicPortalObjectsById)
+        {
+            HideDynamicPortalObject(pair.Value);
+        }
+    }
+
+    // - Role: Hide one dynamic portal object.
+    private static void HideDynamicPortalObject(DynamicSkillObjectRuntime runtimeObject)
+    {
+        if (runtimeObject == null)
+        {
+            return;
+        }
+
+        HideRenderElements(runtimeObject.renderElements, runtimeObject.renderElementCaches);
+        if (runtimeObject.anchor != null)
+        {
+            runtimeObject.anchor.gameObject.SetActive(false);
+        }
+    }
+
+    // - Role: Clear dynamic portal objects.
+    private void ClearDynamicPortalObjects()
+    {
+        foreach (var pair in dynamicPortalObjectsById)
+        {
+            if (pair.Value != null && pair.Value.anchor != null)
+            {
+                Destroy(pair.Value.anchor.gameObject);
+            }
+        }
+
+        dynamicPortalObjectsById.Clear();
+    }
+
     // - Role: Get base rotation z.
     private float GetBaseRotationZ(byte skillObjectIndex)
     {
@@ -734,6 +1010,15 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         public SkillObjectState currentAnimatorState;
         public bool hasCurrentAnimatorState;
         public bool isVisible;
+    }
+
+    private sealed class DynamicSkillObjectRuntime
+    {
+        public Transform anchor;
+        public float rotationOffset;
+        public float baseRotationZ;
+        public List<SkillRenderElementEntry> renderElements;
+        public SkillRenderElementCache[] renderElementCaches;
     }
 
     [Flags]

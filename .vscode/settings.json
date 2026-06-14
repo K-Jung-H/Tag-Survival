@@ -67,6 +67,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Tag-Survival.slnx",
+    "dotnet.defaultSolution": "Tag Survival.slnx",
     "dotnet.preferCSharpExtension": true
 }

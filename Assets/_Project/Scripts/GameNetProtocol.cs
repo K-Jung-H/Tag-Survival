@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 21;
+    public const ushort ProtocolVersion = 22;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -52,7 +52,9 @@ public enum LocomotionState : byte
     Jump = 2,
     Fall = 3,
     WallStick = 4,
-    Stunned = 5
+    Stunned = 5,
+    BlinkEnter = 6,
+    BlinkExit = 7
 }
 
 public enum SkillType : byte
@@ -61,7 +63,8 @@ public enum SkillType : byte
     HookGrappling = 1,
     Portal = 2,
     Dash = 3,
-    Recall = 4
+    Recall = 4,
+    Blink = 5
 }
 
 public enum SkillObjectState : byte

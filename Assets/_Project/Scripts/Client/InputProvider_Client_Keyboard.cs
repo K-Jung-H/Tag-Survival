@@ -27,8 +27,6 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
             .With("Left", "<Keyboard>/a")
             .With("Right", "<Keyboard>/d");
 
-        moveAction.AddBinding("<Gamepad>/leftStick");
-
         aimAction = new InputAction("Aim", InputActionType.Value);
 
         aimAction.AddCompositeBinding("2DVector")
@@ -37,11 +35,8 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
             .With("Left", "<Keyboard>/leftArrow")
             .With("Right", "<Keyboard>/rightArrow");
 
-        aimAction.AddBinding("<Gamepad>/rightStick");
-
         dashAction = new InputAction("Dash", InputActionType.Button);
         dashAction.AddBinding("<Keyboard>/leftShift");
-        dashAction.AddBinding("<Gamepad>/buttonEast");
     }
 
     // - Role: Turn on links when this object is enabled.

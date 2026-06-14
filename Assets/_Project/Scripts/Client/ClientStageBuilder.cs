@@ -159,6 +159,12 @@ public sealed class ClientStageBuilder : MonoBehaviour
             return false;
         }
 
+        if (!canvasPanelController.HasRequiredReferences(out string missingCanvasReference))
+        {
+            Fail($"ClientCanvasPanelController missing reference: {missingCanvasReference}.");
+            return false;
+        }
+
         return true;
     }
 

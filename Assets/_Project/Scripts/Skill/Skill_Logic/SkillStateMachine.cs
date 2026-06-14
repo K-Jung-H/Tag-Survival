@@ -15,14 +15,24 @@ public abstract class SkillStateMachine
     public SkillObjectState State { get; protected set; }
     public float CooldownRemaining { get; protected set; }
 
+    // - Role: Get range for player.
+    public float GetRange(PlayerObject player)
+    {
+        float baseRange = definition != null ? definition.Range : 0f;
+        float range = player != null && player.itemEffects != null
+            ? player.itemEffects.EvaluateSkillFloat(baseRange, player.skill, SkillModifierParameterKeys.Range)
+            : baseRange;
+        return Mathf.Max(0f, range);
+    }
+
     // - Role: Get cooldown for player.
     public float GetCooldownSeconds(PlayerObject player)
     {
         float baseCooldown = definition != null ? definition.Cooldown : 0f;
-        float multiplier = player != null && player.itemEffects != null
-            ? player.itemEffects.GetSkillCooldownMultiplier()
-            : 1f;
-        return Mathf.Max(0f, baseCooldown * multiplier);
+        float cooldown = player != null && player.itemEffects != null
+            ? player.itemEffects.EvaluateSkillFloat(baseCooldown, player.skill, SkillModifierParameterKeys.Cooldown)
+            : baseCooldown;
+        return Mathf.Max(0f, cooldown);
     }
 
     // - Role: Scale current cooldown.

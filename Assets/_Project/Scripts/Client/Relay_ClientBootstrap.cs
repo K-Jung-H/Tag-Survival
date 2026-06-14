@@ -27,8 +27,6 @@ public class Relay_ClientBootstrap : MonoBehaviour
 
     [Header("Connection UI References")]
     [SerializeField] private ClientCanvasPanelController canvasPanelController;
-    [SerializeField] private GameObject HudPanel;
-    [SerializeField] private GameObject connectionPanel;
     [SerializeField] private TMP_InputField joinCodeInput;
     [SerializeField] private TMP_InputField nicknameInput;
     [SerializeField] private TMP_InputField characterIdInput;
@@ -36,7 +34,6 @@ public class Relay_ClientBootstrap : MonoBehaviour
     [SerializeField] private Button connectButton;
 
     [Header("Network Delay UI References")]
-    [SerializeField] private GameObject delayPanel;
     [SerializeField] private Toggle delayModeToggle;
     [SerializeField] private Slider delaySlider;
     [SerializeField] private TMP_Text delayValueText;
@@ -593,8 +590,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
     private void ConfigureConnectionUI()
     {
         if (!hasWarnedMissingConnectionUi
-            && (connectionPanel == null
-                || joinCodeInput == null
+            && (joinCodeInput == null
                 || nicknameInput == null
                 || characterIdInput == null
                 || skillIdInput == null
@@ -602,7 +598,7 @@ public class Relay_ClientBootstrap : MonoBehaviour
         {
             hasWarnedMissingConnectionUi = true;
             Debug.LogWarning(
-                "[Relay_ClientBootstrap] Assign Panel_Connection, JoinCode, NickName, CharacterId, SkillId InputFields, and Connect Button " +
+                "[Relay_ClientBootstrap] Assign JoinCode, NickName, CharacterId, SkillId InputFields, and Connect Button " +
                 "to the connection UI fields in the inspector."
             );
         }
@@ -641,14 +637,13 @@ public class Relay_ClientBootstrap : MonoBehaviour
         }
 
         if (!hasWarnedMissingDelayUi
-            && (delayPanel == null
-                || delayModeToggle == null
+            && (delayModeToggle == null
                 || delaySlider == null
                 || delayValueText == null))
         {
             hasWarnedMissingDelayUi = true;
             Debug.LogWarning(
-                "[Relay_ClientBootstrap] Assign Panel_Network, Toggle, Slider, and TMP_Delay " +
+                "[Relay_ClientBootstrap] Assign Toggle, Slider, and TMP_Delay " +
                 "to the network delay UI fields in the inspector."
             );
         }
@@ -657,52 +652,19 @@ public class Relay_ClientBootstrap : MonoBehaviour
     // - Role: Apply panel visibility.
     private void ApplyPanelVisibility()
     {
-        if (canvasPanelController != null)
+        if (canvasPanelController == null)
         {
-            if (inactiveClientMode)
-            {
-                canvasPanelController.ApplyMode(ClientStageUiMode.LocalHost);
-                return;
-            }
-
-            canvasPanelController.ApplyOnlineConnectionState(isConnected);
+            Debug.LogError("[Relay_ClientBootstrap] ClientCanvasPanelController is not assigned.", this);
             return;
         }
 
         if (inactiveClientMode)
         {
-            if (connectionPanel != null)
-            {
-                connectionPanel.SetActive(false);
-            }
-
-            if (delayPanel != null)
-            {
-                delayPanel.SetActive(false);
-            }
-
-            if (HudPanel != null)
-            {
-                HudPanel.SetActive(inactiveClientModeShowHud);
-            }
-
+            canvasPanelController.ApplyMode(ClientStageUiMode.LocalHost);
             return;
         }
 
-        if (connectionPanel != null)
-        {
-            connectionPanel.SetActive(!isConnected);
-        }
-
-        if (delayPanel != null)
-        {
-            delayPanel.SetActive(isConnected);
-        }
-
-        if (HudPanel != null)
-        {
-            HudPanel.SetActive(isConnected);
-        }
+        canvasPanelController.ApplyOnlineConnectionState(isConnected);
     }
 
     // - Role: Handle network delay mode changed.

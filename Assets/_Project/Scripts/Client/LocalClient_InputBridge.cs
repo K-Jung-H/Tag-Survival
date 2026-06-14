@@ -1,10 +1,12 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [DefaultExecutionOrder(-50)]
 public sealed class LocalClient_InputBridge : MonoBehaviour
 {
     [SerializeField] private Server_GamePlayRunner serverRunner;
-    [SerializeField] private InputProvider_Client_Base[] inputProviders;
+    [FormerlySerializedAs("inputProviders")]
+    [SerializeField] private InputProvider_Client_Base[] inputProviderList;
     [SerializeField] private ulong localClientId;
     [SerializeField] private float maxInputAccumulatedTime = 0.15f;
     [SerializeField] private bool sendImmediatelyOnInputChanged = true;
@@ -46,17 +48,9 @@ public sealed class LocalClient_InputBridge : MonoBehaviour
         ResetInputState();
     }
 
-    public void ConfigureInputProvider(InputProvider_Client_Base provider)
-    {
-        inputProviders = provider != null
-            ? new[] { provider }
-            : null;
-        ResetInputState();
-    }
-
     public void ConfigureInputProviders(InputProvider_Client_Base[] providers)
     {
-        inputProviders = providers;
+        inputProviderList = providers;
         ResetInputState();
     }
 
@@ -76,7 +70,7 @@ public sealed class LocalClient_InputBridge : MonoBehaviour
             inputAccumulator = maxInputAccumulatedTime;
         }
 
-        ClientInputState inputState = ClientInputProviderMixer.Mix(inputProviders);
+        ClientInputState inputState = ClientInputProviderMixer.Mix(inputProviderList);
 
         if (ShouldSendImmediately(inputState))
         {
@@ -102,14 +96,14 @@ public sealed class LocalClient_InputBridge : MonoBehaviour
 
     private bool HasInputProvider()
     {
-        if (inputProviders == null)
+        if (inputProviderList == null)
         {
             return false;
         }
 
-        for (int i = 0; i < inputProviders.Length; i++)
+        for (int i = 0; i < inputProviderList.Length; i++)
         {
-            if (inputProviders[i] != null)
+            if (inputProviderList[i] != null)
             {
                 return true;
             }

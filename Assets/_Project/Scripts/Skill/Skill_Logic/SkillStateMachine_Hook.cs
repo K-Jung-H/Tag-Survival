@@ -1,11 +1,11 @@
 ﻿using UnityEngine;
 
+[SkillLogic("hook")]
 public sealed class SkillStateMachine_Hook : SkillStateMachine
 {
     private const byte HookObjectIndex = 0;
     private const float DefaultHookSpeed = 18f;
     private const float DefaultReturnSpeedMultiplier = 2f;
-    private const float DefaultMaxRopeLength = 12f;
     private const float DefaultHookHitHalfExtent = 0.08f;
     private const float DefaultReturnCompleteDistance = 0.18f;
     private const float DefaultSwingInputAcceleration = 18f;
@@ -25,7 +25,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
     private Vector2 fireStartPosition;
     private Vector2 anchorPosition;
     private float ropeLength;
-    private float rangeMultiplier = 1f;
+    private float currentRange;
 
     // - Role: Create hook skill state machine.
     public SkillStateMachine_Hook(SkillDefinition definition)
@@ -114,7 +114,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
         bool skillPressedThisTick)
     {
         ownerClientId = player.playerId;
-        rangeMultiplier = player.itemEffects != null ? player.itemEffects.GetSkillRangeMultiplier() : 1f;
+        currentRange = GetRange(player);
         TickCooldown(deltaTime);
 
         if (skillPressedThisTick)
@@ -183,7 +183,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
             return;
         }
 
-        if (Vector2.Distance(fireStartPosition, hookPosition) >= MaxRopeLength)
+        if (Vector2.Distance(fireStartPosition, hookPosition) >= CurrentRange)
         {
             StartReturning();
         }
@@ -300,8 +300,8 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
     // - Role: Find detach boost.
     private float ResolveDetachBoost()
     {
-        float normalizedLength = MaxRopeLength > 0f
-            ? Mathf.Clamp01(ropeLength / MaxRopeLength)
+        float normalizedLength = CurrentRange > 0f
+            ? Mathf.Clamp01(ropeLength / CurrentRange)
             : 0f;
 
         if (normalizedLength <= 0.5f)
@@ -389,7 +389,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
 
     private float HookSpeed => config != null ? config.HookSpeed : DefaultHookSpeed;
     private float ReturnSpeedMultiplier => config != null ? config.ReturnSpeedMultiplier : DefaultReturnSpeedMultiplier;
-    private float MaxRopeLength => (config != null ? config.MaxRopeLength : DefaultMaxRopeLength) * Mathf.Max(0f, rangeMultiplier);
+    private float CurrentRange => Mathf.Max(0f, currentRange);
     private float HookHitHalfExtent => config != null ? config.HookHitHalfExtent : DefaultHookHitHalfExtent;
     private float ReturnCompleteDistance => config != null
         ? config.ReturnCompleteDistance

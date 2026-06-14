@@ -144,7 +144,7 @@ public sealed class ServerItemSystem
         }
 
         List<ItemData> candidates = new();
-        if (!effectCatalog.TryGetRandomCandidates(itemType, SelectionCandidateCount, random, candidates))
+        if (!effectCatalog.TryGetRandomCandidates(itemType, SelectionCandidateCount, random, candidates, player))
         {
             return false;
         }
@@ -401,17 +401,21 @@ public sealed class ServerItemSystem
         }
 
         player.itemEffects.Add(selected);
-        if (selected.type == ItemType.Skill && selected.skillEffect == SkillItemEffect.Cooldown)
+        if (selected.type == ItemType.Skill)
         {
-            player.skill?.StateMachine?.ScaleCooldown(selected.GetMultiplier());
+            float cooldownScale = player.itemEffects.GetCooldownScaleFor(selected, player.skill);
+            if (!Mathf.Approximately(cooldownScale, 1f))
+            {
+                player.skill?.StateMachine?.ScaleCooldown(cooldownScale);
+            }
         }
 
         QueueItemAppliedEvent(player, pending.itemId, pending.position);
-        string effectName = selected.type == ItemType.Stats ? selected.statEffect.ToString() : selected.skillEffect.ToString();
+        string effectName = selected.GetFallbackEffectLabel();
         Debug.Log(
             $"[ServerItemSystem] Item selected. playerId={player.playerId}, " +
             $"requestId={pending.requestId}, resultType={resultType}, selectedId={selected.id}, " +
-            $"itemType={selected.type}, effect={effectName}, value={selected.value}, duration={selected.duration}");
+            $"itemType={selected.type}, effect={effectName}, duration={selected.duration}");
         return true;
     }
 

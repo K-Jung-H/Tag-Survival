@@ -19,3 +19,5 @@ MonoBehaviour:
   fallClip: {fileID: 7400000, guid: 1ca136248346f9a4795649f697ec2f7f, type: 2}
   wallStickClip: {fileID: 7400000, guid: c36aa11236db5b44c9653cc192a5b75e, type: 2}
   stunClip: {fileID: 7400000, guid: bb04e52465a726248b0e14e729b1820a, type: 2}
+  blinkEnterClip: {fileID: 7400000, guid: da143ba799cbf5c469fcbd2c1c5651ea, type: 2}
+  blinkExitClip: {fileID: 7400000, guid: 8872d1a66f5ad3542a5fb056b926850a, type: 2}

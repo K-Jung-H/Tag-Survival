@@ -20,6 +20,48 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
     [Header("Overlay")]
     [SerializeField] private GameObject itemSelectionRoot;
 
+    public bool HasRequiredReferences(out string missingReferenceName)
+    {
+        if (hudPanel == null)
+        {
+            missingReferenceName = nameof(hudPanel);
+            return false;
+        }
+
+        if (nameplatePanel == null)
+        {
+            missingReferenceName = nameof(nameplatePanel);
+            return false;
+        }
+
+        if (mobileInputPanel == null)
+        {
+            missingReferenceName = nameof(mobileInputPanel);
+            return false;
+        }
+
+        if (connectionPanel == null)
+        {
+            missingReferenceName = nameof(connectionPanel);
+            return false;
+        }
+
+        if (networkDelayPanel == null)
+        {
+            missingReferenceName = nameof(networkDelayPanel);
+            return false;
+        }
+
+        if (itemSelectionRoot == null)
+        {
+            missingReferenceName = nameof(itemSelectionRoot);
+            return false;
+        }
+
+        missingReferenceName = string.Empty;
+        return true;
+    }
+
     public void ApplyMode(ClientStageUiMode mode)
     {
         switch (mode)

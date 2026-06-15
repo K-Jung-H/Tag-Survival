@@ -6,6 +6,8 @@ public class StartSceneManager : MonoBehaviour
     public string serverSceneName = "";
     public string clientSceneName = "";
     [SerializeField] private GameSessionManager gameSessionManager;
+    [SerializeField] private GameModeType gameModeType = GameModeType.TimeAttack;
+    [SerializeField] private GameModeConfig gameModeConfig;
 
     // - Role: Select server mode.
     public void SelectServer()
@@ -16,6 +18,7 @@ public class StartSceneManager : MonoBehaviour
             return;
         }
 
+        gameSessionManager.ConfigureGameMode(gameModeType, gameModeConfig);
         gameSessionManager.StartDedicatedServerSession();
     }
 
@@ -33,6 +36,7 @@ public class StartSceneManager : MonoBehaviour
             return;
         }
 
+        gameSessionManager.ConfigureGameMode(gameModeType, gameModeConfig);
         gameSessionManager.StartPlayerHostSession();
     }
 
@@ -44,6 +48,7 @@ public class StartSceneManager : MonoBehaviour
             return;
         }
 
+        gameSessionManager.ConfigureGameMode(gameModeType, gameModeConfig);
         gameSessionManager.StartGuestSession();
     }
 }

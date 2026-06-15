@@ -1495,6 +1495,7 @@ MonoBehaviour:
   characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
   skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
   itemViewPrefab: {fileID: 4821129715434838906, guid: bff037ba968e786468d9767d3a908268, type: 3}
+  coinViewPrefab: {fileID: 3674070270810647344, guid: 0a6ad609e601c594585751eae8ce9f5b, type: 3}
   localFollowSpeed: 25
   remoteFollowSpeed: 25
   snapDistance: 1.5
@@ -4036,7 +4037,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa61d7cc935044247a380045bfdc477b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_InputSender
-  inputProviders:
+  inputProviderList:
   - {fileID: 1236628304}
   - {fileID: 1236628306}
   networkDelaySimulator: {fileID: 1941727312}
@@ -4057,7 +4058,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalClient_InputBridge
   serverRunner: {fileID: 0}
-  inputProviders:
+  inputProviderList:
   - {fileID: 1236628304}
   - {fileID: 1236628306}
   localClientId: 0

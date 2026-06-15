@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 22;
+    public const ushort ProtocolVersion = 26;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -17,6 +17,7 @@ public static class GameNetProtocol
     public const int RosterPacketBufferSize = 2048;
     public const int MaxPlayers = 10;
     public const int MaxItems = 20;
+    public const int MaxCoins = 20;
     public const int MaxGameEventsPerBatch = 32;
 }
 
@@ -91,6 +92,19 @@ public enum GameVfxType : byte
     TaggerTransfer = 1,
     GameStart = 2,
     GameEnd = 3
+}
+
+public enum GameModeType : byte
+{
+    TimeAttack = 0,
+    CoinCollect = 1
+}
+
+public enum CoinGrade : byte
+{
+    Copper = 0,
+    Silver = 1,
+    Gold = 2
 }
 
 public enum ItemSelectionResultType : byte

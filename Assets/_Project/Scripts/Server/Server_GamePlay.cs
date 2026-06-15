@@ -16,7 +16,7 @@ public class Server_GamePlay
     private readonly ServerSkillSystem skillSystem = new();
     private readonly ServerItemSystem itemSystem = new();
     private readonly ServerWorldCollisionSystem worldCollisionSystem = new();
-    private readonly IServerGameMode gameMode = new TagGameMode(TagStunDurationSeconds);
+    private IServerGameMode gameMode;
     private readonly ServerSnapshotBuilder snapshotBuilder = new();
     private readonly StageCollisionSystem collisionSystem;
     private readonly StageDefinition stageDefinition;
@@ -42,6 +42,7 @@ public class Server_GamePlay
         skillSystem.Bind(this);
         playerSystem.Bind(skillSystem, collisionSystem, stageDefinition);
         itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount, itemSelectionTimeoutSeconds);
+        ConfigureGameMode(GameModeType.TimeAttack);
     }
 
     public uint Tick { get; private set; }
@@ -50,6 +51,7 @@ public class Server_GamePlay
     public IReadOnlyDictionary<ulong, PlayerObject> Players => players;
     public StageCollisionSystem CollisionSystem => collisionSystem;
     public IServerGameMode GameMode => gameMode;
+    public GameModeType GameModeType => gameMode != null ? gameMode.ModeType : GameModeType.TimeAttack;
     public Dictionary<ulong, PlayerObject> MutablePlayers => players;
     public ServerGameEventQueue GameEventQueue => gameEventQueue;
     public GamePhase Phase => gameMode.Phase;
@@ -63,6 +65,25 @@ public class Server_GamePlay
     // - Role: Set game duration seconds.
     public void SetGameDurationSeconds(float durationSeconds)
     {
+        gameMode.SetGameDurationSeconds(durationSeconds);
+    }
+
+    // - Role: Set game mode.
+    public void ConfigureGameMode(GameModeType modeType)
+    {
+        ConfigureGameMode(modeType, null);
+    }
+
+    // - Role: Set game mode.
+    public void ConfigureGameMode(GameModeType modeType, GameModeConfig modeConfig)
+    {
+        float durationSeconds = gameMode != null ? gameMode.GameDurationSeconds : 180f;
+        if (modeConfig != null && modeConfig.ModeType == modeType)
+        {
+            durationSeconds = modeConfig.GameDurationSeconds;
+        }
+
+        gameMode = CreateGameMode(modeType, modeConfig);
         gameMode.SetGameDurationSeconds(durationSeconds);
     }
 
@@ -226,10 +247,29 @@ public class Server_GamePlay
         itemSystem.CopySnapshotsTo(target);
     }
 
+    // - Role: Copy coin snapshots to.
+    public void CopyCoinSnapshotsTo(List<CoinSnapshotPacket> target)
+    {
+        gameMode.CopyCoinSnapshotsTo(target);
+    }
+
     // - Role: Copy game state entries to.
     public void CopyGameStateEntriesTo(List<GameStateEntryPacket> target, bool taggersOnly)
     {
-        snapshotBuilder.CopyGameStateEntriesTo(players, target, taggersOnly);
+        gameMode.CopyGameStateEntriesTo(players, target, taggersOnly);
+    }
+
+    // - Role: Create game mode.
+    private IServerGameMode CreateGameMode(GameModeType modeType, GameModeConfig modeConfig)
+    {
+        return modeType switch
+        {
+            GameModeType.CoinCollect => new CoinCollectGameMode(
+                this,
+                modeConfig as CoinCollectGameModeConfig,
+                TagStunDurationSeconds),
+            _ => new TimeAttackGameMode(TagStunDurationSeconds)
+        };
     }
 
     // - Role: Copy pending game events to.
@@ -257,6 +297,7 @@ public class Server_GamePlay
         playerSystem.CopyWorldObjectsTo(worldObjects);
         skillSystem.CopyWorldObjectsTo(worldObjects);
         itemSystem.CopyWorldObjectsTo(worldObjects);
+        gameMode.CopyWorldObjectsTo(worldObjects);
         worldCollisionSystem.ResolveCollisions(worldObjects, worldCollisionEvents, collisionSystem);
     }
 

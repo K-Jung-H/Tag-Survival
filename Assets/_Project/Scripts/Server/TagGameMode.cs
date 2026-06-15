@@ -1,28 +1,19 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
-public sealed class TagGameMode : IServerGameMode
+public abstract class TagGameModeBase : IServerGameMode
 {
-    private readonly List<ulong> playerIds = new();
     private readonly float tagStunDurationSeconds;
-    private readonly ITagGameModePhaseStrategy preparingStrategy;
-    private readonly ITagGameModePhaseStrategy playingStrategy;
-    private readonly ITagGameModePhaseStrategy endedStrategy;
-    private ITagGameModePhaseStrategy currentStrategy;
     private float gameDurationSeconds = 180f;
     private float gameElapsedSeconds;
 
-    // - Role: Create tag game mode state.
-    public TagGameMode(float tagStunDurationSeconds)
+    protected TagGameModeBase(float tagStunDurationSeconds)
     {
         this.tagStunDurationSeconds = Mathf.Max(0f, tagStunDurationSeconds);
-        preparingStrategy = new PreparingStrategy(this);
-        playingStrategy = new PlayingStrategy(this);
-        endedStrategy = new EndedStrategy(this);
-        currentStrategy = preparingStrategy;
     }
 
-    public GamePhase Phase => currentStrategy.Phase;
+    public abstract GameModeType ModeType { get; }
+    public GamePhase Phase { get; private set; } = GamePhase.Preparing;
     public float GameDurationSeconds => gameDurationSeconds;
     public float GameElapsedSeconds => gameElapsedSeconds;
     public float RemainingSeconds => Mathf.Max(0f, gameDurationSeconds - gameElapsedSeconds);
@@ -47,7 +38,13 @@ public sealed class TagGameMode : IServerGameMode
         uint serverTick,
         Vector2 eventPosition)
     {
-        return currentStrategy.OnPlayerAdded(players, clientId, eventQueue, serverTick, eventPosition);
+        bool changed = AssignInitialTaggerIfNeeded(players, clientId);
+        if (StartGameIfNeeded(players, clientId, eventQueue, serverTick, eventPosition))
+        {
+            changed = true;
+        }
+
+        return changed;
     }
 
     // - Role: Handle player removed.
@@ -57,10 +54,10 @@ public sealed class TagGameMode : IServerGameMode
         ServerGameEventQueue eventQueue,
         uint serverTick)
     {
-        return currentStrategy.OnPlayerRemoved(players, removedPlayer, eventQueue, serverTick);
+        return ChangeFallbackTagger(players, removedPlayer, eventQueue, serverTick);
     }
 
-    // - Role: Update the current tag phase.
+    // - Role: Update the game mode by time.
     public bool Tick(
         Dictionary<ulong, PlayerObject> players,
         float deltaTime,
@@ -68,7 +65,26 @@ public sealed class TagGameMode : IServerGameMode
         uint serverTick,
         Vector2 eventPosition)
     {
-        return currentStrategy.Tick(players, deltaTime, eventQueue, serverTick, eventPosition);
+        if (Phase != GamePhase.Playing)
+        {
+            return false;
+        }
+
+        float safeDeltaTime = Mathf.Max(0f, deltaTime);
+        if (safeDeltaTime <= 0f)
+        {
+            return false;
+        }
+
+        gameElapsedSeconds = Mathf.Min(gameDurationSeconds, gameElapsedSeconds + safeDeltaTime);
+        bool changed = OnPlayingTick(players, safeDeltaTime, eventQueue, serverTick, eventPosition);
+        if (gameElapsedSeconds < gameDurationSeconds)
+        {
+            return changed;
+        }
+
+        EndGame(eventQueue, serverTick, eventPosition);
+        return true;
     }
 
     // - Role: Handle player collision.
@@ -79,31 +95,67 @@ public sealed class TagGameMode : IServerGameMode
         ServerGameEventQueue eventQueue,
         uint serverTick)
     {
-        return currentStrategy.OnPlayerCollision(players, first, second, eventQueue, serverTick);
+        return TryChangeTaggerByCollision(players, first, second, eventQueue, serverTick);
     }
 
-    // - Role: Change to another phase.
-    private void TransitionTo(GamePhase phase)
+    // - Role: Copy game state entries.
+    public abstract void CopyGameStateEntriesTo(
+        IReadOnlyDictionary<ulong, PlayerObject> players,
+        List<GameStateEntryPacket> target,
+        bool taggersOnly);
+
+    // - Role: Copy mode-specific world objects.
+    public virtual void CopyWorldObjectsTo(List<IWorldObject> target)
     {
-        switch (phase)
-        {
-            case GamePhase.Preparing:
-                currentStrategy = preparingStrategy;
-                break;
-            case GamePhase.Playing:
-                currentStrategy = playingStrategy;
-                break;
-            case GamePhase.Ended:
-                currentStrategy = endedStrategy;
-                break;
-            default:
-                currentStrategy = preparingStrategy;
-                break;
-        }
+    }
+
+    // - Role: Copy mode-specific coin snapshots.
+    public virtual void CopyCoinSnapshotsTo(List<CoinSnapshotPacket> target)
+    {
+        target?.Clear();
+    }
+
+    // - Role: Update mode-specific playing state.
+    protected virtual bool OnPlayingTick(
+        Dictionary<ulong, PlayerObject> players,
+        float deltaTime,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+        return false;
+    }
+
+    // - Role: Handle mode-specific tagger changed logic.
+    protected virtual void OnTaggerChanged(
+        PlayerObject oldTagger,
+        PlayerObject newTagger,
+        Vector2 changePosition,
+        ServerGameEventQueue eventQueue,
+        uint serverTick)
+    {
+    }
+
+    // - Role: Handle mode-specific game start.
+    protected virtual void OnGameStarted(
+        Dictionary<ulong, PlayerObject> players,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+    }
+
+    // - Role: Handle mode-specific game end.
+    protected virtual void OnGameEnded(
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
     }
 
     // - Role: Start game if needed.
     private bool StartGameIfNeeded(
+        Dictionary<ulong, PlayerObject> players,
         ulong starterClientId,
         ServerGameEventQueue eventQueue,
         uint serverTick,
@@ -114,72 +166,43 @@ public sealed class TagGameMode : IServerGameMode
             return false;
         }
 
-        TransitionTo(gameDurationSeconds <= 0f
-            ? GamePhase.Ended
-            : GamePhase.Playing);
-        gameElapsedSeconds = Phase == GamePhase.Ended ? gameDurationSeconds : 0f;
+        Phase = GamePhase.Playing;
+        gameElapsedSeconds = 0f;
 
         eventQueue.QueueGameStarted(serverTick, starterClientId, eventPosition);
+        OnGameStarted(players, eventQueue, serverTick, eventPosition);
 
+        if (gameDurationSeconds <= 0f)
+        {
+            EndGame(eventQueue, serverTick, eventPosition);
+        }
+
+        return true;
+    }
+
+    // - Role: End game.
+    private void EndGame(
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
         if (Phase == GamePhase.Ended)
         {
-            eventQueue.QueueGameEnded(serverTick, eventPosition);
+            return;
         }
 
-        return true;
-    }
-
-    // - Role: Handle tagger removed.
-    private bool HandleTaggerRemoved(
-        Dictionary<ulong, PlayerObject> players,
-        PlayerObject removedPlayer,
-        ServerGameEventQueue eventQueue,
-        uint serverTick)
-    {
-        if (!removedPlayer.isTagger)
-        {
-            return false;
-        }
-
-        return AssignFallbackTagger(players, removedPlayer.playerId, eventQueue, serverTick);
-    }
-
-    // - Role: Assign a fallback tagger.
-    private bool AssignFallbackTagger(
-        Dictionary<ulong, PlayerObject> players,
-        ulong previousTaggerClientId,
-        ServerGameEventQueue eventQueue,
-        uint serverTick)
-    {
-        ulong fallbackClientId = 0;
-        bool hasFallback = false;
-
-        foreach (ulong clientId in players.Keys)
-        {
-            fallbackClientId = clientId;
-            hasFallback = true;
-            break;
-        }
-
-        if (!hasFallback)
-        {
-            return false;
-        }
-
-        PlayerObject player = players[fallbackClientId];
-        player.isTagger = true;
-        player.stunnedTimer = 0f;
-
-        eventQueue.QueueTaggerChanged(serverTick, previousTaggerClientId, fallbackClientId, player.position);
-        return true;
+        Phase = GamePhase.Ended;
+        gameElapsedSeconds = gameDurationSeconds;
+        OnGameEnded(eventQueue, serverTick, eventPosition);
+        eventQueue.QueueGameEnded(serverTick, eventPosition);
     }
 
     // - Role: Assign the first tagger if needed.
-    private bool AssignInitialTaggerIfNeeded(
+    private static bool AssignInitialTaggerIfNeeded(
         Dictionary<ulong, PlayerObject> players,
         ulong clientId)
     {
-        if (players.Count != 1 || !players.TryGetValue(clientId, out PlayerObject player))
+        if (players == null || players.Count != 1 || !players.TryGetValue(clientId, out PlayerObject player))
         {
             return false;
         }
@@ -194,43 +217,82 @@ public sealed class TagGameMode : IServerGameMode
         return true;
     }
 
-    // - Role: Add tagger times.
-    private void AddTaggerTimes(Dictionary<ulong, PlayerObject> players, float deltaTime)
+    // - Role: Change fallback tagger when needed.
+    private bool ChangeFallbackTagger(
+        Dictionary<ulong, PlayerObject> players,
+        PlayerObject removedPlayer,
+        ServerGameEventQueue eventQueue,
+        uint serverTick)
     {
-        playerIds.Clear();
-        foreach (ulong clientId in players.Keys)
+        if (removedPlayer == null || !removedPlayer.isTagger || players == null)
         {
-            playerIds.Add(clientId);
+            return false;
         }
 
-        for (int i = 0; i < playerIds.Count; i++)
+        foreach (var pair in players)
         {
-            ulong clientId = playerIds[i];
-            PlayerObject player = players[clientId];
-            if (!player.isTagger)
+            PlayerObject newTagger = pair.Value;
+            if (newTagger == null)
             {
                 continue;
             }
 
-            player.taggerAccumulatedTime += deltaTime;
+            newTagger.isTagger = true;
+            newTagger.stunnedTimer = 0f;
+            Vector2 position = newTagger.position;
+            OnTaggerChanged(removedPlayer, newTagger, position, eventQueue, serverTick);
+            eventQueue.QueueTaggerChanged(serverTick, removedPlayer.playerId, newTagger.playerId, position);
+            return true;
         }
+
+        return false;
     }
 
-    // - Role: Check if tag player can happen.
-    private bool CanTagPlayer(PlayerObject tagger, PlayerObject target)
+    // - Role: Try to change tagger by collision.
+    private bool TryChangeTaggerByCollision(
+        Dictionary<ulong, PlayerObject> players,
+        PlayerObject first,
+        PlayerObject second,
+        ServerGameEventQueue eventQueue,
+        uint serverTick)
     {
-        return Phase == GamePhase.Playing
-            && tagger.isTagger
-            && tagger.stunnedTimer <= 0f
-            && !target.isTagger
-            && target.stunnedTimer <= 0f;
+        if (Phase != GamePhase.Playing || players == null || first == null || second == null)
+        {
+            return false;
+        }
+
+        Vector2 changePosition = (first.position + second.position) * 0.5f;
+        if (CanChangeTagger(first, second))
+        {
+            ChangeTagger(first, second, changePosition, eventQueue, serverTick);
+            return true;
+        }
+
+        if (CanChangeTagger(second, first))
+        {
+            ChangeTagger(second, first, changePosition, eventQueue, serverTick);
+            return true;
+        }
+
+        return false;
     }
 
-    // - Role: Move tagger role to another player.
-    private void TransferTagger(
+    // - Role: Check if tagger can change.
+    private static bool CanChangeTagger(PlayerObject oldTagger, PlayerObject newTagger)
+    {
+        return oldTagger != null
+            && newTagger != null
+            && oldTagger.isTagger
+            && oldTagger.stunnedTimer <= 0f
+            && !newTagger.isTagger
+            && newTagger.stunnedTimer <= 0f;
+    }
+
+    // - Role: Change tagger.
+    private void ChangeTagger(
         PlayerObject oldTagger,
         PlayerObject newTagger,
-        Vector2 transferPosition,
+        Vector2 changePosition,
         ServerGameEventQueue eventQueue,
         uint serverTick)
     {
@@ -242,259 +304,241 @@ public sealed class TagGameMode : IServerGameMode
         newTagger.wallSurface = StageSurfaceType.Normal;
         ServerPlayerSystem.ClearInput(newTagger);
 
-        eventQueue.QueueTaggerChanged(serverTick, oldTagger.playerId, newTagger.playerId, transferPosition);
+        OnTaggerChanged(oldTagger, newTagger, changePosition, eventQueue, serverTick);
+        eventQueue.QueueTaggerChanged(serverTick, oldTagger.playerId, newTagger.playerId, changePosition);
         eventQueue.QueueSpawnVfx(
             serverTick,
             GameVfxType.TaggerTransfer,
             oldTagger.playerId,
             newTagger.playerId,
-            transferPosition,
+            changePosition,
             0f);
     }
+}
 
-    private interface ITagGameModePhaseStrategy
+public sealed class TimeAttackGameMode : TagGameModeBase
+{
+    private readonly List<ulong> playerIds = new();
+
+    public TimeAttackGameMode(float tagStunDurationSeconds)
+        : base(tagStunDurationSeconds)
     {
-        GamePhase Phase { get; }
-
-        // - Role: Handle player added.
-        bool OnPlayerAdded(
-            Dictionary<ulong, PlayerObject> players,
-            ulong clientId,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition);
-
-        // - Role: Handle player removed.
-        bool OnPlayerRemoved(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject removedPlayer,
-            ServerGameEventQueue eventQueue,
-            uint serverTick);
-
-        // - Role: Update the preparing phase.
-        bool Tick(
-            Dictionary<ulong, PlayerObject> players,
-            float deltaTime,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition);
-
-        // - Role: Handle player collision.
-        bool OnPlayerCollision(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject first,
-            PlayerObject second,
-            ServerGameEventQueue eventQueue,
-            uint serverTick);
     }
 
-    private sealed class PreparingStrategy : ITagGameModePhaseStrategy
-    {
-        private readonly TagGameMode owner;
+    public override GameModeType ModeType => GameModeType.TimeAttack;
 
-        // - Role: Create preparing strategy.
-        public PreparingStrategy(TagGameMode owner)
+    // - Role: Copy game state entries.
+    public override void CopyGameStateEntriesTo(
+        IReadOnlyDictionary<ulong, PlayerObject> players,
+        List<GameStateEntryPacket> target,
+        bool taggersOnly)
+    {
+        target.Clear();
+        if (players == null)
         {
-            this.owner = owner;
+            return;
         }
 
-        public GamePhase Phase => GamePhase.Preparing;
-
-        // - Role: Handle player added.
-        public bool OnPlayerAdded(
-            Dictionary<ulong, PlayerObject> players,
-            ulong clientId,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition)
+        foreach (var pair in players)
         {
-            bool changed = owner.AssignInitialTaggerIfNeeded(players, clientId);
-            if (owner.StartGameIfNeeded(clientId, eventQueue, serverTick, eventPosition))
+            PlayerObject player = pair.Value;
+            if (player == null || (taggersOnly && !player.isTagger))
             {
-                changed = true;
+                continue;
             }
 
-            return changed;
+            target.Add(new GameStateEntryPacket
+            {
+                clientId = player.playerId,
+                scoreValue = SecondsToMilliseconds(player.taggerAccumulatedTime),
+                isTagger = player.isTagger
+            });
         }
 
-        // - Role: Handle player removed.
-        public bool OnPlayerRemoved(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject removedPlayer,
-            ServerGameEventQueue eventQueue,
-            uint serverTick)
-        {
-            return owner.HandleTaggerRemoved(players, removedPlayer, eventQueue, serverTick);
-        }
-
-        // - Role: Update the playing phase.
-        public bool Tick(
-            Dictionary<ulong, PlayerObject> players,
-            float deltaTime,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition)
-        {
-            return false;
-        }
-
-        // - Role: Handle player collision.
-        public bool OnPlayerCollision(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject first,
-            PlayerObject second,
-            ServerGameEventQueue eventQueue,
-            uint serverTick)
-        {
-            return false;
-        }
+        target.Sort(CompareLeaderboardEntries);
     }
 
-    private sealed class PlayingStrategy : ITagGameModePhaseStrategy
+    // - Role: Update time attack score.
+    protected override bool OnPlayingTick(
+        Dictionary<ulong, PlayerObject> players,
+        float deltaTime,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
     {
-        private readonly TagGameMode owner;
-
-        // - Role: Create the playing phase strategy.
-        public PlayingStrategy(TagGameMode owner)
-        {
-            this.owner = owner;
-        }
-
-        public GamePhase Phase => GamePhase.Playing;
-
-        // - Role: Handle player added.
-        public bool OnPlayerAdded(
-            Dictionary<ulong, PlayerObject> players,
-            ulong clientId,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition)
+        if (players == null)
         {
             return false;
         }
 
-        // - Role: Handle player removed.
-        public bool OnPlayerRemoved(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject removedPlayer,
-            ServerGameEventQueue eventQueue,
-            uint serverTick)
+        playerIds.Clear();
+        foreach (ulong clientId in players.Keys)
         {
-            return owner.HandleTaggerRemoved(players, removedPlayer, eventQueue, serverTick);
+            playerIds.Add(clientId);
         }
 
-        // - Role: Update the ended phase.
-        public bool Tick(
-            Dictionary<ulong, PlayerObject> players,
-            float deltaTime,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition)
+        for (int i = 0; i < playerIds.Count; i++)
         {
-            float safeDeltaTime = Mathf.Max(0f, deltaTime);
-            if (safeDeltaTime <= 0f)
+            ulong clientId = playerIds[i];
+            PlayerObject player = players[clientId];
+            if (player != null && player.isTagger)
             {
-                return false;
+                player.taggerAccumulatedTime += deltaTime;
             }
-
-            owner.gameElapsedSeconds = Mathf.Min(owner.gameDurationSeconds, owner.gameElapsedSeconds + safeDeltaTime);
-            owner.AddTaggerTimes(players, safeDeltaTime);
-
-            if (owner.gameElapsedSeconds < owner.gameDurationSeconds)
-            {
-                return false;
-            }
-
-            owner.TransitionTo(GamePhase.Ended);
-            eventQueue.QueueGameEnded(serverTick, eventPosition);
-            return true;
         }
 
-        // - Role: Handle player collision.
-        public bool OnPlayerCollision(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject first,
-            PlayerObject second,
-            ServerGameEventQueue eventQueue,
-            uint serverTick)
-        {
-            if (players == null
-                || first == null
-                || second == null)
-            {
-                return false;
-            }
-
-            Vector2 collisionPoint = (first.position + second.position) * 0.5f;
-            if (owner.CanTagPlayer(first, second))
-            {
-                owner.TransferTagger(first, second, collisionPoint, eventQueue, serverTick);
-                return true;
-            }
-
-            if (owner.CanTagPlayer(second, first))
-            {
-                owner.TransferTagger(second, first, collisionPoint, eventQueue, serverTick);
-                return true;
-            }
-
-            return false;
-        }
+        return false;
     }
 
-    private sealed class EndedStrategy : ITagGameModePhaseStrategy
+    // - Role: Convert seconds to milliseconds.
+    private static uint SecondsToMilliseconds(float seconds)
     {
-        private readonly TagGameMode owner;
-
-        // - Role: Create ended strategy.
-        public EndedStrategy(TagGameMode owner)
+        float milliseconds = Mathf.Max(0f, seconds) * 1000f;
+        if (milliseconds >= uint.MaxValue)
         {
-            this.owner = owner;
+            return uint.MaxValue;
         }
 
-        public GamePhase Phase => GamePhase.Ended;
+        return (uint)Mathf.Round(milliseconds);
+    }
 
-        // - Role: Handle player added.
-        public bool OnPlayerAdded(
-            Dictionary<ulong, PlayerObject> players,
-            ulong clientId,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition)
+    // - Role: Compare leaderboard entries.
+    private static int CompareLeaderboardEntries(
+        GameStateEntryPacket first,
+        GameStateEntryPacket second)
+    {
+        int scoreComparison = first.scoreValue.CompareTo(second.scoreValue);
+        if (scoreComparison != 0)
         {
-            return false;
+            return scoreComparison;
         }
 
-        // - Role: Handle player removed.
-        public bool OnPlayerRemoved(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject removedPlayer,
-            ServerGameEventQueue eventQueue,
-            uint serverTick)
+        return first.clientId.CompareTo(second.clientId);
+    }
+}
+
+public sealed class CoinCollectGameMode : TagGameModeBase
+{
+    private readonly CoinCollectGameModeConfig config;
+    private readonly ServerCoinSystem coinSystem = new();
+
+    public CoinCollectGameMode(
+        Server_GamePlay gamePlay,
+        CoinCollectGameModeConfig config,
+        float tagStunDurationSeconds)
+        : base(tagStunDurationSeconds)
+    {
+        this.config = config != null
+            ? config
+            : ScriptableObject.CreateInstance<CoinCollectGameModeConfig>();
+        coinSystem.Bind(gamePlay, this.config);
+    }
+
+    public override GameModeType ModeType => GameModeType.CoinCollect;
+
+    // - Role: Copy game state entries.
+    public override void CopyGameStateEntriesTo(
+        IReadOnlyDictionary<ulong, PlayerObject> players,
+        List<GameStateEntryPacket> target,
+        bool taggersOnly)
+    {
+        target.Clear();
+        if (players == null)
         {
-            return owner.HandleTaggerRemoved(players, removedPlayer, eventQueue, serverTick);
+            return;
         }
 
-        // - Role: Update the ended phase.
-        public bool Tick(
-            Dictionary<ulong, PlayerObject> players,
-            float deltaTime,
-            ServerGameEventQueue eventQueue,
-            uint serverTick,
-            Vector2 eventPosition)
+        foreach (var pair in players)
         {
-            return false;
+            PlayerObject player = pair.Value;
+            if (player == null || (taggersOnly && !player.isTagger))
+            {
+                continue;
+            }
+
+            target.Add(new GameStateEntryPacket
+            {
+                clientId = player.playerId,
+                scoreValue = player.coinCount,
+                isTagger = player.isTagger
+            });
         }
 
-        // - Role: Handle player collision.
-        public bool OnPlayerCollision(
-            Dictionary<ulong, PlayerObject> players,
-            PlayerObject first,
-            PlayerObject second,
-            ServerGameEventQueue eventQueue,
-            uint serverTick)
+        target.Sort(CompareLeaderboardEntries);
+    }
+
+    // - Role: Copy mode-specific world objects.
+    public override void CopyWorldObjectsTo(List<IWorldObject> target)
+    {
+        coinSystem.CopyWorldObjectsTo(target);
+    }
+
+    // - Role: Copy mode-specific coin snapshots.
+    public override void CopyCoinSnapshotsTo(List<CoinSnapshotPacket> target)
+    {
+        coinSystem.CopySnapshotsTo(target);
+    }
+
+    // - Role: Update coin collect state.
+    protected override bool OnPlayingTick(
+        Dictionary<ulong, PlayerObject> players,
+        float deltaTime,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+        coinSystem.Tick(deltaTime);
+        return false;
+    }
+
+    // - Role: Apply coin change when tagger changes.
+    protected override void OnTaggerChanged(
+        PlayerObject oldTagger,
+        PlayerObject newTagger,
+        Vector2 changePosition,
+        ServerGameEventQueue eventQueue,
+        uint serverTick)
+    {
+        if (oldTagger == null || newTagger == null || config == null)
         {
-            return false;
+            return;
         }
+
+        uint originalNewTaggerCoins = newTagger.coinCount;
+        uint oldGain = RateToCoinCount(originalNewTaggerCoins, config.OldTaggerGainRate);
+        uint newLose = RateToCoinCount(originalNewTaggerCoins, config.NewTaggerLoseRate);
+
+        oldTagger.coinCount = AddClamped(oldTagger.coinCount, oldGain);
+        newTagger.coinCount = originalNewTaggerCoins > newLose
+            ? originalNewTaggerCoins - newLose
+            : 0;
+    }
+
+    // - Role: Convert ratio to coin count.
+    private static uint RateToCoinCount(uint source, float rate)
+    {
+        double value = source * Mathf.Max(0f, rate);
+        return value >= uint.MaxValue ? uint.MaxValue : (uint)System.Math.Floor(value);
+    }
+
+    // - Role: Add unsigned values with clamp.
+    private static uint AddClamped(uint first, uint second)
+    {
+        ulong sum = (ulong)first + second;
+        return sum >= uint.MaxValue ? uint.MaxValue : (uint)sum;
+    }
+
+    // - Role: Compare leaderboard entries.
+    private static int CompareLeaderboardEntries(
+        GameStateEntryPacket first,
+        GameStateEntryPacket second)
+    {
+        int scoreComparison = second.scoreValue.CompareTo(first.scoreValue);
+        if (scoreComparison != 0)
+        {
+            return scoreComparison;
+        }
+
+        return first.clientId.CompareTo(second.clientId);
     }
 }

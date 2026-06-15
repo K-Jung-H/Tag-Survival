@@ -18,7 +18,8 @@ public enum WorldObjectType : byte
     Player = 1,
     SkillObject = 2,
     Area = 3,
-    Item = 4
+    Item = 4,
+    Coin = 5
 }
 
 public enum SkillStageMode : byte
@@ -78,6 +79,38 @@ public readonly struct WorldCollisionEvent
     }
 }
 
+public struct PlayerInteractionState
+{
+    public bool blocksInput;
+    public bool blocksMovement;
+    public bool disablesPlayerPush;
+    public bool hasCollisionMaskOverride;
+    public WorldObjectLayer collisionMaskOverride;
+
+    public static PlayerInteractionState None => default;
+
+    public static PlayerInteractionState Locked(
+        WorldObjectLayer collisionMaskOverride,
+        bool disablesPlayerPush)
+    {
+        return new PlayerInteractionState
+        {
+            blocksInput = true,
+            blocksMovement = true,
+            disablesPlayerPush = disablesPlayerPush,
+            hasCollisionMaskOverride = true,
+            collisionMaskOverride = collisionMaskOverride
+        };
+    }
+
+    public WorldObjectLayer ResolveCollisionMask(WorldObjectLayer defaultCollisionMask)
+    {
+        return hasCollisionMaskOverride ? collisionMaskOverride : defaultCollisionMask;
+    }
+
+    public bool AllowsWorldCollision => !hasCollisionMaskOverride || collisionMaskOverride != WorldObjectLayer.None;
+}
+
 public sealed class PlayerObject : IWorldObject
 {
     private const string DefaultNickname = "NoName";
@@ -105,9 +138,11 @@ public sealed class PlayerObject : IWorldObject
     public PlayerInputButtons buttons;
     public Vector2 collisionHalfExtent;
     public Vector2 collisionOffset;
+    public PlayerInteractionState interactionState;
     public bool isTagger;
     public float stunnedTimer;
     public float taggerAccumulatedTime;
+    public uint coinCount;
     public bool isGrounded;
     public StageSurfaceType groundSurface;
     public bool isOnWall;
@@ -118,7 +153,6 @@ public sealed class PlayerObject : IWorldObject
     public bool isSkillPressed;
     public bool skillQueued;
     public bool hasAimInput;
-    public bool isInteractionDisabled;
     public float lateJumpTimer;
     public WorldObjectLayer layer = WorldObjectLayer.Player;
     public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
@@ -126,9 +160,13 @@ public sealed class PlayerObject : IWorldObject
 
     public WorldObjectType ObjectType => WorldObjectType.Player;
     public WorldObjectLayer Layer => layer;
-    public WorldObjectLayer CollisionMask => collisionMask;
+    public WorldObjectLayer CollisionMask => interactionState.ResolveCollisionMask(collisionMask);
     public Vector2 WorldPosition => position;
     public WorldCollider Collider => collider;
+    public bool BlocksInput => interactionState.blocksInput;
+    public bool BlocksMovement => interactionState.blocksMovement;
+    public bool AllowsWorldCollision => interactionState.AllowsWorldCollision;
+    public bool DisablesPlayerPush => interactionState.disablesPlayerPush;
 
     // - Role: Create a player object.
     public PlayerObject(Server_GamePlay gamePlay, ulong playerId)
@@ -152,9 +190,11 @@ public sealed class PlayerObject : IWorldObject
         buttons = PlayerInputButtons.None;
         collisionHalfExtent = DefaultCollisionHalfExtent;
         collisionOffset = DefaultCollisionOffset;
+        interactionState = PlayerInteractionState.None;
         isTagger = false;
         stunnedTimer = 0f;
         taggerAccumulatedTime = 0f;
+        coinCount = 0;
         isGrounded = false;
         groundSurface = StageSurfaceType.Normal;
         isOnWall = false;
@@ -165,7 +205,6 @@ public sealed class PlayerObject : IWorldObject
         isSkillPressed = false;
         skillQueued = false;
         hasAimInput = false;
-        isInteractionDisabled = false;
         lateJumpTimer = 0f;
         layer = WorldObjectLayer.Player;
         collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
@@ -198,6 +237,7 @@ public sealed class PlayerObject : IWorldObject
             ? characterDefinition.MovementStats
             : CharacterMovementStats.Default;
         itemEffects.Clear();
+        coinCount = 0;
         moveStats = baseMoveStats;
         collisionHalfExtent = characterDefinition != null
             ? characterDefinition.CollisionExtent
@@ -206,7 +246,7 @@ public sealed class PlayerObject : IWorldObject
             ? characterDefinition.CollisionOffset
             : DefaultCollisionOffset;
         collider = new WorldCollider(collisionOffset, collisionHalfExtent);
-        isInteractionDisabled = false;
+        interactionState = PlayerInteractionState.None;
         SyncCharacterStateMachine();
     }
 
@@ -248,8 +288,23 @@ public sealed class PlayerObject : IWorldObject
             gamePlay.GameEventQueue,
             gamePlay.Tick))
         {
+            ApplyStunInteractionStateIfNeeded(this);
+            ApplyStunInteractionStateIfNeeded(otherPlayer);
             gamePlay.MarkGameStateChanged();
         }
+    }
+
+    // - Role: Clear temporary interaction locks when stun takes over.
+    private static void ApplyStunInteractionStateIfNeeded(PlayerObject player)
+    {
+        if (player == null || player.stunnedTimer <= 0f)
+        {
+            return;
+        }
+
+        player.interactionState = PlayerInteractionState.None;
+        ServerPlayerSystem.UpdateRenderState(player);
+        player.SyncCharacterStateMachine();
     }
 }
 
@@ -307,6 +362,31 @@ public sealed class ItemObject : IWorldObject
     public void OnCollision(IWorldObject other)
     {
         stateMachine?.OnCollision(this, other);
+    }
+}
+
+public sealed class CoinObject : IWorldObject
+{
+    public uint coinId;
+    public CoinGrade grade;
+    public uint value;
+    public float remainingLifetimeSeconds;
+    public Vector2 position;
+    public WorldCollider collider;
+    public ServerCoinSystem coinSystem;
+    public WorldObjectLayer layer = WorldObjectLayer.Item;
+    public WorldObjectLayer collisionMask = WorldObjectLayer.Player;
+
+    public WorldObjectType ObjectType => WorldObjectType.Coin;
+    public WorldObjectLayer Layer => layer;
+    public WorldObjectLayer CollisionMask => collisionMask;
+    public Vector2 WorldPosition => position;
+    public WorldCollider Collider => collider;
+
+    // - Role: Handle collision.
+    public void OnCollision(IWorldObject other)
+    {
+        coinSystem?.OnCoinCollision(this, other);
     }
 }
 

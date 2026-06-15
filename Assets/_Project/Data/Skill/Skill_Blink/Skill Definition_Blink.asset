@@ -15,7 +15,7 @@ MonoBehaviour:
   skillId: 3
   logicKey: blink
   skillType: 5
-  range: 5
-  cooldown: 3
+  range: 8
+  cooldown: 8
   skillObjectViewPrefab: {fileID: 0}
   config: {fileID: 11400000, guid: 1d3d869aaa011ca4cbbed00268ff2eb8, type: 2}

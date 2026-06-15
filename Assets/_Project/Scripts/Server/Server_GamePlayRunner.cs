@@ -17,6 +17,8 @@ public class Server_GamePlayRunner : MonoBehaviour
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
     [SerializeField] private ItemEffectCatalog itemEffectCatalog;
+    [SerializeField] private GameModeType gameModeType = GameModeType.TimeAttack;
+    [SerializeField] private GameModeConfig gameModeConfig;
     [SerializeField] private int maxActiveItemCount = GameNetProtocol.MaxItems;
     [SerializeField] private float itemSelectionTimeoutSeconds = 10f;
     [SerializeField] private float gameDurationSeconds = 180f;
@@ -41,6 +43,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     private readonly System.Collections.Generic.List<PlayerSnapshotPacket> playerSnapshots = new();
     private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
     private readonly System.Collections.Generic.List<ItemSnapshotPacket> itemSnapshots = new();
+    private readonly System.Collections.Generic.List<CoinSnapshotPacket> coinSnapshots = new();
     private readonly System.Collections.Generic.List<GameStateEntryPacket> gameStateEntries = new();
     private readonly System.Collections.Generic.List<GameEventEntryPacket> gameEvents = new();
     private readonly System.Collections.Generic.List<RosterEntryPacket> rosterEntries = new();
@@ -65,6 +68,7 @@ public class Server_GamePlayRunner : MonoBehaviour
 
     public Server_GamePlay GamePlay => gamePlay;
     public ServerGamePlayRunMode RunMode => runMode;
+    public GameModeType GameModeType => gameModeType;
     public event Action<ItemSelectionOfferPacket> LocalItemSelectionOfferReady;
     public event Action<ItemSelectionResultPacket> LocalItemSelectionResultReady;
     public event Action<GameEventEntryPacket> LocalGameEventReady;
@@ -72,6 +76,23 @@ public class Server_GamePlayRunner : MonoBehaviour
     public void ConfigureRunMode(ServerGamePlayRunMode mode)
     {
         runMode = mode;
+    }
+
+    public void ConfigureGameMode(GameModeType modeType)
+    {
+        ConfigureGameMode(modeType, gameModeConfig);
+    }
+
+    public void ConfigureGameMode(GameModeType modeType, GameModeConfig modeConfig)
+    {
+        gameModeType = modeType;
+        if (modeConfig != null)
+        {
+            gameModeConfig = modeConfig;
+        }
+
+        gamePlay?.ConfigureGameMode(gameModeType, gameModeConfig);
+        gamePlay?.SetGameDurationSeconds(ResolveGameDurationSeconds());
     }
 
     public void ConfigureLocalDirectClient(ulong clientId)
@@ -96,7 +117,8 @@ public class Server_GamePlayRunner : MonoBehaviour
             itemEffectCatalog,
             maxActiveItemCount,
             itemSelectionTimeoutSeconds);
-        gamePlay.SetGameDurationSeconds(gameDurationSeconds);
+        gamePlay.ConfigureGameMode(gameModeType, gameModeConfig);
+        gamePlay.SetGameDurationSeconds(ResolveGameDurationSeconds());
 
         snapshotWriter = new FastBufferWriter(GameNetProtocol.SnapshotPacketBufferSize, Allocator.Persistent);
 
@@ -462,6 +484,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         gamePlay.CopyPlayerSnapshotsTo(playerSnapshots);
         gamePlay.CopySkillSnapshotsTo(skillSnapshots);
         gamePlay.CopyItemSnapshotsTo(itemSnapshots);
+        gamePlay.CopyCoinSnapshotsTo(coinSnapshots);
 
         ServerSnapshotHeaderPacket header = new ServerSnapshotHeaderPacket
         {
@@ -471,7 +494,8 @@ public class Server_GamePlayRunner : MonoBehaviour
             serverTime = (float)NetworkManager.Singleton.ServerTime.Time,
             playerCount = (ushort)playerSnapshots.Count,
             skillCount = (ushort)skillSnapshots.Count,
-            itemCount = (ushort)itemSnapshots.Count
+            itemCount = (ushort)itemSnapshots.Count,
+            coinCount = (ushort)coinSnapshots.Count
         };
 
         snapshotSeq++;
@@ -490,6 +514,11 @@ public class Server_GamePlayRunner : MonoBehaviour
         for (int i = 0; i < itemSnapshots.Count; i++)
         {
             itemSnapshots[i].Write(ref snapshotWriter);
+        }
+
+        for (int i = 0; i < coinSnapshots.Count; i++)
+        {
+            coinSnapshots[i].Write(ref snapshotWriter);
         }
 
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
@@ -549,6 +578,7 @@ public class Server_GamePlayRunner : MonoBehaviour
             serverTick = gamePlay.Tick,
             serverTime = (float)NetworkManager.Singleton.ServerTime.Time,
             remainingSeconds = (ushort)Mathf.Clamp(Mathf.CeilToInt(gamePlay.RemainingSeconds), 0, ushort.MaxValue),
+            gameModeType = gamePlay.GameModeType,
             isGameStarted = gamePlay.IsGameStarted,
             isGameEnded = gamePlay.IsGameEnded,
             isFullSync = isFullSync,
@@ -762,5 +792,15 @@ public class Server_GamePlayRunner : MonoBehaviour
     private bool IsLocalDirectClient(ulong clientId)
     {
         return hasLocalDirectClient && clientId == localDirectClientId;
+    }
+
+    private float ResolveGameDurationSeconds()
+    {
+        if (gameModeConfig != null && gameModeConfig.ModeType == gameModeType)
+        {
+            return gameModeConfig.GameDurationSeconds;
+        }
+
+        return gameDurationSeconds;
     }
 }

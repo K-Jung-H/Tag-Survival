@@ -10,6 +10,7 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
 
     private BlinkPhase phase;
     private float phaseTimer;
+    private Vector2 startPosition;
     private Vector2 targetPosition;
 
     // - Role: Create blink skill state machine.
@@ -46,6 +47,12 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
 
         if (phase != BlinkPhase.None)
         {
+            if (player != null && player.stunnedTimer > 0f)
+            {
+                CancelBlinkForStun(player);
+                return;
+            }
+
             TickBlink(player, deltaTime);
             return;
         }
@@ -65,6 +72,7 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
             return;
         }
 
+        startPosition = player.position;
         targetPosition = ResolveTargetPosition(player);
         StartCooldown(player);
         StartPhase(player, BlinkPhase.Enter);
@@ -80,10 +88,11 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
             return;
         }
 
-        player.isInteractionDisabled = true;
         player.velocity = Vector2.zero;
+        ApplyLockedPosition(player);
         phaseTimer -= Mathf.Max(0f, deltaTime);
         ApplyPhaseRenderState(player);
+        ApplyBlinkCollisionWindow(player);
 
         if (phaseTimer > 0f)
         {
@@ -107,8 +116,9 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
         phaseTimer = nextPhase == BlinkPhase.Enter
             ? EnterDuration
             : ExitDuration;
-        player.isInteractionDisabled = true;
         player.velocity = Vector2.zero;
+        ApplyBlinkCollisionWindow(player);
+        ApplyLockedPosition(player);
         ApplyPhaseRenderState(player);
 
         if (phaseTimer <= 0f)
@@ -122,8 +132,23 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
     {
         phase = BlinkPhase.None;
         State = SkillObjectState.None;
-        player.isInteractionDisabled = false;
+        player.interactionState = PlayerInteractionState.None;
         player.locomotionState = LocomotionState.Idle;
+        ServerPlayerSystem.UpdateRenderState(player);
+        ServerPlayerSystem.UpdateCharacterStateMachine(player);
+    }
+
+    // - Role: Cancel blink when stun starts.
+    private void CancelBlinkForStun(PlayerObject player)
+    {
+        phase = BlinkPhase.None;
+        State = SkillObjectState.None;
+        if (player == null)
+        {
+            return;
+        }
+
+        player.interactionState = PlayerInteractionState.None;
         ServerPlayerSystem.UpdateRenderState(player);
         ServerPlayerSystem.UpdateCharacterStateMachine(player);
     }
@@ -150,6 +175,53 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
         player.isOnWall = false;
         player.wallDirX = 0;
         player.wallSurface = StageSurfaceType.Normal;
+    }
+
+    // - Role: Keep player fixed during blink animation.
+    private void ApplyLockedPosition(PlayerObject player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        player.position = phase == BlinkPhase.Enter
+            ? startPosition
+            : targetPosition - player.collisionOffset;
+    }
+
+    // - Role: Apply player collision window during blink.
+    private void ApplyBlinkCollisionWindow(PlayerObject player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        WorldObjectLayer collisionMask = IsPlayerCollisionEnabledInCurrentPhase()
+            ? WorldObjectLayer.Player
+            : WorldObjectLayer.None;
+        player.interactionState = PlayerInteractionState.Locked(
+            collisionMask,
+            disablesPlayerPush: true);
+    }
+
+    // - Role: Check if player collision is enabled in blink phase.
+    private bool IsPlayerCollisionEnabledInCurrentPhase()
+    {
+        if (phase == BlinkPhase.Enter)
+        {
+            float elapsed = Mathf.Max(0f, EnterDuration - phaseTimer);
+            return elapsed <= EnterCollisionSeconds;
+        }
+
+        if (phase == BlinkPhase.Exit)
+        {
+            float elapsed = Mathf.Max(0f, ExitDuration - phaseTimer);
+            return elapsed >= ExitCollisionDelaySeconds;
+        }
+
+        return false;
     }
 
     // - Role: Resolve blink target.
@@ -194,6 +266,8 @@ public sealed class SkillStateMachine_Blink : SkillStateMachine
 
     private float EnterDuration => config != null ? config.EnterDuration : DefaultEnterDuration;
     private float ExitDuration => config != null ? config.ExitDuration : DefaultExitDuration;
+    private float EnterCollisionSeconds => config != null ? config.EnterCollisionSeconds : 0.05f;
+    private float ExitCollisionDelaySeconds => config != null ? config.ExitCollisionDelaySeconds : 0.05f;
 
     private enum BlinkPhase
     {

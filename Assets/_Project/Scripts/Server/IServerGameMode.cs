@@ -3,6 +3,7 @@ using UnityEngine;
 
 public interface IServerGameMode
 {
+    GameModeType ModeType { get; }
     GamePhase Phase { get; }
     float GameDurationSeconds { get; }
     float GameElapsedSeconds { get; }
@@ -43,4 +44,16 @@ public interface IServerGameMode
         PlayerObject second,
         ServerGameEventQueue eventQueue,
         uint serverTick);
+
+    // - Role: Copy game state entries.
+    void CopyGameStateEntriesTo(
+        IReadOnlyDictionary<ulong, PlayerObject> players,
+        List<GameStateEntryPacket> target,
+        bool taggersOnly);
+
+    // - Role: Copy mode-specific world objects.
+    void CopyWorldObjectsTo(List<IWorldObject> target);
+
+    // - Role: Copy mode-specific coin snapshots.
+    void CopyCoinSnapshotsTo(List<CoinSnapshotPacket> target);
 }

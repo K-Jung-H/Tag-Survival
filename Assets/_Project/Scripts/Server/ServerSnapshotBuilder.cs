@@ -27,7 +27,8 @@ public sealed class ServerSnapshotBuilder
                 locomotionState = renderState.locomotionState,
                 characterId = renderState.characterId,
                 skillId = player.skillId,
-                skillCooldownSeconds = ResolveSkillCooldownSeconds(player),
+                skillCooldownDurationSeconds = ResolveSkillCooldownDurationSeconds(player),
+                skillCooldownRemainingSeconds = ResolveSkillCooldownRemainingSeconds(player),
                 facingSign = renderState.facingSign,
                 isTagger = player.isTagger
             });
@@ -45,33 +46,6 @@ public sealed class ServerSnapshotBuilder
         {
             AddSkillSnapshot(target, pair.Value.skill);
         }
-    }
-
-    // - Role: Copy game state entries to.
-    public void CopyGameStateEntriesTo(
-        IReadOnlyDictionary<ulong, PlayerObject> players,
-        List<GameStateEntryPacket> target,
-        bool taggersOnly)
-    {
-        target.Clear();
-
-        foreach (var pair in players)
-        {
-            PlayerObject player = pair.Value;
-            if (taggersOnly && !player.isTagger)
-            {
-                continue;
-            }
-
-            target.Add(new GameStateEntryPacket
-            {
-                clientId = player.playerId,
-                taggerTimeMs = SecondsToMilliseconds(player.taggerAccumulatedTime),
-                isTagger = player.isTagger
-            });
-        }
-
-        target.Sort(CompareLeaderboardEntries);
     }
 
     // - Role: Copy roster entries to.
@@ -158,11 +132,19 @@ public sealed class ServerSnapshotBuilder
         });
     }
 
-    // - Role: Find skill cooldown seconds.
-    private static float ResolveSkillCooldownSeconds(PlayerObject player)
+    // - Role: Find skill cooldown duration seconds.
+    private static float ResolveSkillCooldownDurationSeconds(PlayerObject player)
     {
         return player != null && player.skill != null && player.skill.StateMachine != null
             ? player.skill.StateMachine.GetCooldownSeconds(player)
+            : 0f;
+    }
+
+    // - Role: Find remaining skill cooldown seconds.
+    private static float ResolveSkillCooldownRemainingSeconds(PlayerObject player)
+    {
+        return player != null && player.skill != null && player.skill.StateMachine != null
+            ? player.skill.StateMachine.CooldownRemaining
             : 0f;
     }
 
@@ -198,32 +180,6 @@ public sealed class ServerSnapshotBuilder
         }
 
         return hasDestroying ? SkillObjectState.Destroying : SkillObjectState.None;
-    }
-
-    // - Role: Convert seconds to milliseconds.
-    private static uint SecondsToMilliseconds(float seconds)
-    {
-        float milliseconds = Mathf.Max(0f, seconds) * 1000f;
-        if (milliseconds >= uint.MaxValue)
-        {
-            return uint.MaxValue;
-        }
-
-        return (uint)Mathf.Round(milliseconds);
-    }
-
-    // - Role: Compare leaderboard entries.
-    private static int CompareLeaderboardEntries(
-        GameStateEntryPacket first,
-        GameStateEntryPacket second)
-    {
-        int timeComparison = first.taggerTimeMs.CompareTo(second.taggerTimeMs);
-        if (timeComparison != 0)
-        {
-            return timeComparison;
-        }
-
-        return first.clientId.CompareTo(second.clientId);
     }
 
     // - Role: Compare roster entries.

@@ -102,7 +102,7 @@ public sealed class ServerPlayerSystem
                 continue;
             }
 
-            if (player.stunnedTimer > 0f || player.isInteractionDisabled)
+            if (player.stunnedTimer > 0f || player.BlocksInput)
             {
                 ClearInput(player);
                 continue;
@@ -162,7 +162,7 @@ public sealed class ServerPlayerSystem
             UpdateItemEffects(player, deltaTime);
             UpdateLateJumpTimer(player, deltaTime);
 
-            if (player.isInteractionDisabled)
+            if (player.BlocksMovement)
             {
                 ClearInput(player);
                 skillSystem.Tick(player, deltaTime);
@@ -217,7 +217,7 @@ public sealed class ServerPlayerSystem
         for (int i = 0; i < players.Count; i++)
         {
             PlayerObject player = players[i];
-            if (player != null && !player.isInteractionDisabled)
+            if (player != null && player.AllowsWorldCollision)
             {
                 target.Add(player);
             }
@@ -234,8 +234,9 @@ public sealed class ServerPlayerSystem
 
         bool isMovingHorizontally = Mathf.Abs(player.velocity.x) > MovementStateThresholdSqr;
         LocomotionState locomotionState;
-        if (player.locomotionState == LocomotionState.BlinkEnter
-            || player.locomotionState == LocomotionState.BlinkExit)
+        if (player.BlocksMovement
+            && (player.locomotionState == LocomotionState.BlinkEnter
+                || player.locomotionState == LocomotionState.BlinkExit))
         {
             locomotionState = player.locomotionState;
         }

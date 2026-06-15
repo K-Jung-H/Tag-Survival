@@ -38,7 +38,7 @@ public class Client_GameHudView : MonoBehaviour
         }
 
         RenderTimer(state.remainingSeconds, state.isGameEnded);
-        RenderLeaderboard(state.entries, state.entryCount);
+        RenderLeaderboard(state.entries, state.entryCount, state.gameModeType);
     }
 
     // - Role: Render the game timer.
@@ -53,7 +53,7 @@ public class Client_GameHudView : MonoBehaviour
     }
 
     // - Role: Render the leaderboard.
-    private void RenderLeaderboard(GameStateEntryPacket[] entries, int entryCount)
+    private void RenderLeaderboard(GameStateEntryPacket[] entries, int entryCount, GameModeType gameModeType)
     {
         if (entries == null)
         {
@@ -85,7 +85,7 @@ public class Client_GameHudView : MonoBehaviour
 
             GameStateEntryPacket entry = entries[i];
             bool isLocalPlayer = entry.clientId == localClientId;
-            row.text = FormatLeaderboardRow(i, entry);
+            row.text = FormatLeaderboardRow(i, entry, gameModeType);
             row.color = ResolveLeaderboardColor(entry, isLocalPlayer);
         }
 
@@ -100,7 +100,7 @@ public class Client_GameHudView : MonoBehaviour
             return;
         }
 
-        localPlayerOutsideRow.text = FormatLeaderboardRow(localRankIndex, entries[localRankIndex]);
+        localPlayerOutsideRow.text = FormatLeaderboardRow(localRankIndex, entries[localRankIndex], gameModeType);
         localPlayerOutsideRow.color = ResolveLeaderboardColor(entries[localRankIndex], true);
     }
 
@@ -131,10 +131,13 @@ public class Client_GameHudView : MonoBehaviour
     }
 
     // - Role: Format leaderboard row.
-    private string FormatLeaderboardRow(int zeroBasedRank, GameStateEntryPacket entry)
+    private string FormatLeaderboardRow(int zeroBasedRank, GameStateEntryPacket entry, GameModeType gameModeType)
     {
-        int seconds = Mathf.FloorToInt(entry.taggerTimeMs / 1000f);
-        return $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {seconds}s";
+        return gameModeType switch
+        {
+            GameModeType.CoinCollect => $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {entry.scoreValue}",
+            _ => $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {Mathf.FloorToInt(entry.scoreValue / 1000f)}s"
+        };
     }
 
     // - Role: Find player name.

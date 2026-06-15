@@ -13,6 +13,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         public PlayerSnapshotPacket[] players;
         public SkillSnapshotPacket[] skills;
         public ItemSnapshotPacket[] items;
+        public CoinSnapshotPacket[] coins;
     }
 
     private struct QueuedGameStateSnapshot
@@ -197,7 +198,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             out ServerSnapshotHeaderPacket header,
             out PlayerSnapshotPacket[] players,
             out SkillSnapshotPacket[] skills,
-            out ItemSnapshotPacket[] items))
+            out ItemSnapshotPacket[] items,
+            out CoinSnapshotPacket[] coins))
         {
             return;
         }
@@ -211,12 +213,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
                 header = header,
                 players = players,
                 skills = skills,
-                items = items
+                items = items,
+                coins = coins
             });
             return;
         }
 
-        syncManager.ApplyServerSnapshot(header, players, skills, items);
+        syncManager.ApplyServerSnapshot(header, players, skills, items, coins);
     }
 
     private void OnServerGameStateReceived(ulong senderClientId, FastBufferReader reader)
@@ -369,11 +372,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         out ServerSnapshotHeaderPacket header,
         out PlayerSnapshotPacket[] players,
         out SkillSnapshotPacket[] skills,
-        out ItemSnapshotPacket[] items)
+        out ItemSnapshotPacket[] items,
+        out CoinSnapshotPacket[] coins)
     {
         players = Array.Empty<PlayerSnapshotPacket>();
         skills = Array.Empty<SkillSnapshotPacket>();
         items = Array.Empty<ItemSnapshotPacket>();
+        coins = Array.Empty<CoinSnapshotPacket>();
 
         if (!ServerSnapshotHeaderPacket.TryRead(ref reader, out header))
         {
@@ -402,6 +407,15 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         for (int i = 0; i < header.itemCount; i++)
         {
             if (!ItemSnapshotPacket.TryRead(ref reader, out items[i]))
+            {
+                return false;
+            }
+        }
+
+        coins = new CoinSnapshotPacket[header.coinCount];
+        for (int i = 0; i < header.coinCount; i++)
+        {
+            if (!CoinSnapshotPacket.TryRead(ref reader, out coins[i]))
             {
                 return false;
             }
@@ -439,7 +453,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
             delayedSnapshots.RemoveAt(i);
             i--;
-            syncManager.ApplyServerSnapshot(snapshot.header, snapshot.players, snapshot.skills, snapshot.items);
+            syncManager.ApplyServerSnapshot(snapshot.header, snapshot.players, snapshot.skills, snapshot.items, snapshot.coins);
         }
     }
 

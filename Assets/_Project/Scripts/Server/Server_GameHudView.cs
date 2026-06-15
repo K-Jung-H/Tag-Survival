@@ -105,8 +105,11 @@ public class Server_GameHudView : MonoBehaviour
     // - Role: Format leaderboard row.
     private string FormatLeaderboardRow(int zeroBasedRank, GameStateEntryPacket entry)
     {
-        int seconds = Mathf.FloorToInt(entry.taggerTimeMs / 1000f);
-        return $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {seconds}s";
+        return gamePlayRunner != null
+            && gamePlayRunner.GamePlay != null
+            && gamePlayRunner.GamePlay.GameModeType == GameModeType.CoinCollect
+            ? $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {entry.scoreValue}"
+            : $"{zeroBasedRank + 1}. {ResolvePlayerName(entry.clientId)}  {Mathf.FloorToInt(entry.scoreValue / 1000f)}s";
     }
 
     // - Role: Find player name.

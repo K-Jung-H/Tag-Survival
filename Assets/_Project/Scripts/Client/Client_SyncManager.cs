@@ -19,19 +19,23 @@ public sealed class Client_SyncManager : MonoBehaviour
     private readonly Dictionary<ulong, ClientSnapshotState> snapshots = new();
     private readonly Dictionary<ulong, ClientSkillSnapshotState> skillSnapshots = new();
     private readonly Dictionary<uint, ClientItemSnapshotState> itemSnapshots = new();
+    private readonly Dictionary<uint, ClientCoinSnapshotState> coinSnapshots = new();
     private readonly Dictionary<ulong, RosterEntryPacket> rosterEntries = new();
     private readonly Dictionary<ulong, GameStateEntryPacket> gameStateEntries = new();
     private readonly List<ulong> removeClientIds = new();
     private readonly List<uint> removeItemIds = new();
+    private readonly List<uint> removeCoinIds = new();
     private readonly HashSet<ulong> receivedClientIds = new();
     private readonly HashSet<ulong> receivedSkillOwnerIds = new();
     private readonly HashSet<uint> receivedItemIds = new();
+    private readonly HashSet<uint> receivedCoinIds = new();
     private readonly List<GameStateEntryPacket> sortedGameStateEntries = new();
     private readonly GameStateEntryPacket[] sortedGameStateEntryBuffer =
         new GameStateEntryPacket[GameNetProtocol.MaxPlayers];
     private readonly List<PlayerSnapshotPacket> localPlayerPackets = new();
     private readonly List<SkillSnapshotPacket> localSkillPackets = new();
     private readonly List<ItemSnapshotPacket> localItemPackets = new();
+    private readonly List<CoinSnapshotPacket> localCoinPackets = new();
     private readonly List<GameStateEntryPacket> localGameStateEntries = new();
     private readonly List<RosterEntryPacket> localRosterEntries = new();
     private readonly List<GameEventEntryPacket> localGameEvents = new();
@@ -62,6 +66,7 @@ public sealed class Client_SyncManager : MonoBehaviour
     public IReadOnlyDictionary<ulong, ClientSnapshotState> Snapshots => snapshots;
     public IReadOnlyDictionary<ulong, ClientSkillSnapshotState> SkillSnapshots => skillSnapshots;
     public IReadOnlyDictionary<uint, ClientItemSnapshotState> ItemSnapshots => itemSnapshots;
+    public IReadOnlyDictionary<uint, ClientCoinSnapshotState> CoinSnapshots => coinSnapshots;
     public ClientGameStateSnapshotState CurrentGameState { get; private set; }
     public bool HasGameState => hasGameState;
     public bool HasRoster => hasRoster;
@@ -144,6 +149,7 @@ public sealed class Client_SyncManager : MonoBehaviour
         snapshots.Clear();
         skillSnapshots.Clear();
         itemSnapshots.Clear();
+        coinSnapshots.Clear();
         rosterEntries.Clear();
         gameStateEntries.Clear();
         sortedGameStateEntries.Clear();
@@ -167,7 +173,8 @@ public sealed class Client_SyncManager : MonoBehaviour
         ServerSnapshotHeaderPacket header,
         IReadOnlyList<PlayerSnapshotPacket> players,
         IReadOnlyList<SkillSnapshotPacket> skills,
-        IReadOnlyList<ItemSnapshotPacket> items)
+        IReadOnlyList<ItemSnapshotPacket> items,
+        IReadOnlyList<CoinSnapshotPacket> coins)
     {
         if (!IsNewerSnapshot(header.snapshotSeq))
         {
@@ -181,6 +188,7 @@ public sealed class Client_SyncManager : MonoBehaviour
         ApplyPlayerSnapshots(header, players);
         ApplySkillSnapshots(header, skills);
         ApplyItemSnapshots(items);
+        ApplyCoinSnapshots(coins);
     }
 
     public void ApplyGameStateSnapshot(
@@ -203,6 +211,7 @@ public sealed class Client_SyncManager : MonoBehaviour
             serverTick = packet.serverTick,
             serverTime = packet.serverTime,
             remainingSeconds = packet.remainingSeconds,
+            gameModeType = packet.gameModeType,
             isGameStarted = packet.isGameStarted,
             isGameEnded = packet.isGameEnded,
             isFullSync = packet.isFullSync,
@@ -338,6 +347,7 @@ public sealed class Client_SyncManager : MonoBehaviour
         gamePlay.CopyPlayerSnapshotsTo(localPlayerPackets);
         gamePlay.CopySkillSnapshotsTo(localSkillPackets);
         gamePlay.CopyItemSnapshotsTo(localItemPackets);
+        gamePlay.CopyCoinSnapshotsTo(localCoinPackets);
 
         ApplyServerSnapshot(
             new ServerSnapshotHeaderPacket
@@ -348,11 +358,13 @@ public sealed class Client_SyncManager : MonoBehaviour
                 serverTime = gamePlay.Tick / GameNetProtocol.ServerTickRate,
                 playerCount = (ushort)Mathf.Min(localPlayerPackets.Count, ushort.MaxValue),
                 skillCount = (ushort)Mathf.Min(localSkillPackets.Count, ushort.MaxValue),
-                itemCount = (ushort)Mathf.Min(localItemPackets.Count, ushort.MaxValue)
+                itemCount = (ushort)Mathf.Min(localItemPackets.Count, ushort.MaxValue),
+                coinCount = (ushort)Mathf.Min(localCoinPackets.Count, ushort.MaxValue)
             },
             localPlayerPackets,
             localSkillPackets,
-            localItemPackets);
+            localItemPackets,
+            localCoinPackets);
 
         gamePlay.CopyGameStateEntriesTo(localGameStateEntries, taggersOnly: false);
         ApplyGameStateSnapshot(
@@ -363,6 +375,7 @@ public sealed class Client_SyncManager : MonoBehaviour
                 serverTick = gamePlay.Tick,
                 serverTime = gamePlay.Tick / GameNetProtocol.ServerTickRate,
                 remainingSeconds = (ushort)Mathf.Clamp(Mathf.CeilToInt(gamePlay.RemainingSeconds), 0, ushort.MaxValue),
+                gameModeType = gamePlay.GameModeType,
                 isGameStarted = gamePlay.IsGameStarted,
                 isGameEnded = gamePlay.IsGameEnded,
                 isFullSync = true,
@@ -428,7 +441,8 @@ public sealed class Client_SyncManager : MonoBehaviour
                 locomotionState = packet.locomotionState,
                 characterId = packet.characterId,
                 skillId = packet.skillId,
-                skillCooldownSeconds = packet.skillCooldownSeconds,
+                skillCooldownDurationSeconds = packet.skillCooldownDurationSeconds,
+                skillCooldownRemainingSeconds = packet.skillCooldownRemainingSeconds,
                 facingSign = packet.facingSign,
                 isTagger = packet.isTagger,
                 lastReceivedTime = Time.time
@@ -491,6 +505,24 @@ public sealed class Client_SyncManager : MonoBehaviour
         RemoveMissingItems();
     }
 
+    private void ApplyCoinSnapshots(IReadOnlyList<CoinSnapshotPacket> coins)
+    {
+        receivedCoinIds.Clear();
+        int count = coins != null ? coins.Count : 0;
+        for (int i = 0; i < count; i++)
+        {
+            CoinSnapshotPacket packet = coins[i];
+            receivedCoinIds.Add(packet.coinId);
+            coinSnapshots[packet.coinId] = new ClientCoinSnapshotState
+            {
+                grade = packet.grade,
+                position = packet.position
+            };
+        }
+
+        RemoveMissingCoins();
+    }
+
     private void ApplyGameStateEntries(
         GameStateSnapshotPacket packet,
         IReadOnlyList<GameStateEntryPacket> entries,
@@ -517,7 +549,7 @@ public sealed class Client_SyncManager : MonoBehaviour
             sortedGameStateEntries.Add(entry);
         }
 
-        sortedGameStateEntries.Sort(CompareGameStateEntries);
+        sortedGameStateEntries.Sort((first, second) => CompareGameStateEntries(first, second, packet.gameModeType));
     }
 
     private void RemoveMissingPlayers()
@@ -568,6 +600,23 @@ public sealed class Client_SyncManager : MonoBehaviour
         for (int i = 0; i < removeItemIds.Count; i++)
         {
             itemSnapshots.Remove(removeItemIds[i]);
+        }
+    }
+
+    private void RemoveMissingCoins()
+    {
+        removeCoinIds.Clear();
+        foreach (uint coinId in coinSnapshots.Keys)
+        {
+            if (!receivedCoinIds.Contains(coinId))
+            {
+                removeCoinIds.Add(coinId);
+            }
+        }
+
+        for (int i = 0; i < removeCoinIds.Count; i++)
+        {
+            coinSnapshots.Remove(removeCoinIds[i]);
         }
     }
 
@@ -700,12 +749,15 @@ public sealed class Client_SyncManager : MonoBehaviour
 
     private static int CompareGameStateEntries(
         GameStateEntryPacket first,
-        GameStateEntryPacket second)
+        GameStateEntryPacket second,
+        GameModeType gameModeType)
     {
-        int timeComparison = first.taggerTimeMs.CompareTo(second.taggerTimeMs);
-        if (timeComparison != 0)
+        int scoreComparison = gameModeType == GameModeType.CoinCollect
+            ? second.scoreValue.CompareTo(first.scoreValue)
+            : first.scoreValue.CompareTo(second.scoreValue);
+        if (scoreComparison != 0)
         {
-            return timeComparison;
+            return scoreComparison;
         }
 
         return first.clientId.CompareTo(second.clientId);

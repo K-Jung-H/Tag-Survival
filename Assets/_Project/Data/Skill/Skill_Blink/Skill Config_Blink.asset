@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: Skill Config_Blink
   m_EditorClassIdentifier: Assembly-CSharp::BlinkSkillConfig
   enterDuration: 1
-  exitDuration: 1
+  exitDuration: 0.5
+  enterCollisionSeconds: 0.3
+  exitCollisionDelaySeconds: 0.2

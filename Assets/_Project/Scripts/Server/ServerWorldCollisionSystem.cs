@@ -106,6 +106,11 @@ public sealed class ServerWorldCollisionSystem
             return;
         }
 
+        if (first.DisablesPlayerPush || second.DisablesPlayerPush)
+        {
+            return;
+        }
+
         Vector2 normal = collisionEvent.normal;
         Vector2 correction = normal * (collisionEvent.penetration * 0.5f);
 

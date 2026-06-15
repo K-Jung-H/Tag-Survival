@@ -117,7 +117,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     // - Role: Try to queue local skill fire.
     private void TryQueueLocalSkillFire()
     {
-        if (blockSkillInputDuringLocalCooldown && localSkillCooldownRemaining > 0f)
+        if (blockSkillInputDuringLocalCooldown && GetSkillCooldownRemainingSeconds() > 0f)
             return;
 
         skillFireTimer = Mathf.Max(skillFireTimer, Mathf.Max(Time.deltaTime, skillFireHoldSeconds));
@@ -153,6 +153,18 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     // - Role: Get local skill ready progress.
     private float GetLocalSkillReadyProgress()
     {
+        if (TryGetLocalSnapshot(out ClientSnapshotState snapshot))
+        {
+            float duration = Mathf.Max(0f, snapshot.skillCooldownDurationSeconds);
+            float remaining = Mathf.Max(0f, snapshot.skillCooldownRemainingSeconds);
+            if (duration <= 0.0001f)
+            {
+                return remaining <= 0.0001f ? 1f : 0f;
+            }
+
+            return 1f - Mathf.Clamp01(remaining / duration);
+        }
+
         if (localSkillCooldownDuration <= 0.0001f)
             return 1f;
 
@@ -162,18 +174,36 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     // - Role: Find skill cooldown seconds.
     private float ResolveSkillCooldownSeconds()
     {
+        if (TryGetLocalSnapshot(out ClientSnapshotState snapshot))
+        {
+            return Mathf.Max(0f, snapshot.skillCooldownDurationSeconds);
+        }
+
+        return Mathf.Max(0f, fallbackSkillCooldownSeconds);
+    }
+
+    // - Role: Get skill cooldown remaining seconds.
+    private float GetSkillCooldownRemainingSeconds()
+    {
+        if (TryGetLocalSnapshot(out ClientSnapshotState snapshot))
+        {
+            return Mathf.Max(0f, snapshot.skillCooldownRemainingSeconds);
+        }
+
+        return Mathf.Max(0f, localSkillCooldownRemaining);
+    }
+
+    // - Role: Try to get local player snapshot.
+    private bool TryGetLocalSnapshot(out ClientSnapshotState snapshot)
+    {
+        snapshot = default;
         ulong localClientId = syncManager != null
             ? syncManager.LocalClientId
             : NetworkManager.Singleton != null
                 ? NetworkManager.Singleton.LocalClientId
                 : ulong.MaxValue;
 
-        if (syncManager != null && syncManager.TryGetSnapshot(localClientId, out ClientSnapshotState snapshot))
-        {
-            return Mathf.Max(0f, snapshot.skillCooldownSeconds);
-        }
-
-        return Mathf.Max(0f, fallbackSkillCooldownSeconds);
+        return syncManager != null && syncManager.TryGetSnapshot(localClientId, out snapshot);
     }
 
     // - Role: Warn about missing references.

@@ -349,6 +349,7 @@ public struct ServerSnapshotHeaderPacket
     public ushort playerCount;
     public ushort skillCount;
     public ushort itemCount;
+    public ushort coinCount;
 
     // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
@@ -360,6 +361,7 @@ public struct ServerSnapshotHeaderPacket
         writer.WriteValueSafe(playerCount);
         writer.WriteValueSafe(skillCount);
         writer.WriteValueSafe(itemCount);
+        writer.WriteValueSafe(coinCount);
     }
 
     // - Role: Try to read this data from the reader.
@@ -374,6 +376,7 @@ public struct ServerSnapshotHeaderPacket
         reader.ReadValueSafe(out ushort playerCount);
         reader.ReadValueSafe(out ushort skillCount);
         reader.ReadValueSafe(out ushort itemCount);
+        reader.ReadValueSafe(out ushort coinCount);
 
         if (protocolVersion != GameNetProtocol.ProtocolVersion)
             return false;
@@ -386,7 +389,8 @@ public struct ServerSnapshotHeaderPacket
             serverTime = serverTime,
             playerCount = playerCount,
             skillCount = skillCount,
-            itemCount = itemCount
+            itemCount = itemCount,
+            coinCount = coinCount
         };
 
         return true;
@@ -435,6 +439,48 @@ public struct ClientItemSnapshotState
     public Vector2 position;
 }
 
+public struct CoinSnapshotPacket
+{
+    public uint coinId;
+    public CoinGrade grade;
+    public Vector2 position;
+
+    // - Role: Write this data to the writer.
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(coinId);
+        writer.WriteValueSafe((byte)grade);
+        writer.WriteValueSafe(position.x);
+        writer.WriteValueSafe(position.y);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(ref FastBufferReader reader, out CoinSnapshotPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out uint coinId);
+        reader.ReadValueSafe(out byte grade);
+        reader.ReadValueSafe(out float positionX);
+        reader.ReadValueSafe(out float positionY);
+
+        packet = new CoinSnapshotPacket
+        {
+            coinId = coinId,
+            grade = (CoinGrade)grade,
+            position = new Vector2(positionX, positionY)
+        };
+
+        return true;
+    }
+}
+
+public struct ClientCoinSnapshotState
+{
+    public CoinGrade grade;
+    public Vector2 position;
+}
+
 public struct PlayerSnapshotPacket
 {
     public ulong clientId;
@@ -445,7 +491,8 @@ public struct PlayerSnapshotPacket
     public LocomotionState locomotionState;
     public byte characterId;
     public byte skillId;
-    public float skillCooldownSeconds;
+    public float skillCooldownDurationSeconds;
+    public float skillCooldownRemainingSeconds;
     public sbyte facingSign;
     public bool isTagger;
 
@@ -463,7 +510,8 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe((byte)locomotionState);
         writer.WriteValueSafe(characterId);
         writer.WriteValueSafe(skillId);
-        writer.WriteValueSafe(skillCooldownSeconds);
+        writer.WriteValueSafe(skillCooldownDurationSeconds);
+        writer.WriteValueSafe(skillCooldownRemainingSeconds);
         writer.WriteValueSafe(facingSign);
         writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
     }
@@ -484,7 +532,8 @@ public struct PlayerSnapshotPacket
         reader.ReadValueSafe(out byte locomotionState);
         reader.ReadValueSafe(out byte characterId);
         reader.ReadValueSafe(out byte skillId);
-        reader.ReadValueSafe(out float skillCooldownSeconds);
+        reader.ReadValueSafe(out float skillCooldownDurationSeconds);
+        reader.ReadValueSafe(out float skillCooldownRemainingSeconds);
         reader.ReadValueSafe(out sbyte facingSign);
         reader.ReadValueSafe(out byte isTagger);
 
@@ -498,7 +547,8 @@ public struct PlayerSnapshotPacket
             locomotionState = (LocomotionState)locomotionState,
             characterId = characterId,
             skillId = skillId,
-            skillCooldownSeconds = skillCooldownSeconds,
+            skillCooldownDurationSeconds = skillCooldownDurationSeconds,
+            skillCooldownRemainingSeconds = skillCooldownRemainingSeconds,
             facingSign = facingSign,
             isTagger = isTagger != 0
         };
@@ -520,7 +570,8 @@ public struct ClientSnapshotState
     public LocomotionState locomotionState;
     public byte characterId;
     public byte skillId;
-    public float skillCooldownSeconds;
+    public float skillCooldownDurationSeconds;
+    public float skillCooldownRemainingSeconds;
     public sbyte facingSign;
     public bool isTagger;
     public float lastReceivedTime;
@@ -529,14 +580,14 @@ public struct ClientSnapshotState
 public struct GameStateEntryPacket
 {
     public ulong clientId;
-    public uint taggerTimeMs;
+    public uint scoreValue;
     public bool isTagger;
 
     // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(clientId);
-        writer.WriteValueSafe(taggerTimeMs);
+        writer.WriteValueSafe(scoreValue);
         writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
     }
 
@@ -546,13 +597,13 @@ public struct GameStateEntryPacket
         packet = default;
 
         reader.ReadValueSafe(out ulong clientId);
-        reader.ReadValueSafe(out uint taggerTimeMs);
+        reader.ReadValueSafe(out uint scoreValue);
         reader.ReadValueSafe(out byte isTagger);
 
         packet = new GameStateEntryPacket
         {
             clientId = clientId,
-            taggerTimeMs = taggerTimeMs,
+            scoreValue = scoreValue,
             isTagger = isTagger != 0
         };
 
@@ -567,6 +618,7 @@ public struct GameStateSnapshotPacket
     public uint serverTick;
     public float serverTime;
     public ushort remainingSeconds;
+    public GameModeType gameModeType;
     public bool isGameStarted;
     public bool isGameEnded;
     public bool isFullSync;
@@ -581,6 +633,7 @@ public struct GameStateSnapshotPacket
         writer.WriteValueSafe(serverTick);
         writer.WriteValueSafe(serverTime);
         writer.WriteValueSafe(remainingSeconds);
+        writer.WriteValueSafe((byte)gameModeType);
         int count = entries != null
             ? Mathf.Min(entryCount, entries.Length)
             : 0;
@@ -606,6 +659,7 @@ public struct GameStateSnapshotPacket
         reader.ReadValueSafe(out uint serverTick);
         reader.ReadValueSafe(out float serverTime);
         reader.ReadValueSafe(out ushort remainingSeconds);
+        reader.ReadValueSafe(out byte gameModeType);
         reader.ReadValueSafe(out byte isGameStarted);
         reader.ReadValueSafe(out byte isGameEnded);
         reader.ReadValueSafe(out byte isFullSync);
@@ -632,6 +686,7 @@ public struct GameStateSnapshotPacket
             serverTick = serverTick,
             serverTime = serverTime,
             remainingSeconds = remainingSeconds,
+            gameModeType = (GameModeType)gameModeType,
             isGameStarted = isGameStarted != 0,
             isGameEnded = isGameEnded != 0,
             isFullSync = isFullSync != 0,
@@ -649,6 +704,7 @@ public struct ClientGameStateSnapshotState
     public uint serverTick;
     public float serverTime;
     public ushort remainingSeconds;
+    public GameModeType gameModeType;
     public bool isGameStarted;
     public bool isGameEnded;
     public bool isFullSync;

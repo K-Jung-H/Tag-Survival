@@ -20,6 +20,23 @@ public sealed class ServerStageBuilder : MonoBehaviour
 
     public bool BuildLocalSimulation(GameSessionPlayerProfile localPlayer, bool registerLocalPlayer)
     {
+        return BuildLocalSimulation(localPlayer, registerLocalPlayer, GameModeType.TimeAttack);
+    }
+
+    public bool BuildLocalSimulation(
+        GameSessionPlayerProfile localPlayer,
+        bool registerLocalPlayer,
+        GameModeType gameModeType)
+    {
+        return BuildLocalSimulation(localPlayer, registerLocalPlayer, gameModeType, null);
+    }
+
+    public bool BuildLocalSimulation(
+        GameSessionPlayerProfile localPlayer,
+        bool registerLocalPlayer,
+        GameModeType gameModeType,
+        GameModeConfig gameModeConfig)
+    {
         IsBuilt = false;
 
         if (!ValidateGamePlayRunner())
@@ -27,6 +44,7 @@ public sealed class ServerStageBuilder : MonoBehaviour
             return false;
         }
 
+        gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.LocalSimulation);
         gamePlayRunner.enabled = true;
 
@@ -42,6 +60,23 @@ public sealed class ServerStageBuilder : MonoBehaviour
 
     public async Task<bool> BuildPlayerHostedServerAsync(GameSessionPlayerProfile localPlayer, bool registerLocalPlayer)
     {
+        return await BuildPlayerHostedServerAsync(localPlayer, registerLocalPlayer, GameModeType.TimeAttack);
+    }
+
+    public async Task<bool> BuildPlayerHostedServerAsync(
+        GameSessionPlayerProfile localPlayer,
+        bool registerLocalPlayer,
+        GameModeType gameModeType)
+    {
+        return await BuildPlayerHostedServerAsync(localPlayer, registerLocalPlayer, gameModeType, null);
+    }
+
+    public async Task<bool> BuildPlayerHostedServerAsync(
+        GameSessionPlayerProfile localPlayer,
+        bool registerLocalPlayer,
+        GameModeType gameModeType,
+        GameModeConfig gameModeConfig)
+    {
         IsBuilt = false;
 
         if (!ValidateGamePlayRunner() || !ValidateRelayServerBootstrap())
@@ -50,6 +85,7 @@ public sealed class ServerStageBuilder : MonoBehaviour
         }
 
         ApplyServerPresentation(showServerGameHud: false, showDedicatedCamera: false);
+        gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.NetworkServer);
         gamePlayRunner.enabled = true;
 
@@ -73,6 +109,16 @@ public sealed class ServerStageBuilder : MonoBehaviour
 
     public async Task<bool> BuildDedicatedServerAsync()
     {
+        return await BuildDedicatedServerAsync(GameModeType.TimeAttack);
+    }
+
+    public async Task<bool> BuildDedicatedServerAsync(GameModeType gameModeType)
+    {
+        return await BuildDedicatedServerAsync(gameModeType, null);
+    }
+
+    public async Task<bool> BuildDedicatedServerAsync(GameModeType gameModeType, GameModeConfig gameModeConfig)
+    {
         IsBuilt = false;
 
         if (!ValidateGamePlayRunner() || !ValidateRelayServerBootstrap())
@@ -81,6 +127,7 @@ public sealed class ServerStageBuilder : MonoBehaviour
         }
 
         ApplyServerPresentation(showServerGameHud: true, showDedicatedCamera: true);
+        gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.NetworkServer);
         gamePlayRunner.enabled = true;
 
@@ -99,6 +146,16 @@ public sealed class ServerStageBuilder : MonoBehaviour
 
     public bool BuildNetworkServer()
     {
+        return BuildNetworkServer(GameModeType.TimeAttack);
+    }
+
+    public bool BuildNetworkServer(GameModeType gameModeType)
+    {
+        return BuildNetworkServer(gameModeType, null);
+    }
+
+    public bool BuildNetworkServer(GameModeType gameModeType, GameModeConfig gameModeConfig)
+    {
         IsBuilt = false;
 
         if (!ValidateGamePlayRunner())
@@ -106,6 +163,7 @@ public sealed class ServerStageBuilder : MonoBehaviour
             return false;
         }
 
+        gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.NetworkServer);
         gamePlayRunner.enabled = true;
 

@@ -40,6 +40,8 @@ public sealed class GameSessionManager : MonoBehaviour
 
     private string startSceneName;
     private bool isBuildingSession;
+    private GameModeType selectedGameModeType = GameModeType.TimeAttack;
+    private GameModeConfig selectedGameModeConfig;
     private ServerStageBuilder serverStageBuilder;
     private ClientStageBuilder clientStageBuilder;
 
@@ -47,6 +49,9 @@ public sealed class GameSessionManager : MonoBehaviour
     public GameSessionMode CurrentMode { get; private set; }
     public ServerStageBuilder ServerStageBuilder => serverStageBuilder;
     public ClientStageBuilder ClientStageBuilder => clientStageBuilder;
+
+    public GameModeType SelectedGameModeType => selectedGameModeType;
+    public GameModeConfig SelectedGameModeConfig => selectedGameModeConfig;
 
     private void Awake()
     {
@@ -71,6 +76,19 @@ public sealed class GameSessionManager : MonoBehaviour
         localHostProfile.nickname = nickname;
         localHostProfile.characterId = characterId;
         localHostProfile.skillId = skillId;
+    }
+
+    public void ConfigureGameMode(GameModeType gameModeType)
+    {
+        ConfigureGameMode(gameModeType, null);
+    }
+
+    public void ConfigureGameMode(GameModeType gameModeType, GameModeConfig gameModeConfig)
+    {
+        selectedGameModeType = gameModeType;
+        selectedGameModeConfig = gameModeConfig != null && gameModeConfig.ModeType == gameModeType
+            ? gameModeConfig
+            : null;
     }
 
     public void StartPlayerHostSession()
@@ -105,7 +123,11 @@ public sealed class GameSessionManager : MonoBehaviour
             return;
         }
 
-        if (!await serverStageBuilder.BuildPlayerHostedServerAsync(localHostProfile, registerLocalHostPlayer))
+        if (!await serverStageBuilder.BuildPlayerHostedServerAsync(
+            localHostProfile,
+            registerLocalHostPlayer,
+            selectedGameModeType,
+            selectedGameModeConfig))
         {
             isBuildingSession = false;
             return;
@@ -183,7 +205,7 @@ public sealed class GameSessionManager : MonoBehaviour
             return;
         }
 
-        if (!await serverStageBuilder.BuildDedicatedServerAsync())
+        if (!await serverStageBuilder.BuildDedicatedServerAsync(selectedGameModeType, selectedGameModeConfig))
         {
             isBuildingSession = false;
             return;

@@ -20,6 +20,7 @@ public class Client_WorldView : MonoBehaviour
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
     [SerializeField] private ItemView itemViewPrefab;
+    [SerializeField] private CoinView coinViewPrefab;
 
     [Header("View Smoothing")]
     [SerializeField] private float localFollowSpeed = 50f;
@@ -29,8 +30,10 @@ public class Client_WorldView : MonoBehaviour
     private readonly Dictionary<ulong, Client_CharacterView> playerViews = new();
     private readonly Dictionary<ulong, Client_SkillObjectView> skillViews = new();
     private readonly Dictionary<uint, ItemView> itemViews = new();
+    private readonly Dictionary<uint, CoinView> coinViews = new();
     private readonly List<ulong> removeTargets = new();
     private readonly List<uint> removeItemTargets = new();
+    private readonly List<uint> removeCoinTargets = new();
     private readonly HashSet<byte> missingCharacterWarnings = new();
     private readonly HashSet<byte> missingSkillWarnings = new();
 
@@ -72,9 +75,11 @@ public class Client_WorldView : MonoBehaviour
         SyncPlayerViews();
         SyncSkillViews();
         SyncItemViews();
+        SyncCoinViews();
         RemoveMissingViews();
         RemoveMissingSkillViews();
         RemoveMissingItemViews();
+        RemoveMissingCoinViews();
     }
 
     // - Role: Copy player views to.
@@ -426,6 +431,68 @@ public class Client_WorldView : MonoBehaviour
             }
 
             itemViews.Remove(itemId);
+        }
+    }
+
+    // - Role: Sync coin views.
+    private void SyncCoinViews()
+    {
+        foreach (var pair in syncManager.CoinSnapshots)
+        {
+            uint coinId = pair.Key;
+            ClientCoinSnapshotState snapshotState = pair.Value;
+
+            if (!TryGetOrCreateCoinView(coinId, out CoinView view))
+            {
+                continue;
+            }
+
+            view.ApplySnapshot(snapshotState);
+        }
+    }
+
+    // - Role: Try to get or create coin view.
+    private bool TryGetOrCreateCoinView(uint coinId, out CoinView view)
+    {
+        if (coinViews.TryGetValue(coinId, out view) && view != null)
+        {
+            return true;
+        }
+
+        view = null;
+        if (coinViewPrefab == null)
+        {
+            return false;
+        }
+
+        view = Instantiate(coinViewPrefab, transform);
+        view.name = $"CoinView_{coinId}";
+        coinViews[coinId] = view;
+        return true;
+    }
+
+    // - Role: Remove missing coin views.
+    private void RemoveMissingCoinViews()
+    {
+        removeCoinTargets.Clear();
+
+        foreach (uint coinId in coinViews.Keys)
+        {
+            if (!syncManager.CoinSnapshots.ContainsKey(coinId))
+            {
+                removeCoinTargets.Add(coinId);
+            }
+        }
+
+        for (int i = 0; i < removeCoinTargets.Count; i++)
+        {
+            uint coinId = removeCoinTargets[i];
+            if (coinViews.TryGetValue(coinId, out CoinView view) && view != null)
+            {
+                Destroy(view.gameObject);
+            }
+
+            coinViews.Remove(coinId);
         }
     }
 

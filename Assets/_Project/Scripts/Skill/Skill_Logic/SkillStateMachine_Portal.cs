@@ -336,6 +336,12 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
 
         TeleportPlayerToPortal(player, targetPortal);
         StartTeleportCooldown(player.playerId, sourcePortal.interactionCooldownSeconds);
+        QueueFeedback(
+            player,
+            GameFeedbackType.PortalTeleport,
+            sourcePortal.ownerId,
+            player.playerId,
+            targetPortal.position);
         return true;
     }
 

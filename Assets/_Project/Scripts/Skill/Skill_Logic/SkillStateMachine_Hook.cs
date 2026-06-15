@@ -180,6 +180,13 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
             hookVelocity = Vector2.zero;
             hookDirection = -fireDirection;
             State = SkillObjectState.Active;
+            QueueFeedback(
+                ResolveOwnerPlayer(self),
+                GameFeedbackType.HookHit,
+                ownerClientId,
+                0,
+                anchorPosition,
+                Mathf.Atan2(hookDirection.y, hookDirection.x) * Mathf.Rad2Deg);
             return;
         }
 
@@ -221,6 +228,13 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
         anchorPosition = hookPosition;
         ropeLength = 0f;
         State = SkillObjectState.Spawning;
+        QueueFeedback(
+            player,
+            GameFeedbackType.HookFire,
+            player.playerId,
+            0,
+            hookPosition,
+            Mathf.Atan2(fireDirection.y, fireDirection.x) * Mathf.Rad2Deg);
     }
 
     // - Role: Simulate attached hook state.
@@ -385,6 +399,17 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
     private static Vector2 GetPlayerAnchorPosition(PlayerObject player)
     {
         return player.position + player.collisionOffset;
+    }
+
+    // - Role: Find owner player.
+    private static PlayerObject ResolveOwnerPlayer(SkillObject self)
+    {
+        if (self != null && self.gamePlay != null && self.gamePlay.TryGetPlayer(self.ownerId, out PlayerObject player))
+        {
+            return player;
+        }
+
+        return null;
     }
 
     private float HookSpeed => config != null ? config.HookSpeed : DefaultHookSpeed;

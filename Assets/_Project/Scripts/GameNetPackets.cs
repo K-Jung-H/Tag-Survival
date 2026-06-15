@@ -721,7 +721,7 @@ public struct GameEventEntryPacket
     public GameEventType eventType;
     public ulong subjectClientId;
     public ulong targetClientId;
-    public GameVfxType vfxType;
+    public GameFeedbackType feedbackType;
     public Vector2 position;
     public float rotation;
 
@@ -734,7 +734,7 @@ public struct GameEventEntryPacket
         writer.WriteValueSafe((byte)eventType);
         writer.WriteValueSafe(subjectClientId);
         writer.WriteValueSafe(targetClientId);
-        writer.WriteValueSafe((byte)vfxType);
+        writer.WriteValueSafe((byte)feedbackType);
         writer.WriteValueSafe(position.x);
         writer.WriteValueSafe(position.y);
         writer.WriteValueSafe(rotation);
@@ -751,7 +751,7 @@ public struct GameEventEntryPacket
         reader.ReadValueSafe(out byte eventType);
         reader.ReadValueSafe(out ulong subjectClientId);
         reader.ReadValueSafe(out ulong targetClientId);
-        reader.ReadValueSafe(out byte vfxType);
+        reader.ReadValueSafe(out byte feedbackType);
         reader.ReadValueSafe(out float positionX);
         reader.ReadValueSafe(out float positionY);
         reader.ReadValueSafe(out float rotation);
@@ -764,7 +764,7 @@ public struct GameEventEntryPacket
             eventType = (GameEventType)eventType,
             subjectClientId = subjectClientId,
             targetClientId = targetClientId,
-            vfxType = (GameVfxType)vfxType,
+            feedbackType = (GameFeedbackType)feedbackType,
             position = new Vector2(positionX, positionY),
             rotation = rotation
         };

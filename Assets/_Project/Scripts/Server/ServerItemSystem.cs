@@ -154,6 +154,8 @@ public sealed class ServerItemSystem
             return false;
         }
 
+        QueueItemCollectedEvent(player, item.itemId, item.position);
+
         PendingItemSelection pending = new PendingItemSelection
         {
             playerId = player.playerId,
@@ -428,6 +430,17 @@ public sealed class ServerItemSystem
         }
 
         gamePlay.GameEventQueue.QueueItemApplied(gamePlay.Tick, player.playerId, itemId, position);
+    }
+
+    // - Role: Queue item collected feedback event.
+    private void QueueItemCollectedEvent(PlayerObject player, uint itemId, Vector2 position)
+    {
+        if (gamePlay == null || player == null)
+        {
+            return;
+        }
+
+        gamePlay.GameEventQueue.QueueItemCollected(gamePlay.Tick, player.playerId, itemId, position);
     }
 
     // - Role: Pick a candidate id.

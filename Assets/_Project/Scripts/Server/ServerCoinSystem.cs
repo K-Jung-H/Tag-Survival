@@ -62,6 +62,11 @@ public sealed class ServerCoinSystem
             return;
         }
 
+        gamePlay?.GameEventQueue?.QueueCoinCollected(
+            gamePlay.Tick,
+            player.playerId,
+            coin.coinId,
+            coin.position);
         player.coinCount = AddClamped(player.coinCount, coin.value);
         gamePlay?.MarkGameStateChanged();
     }

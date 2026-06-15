@@ -9,6 +9,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     private const byte HookObjectIndex = 0;
     private const byte RopeObjectIndex = 1;
     private const byte PortalTemplateObjectIndex = 0;
+    private const byte PortalLinkTemplateObjectIndex = 1;
     private const float PlayerMainColorSecondSlotHueOffset = 0.43f;
 
     [SerializeField] private SkillType skillType = SkillType.None;
@@ -16,6 +17,9 @@ public sealed class Client_SkillObjectView : MonoBehaviour
 
     private readonly HashSet<byte> activeObjectIds = new();
     private readonly Dictionary<byte, DynamicSkillObjectRuntime> dynamicPortalObjectsById = new();
+    private readonly Dictionary<int, DynamicSkillObjectRuntime> dynamicPortalLinksByPairIndex = new();
+    private readonly HashSet<int> activePortalPairIndices = new();
+    private readonly List<byte> activePortalObjectIds = new();
 
     private SkillDefinition definition;
     private ulong ownerClientId;
@@ -164,6 +168,12 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     // - Role: Apply derived objects.
     private void ApplyDerivedObjects(ClientSkillSnapshotState snapshot, Transform ownerRoot)
     {
+        if (EffectiveSkillType == SkillType.Portal)
+        {
+            ApplyPortalLinks();
+            return;
+        }
+
         if (EffectiveSkillType != SkillType.HookGrappling)
         {
             return;
@@ -230,6 +240,88 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         activeObjectIds.Add(RopeObjectIndex);
     }
 
+    // - Role: Apply portal links from active portal pairs.
+    private void ApplyPortalLinks()
+    {
+        activePortalPairIndices.Clear();
+        activePortalObjectIds.Clear();
+
+        foreach (byte skillObjectId in activeObjectIds)
+        {
+            activePortalObjectIds.Add(skillObjectId);
+        }
+
+        activePortalObjectIds.Sort();
+        for (int i = 0; i + 1 < activePortalObjectIds.Count; i += 2)
+        {
+            byte firstObjectId = activePortalObjectIds[i];
+            byte secondObjectId = activePortalObjectIds[i + 1];
+            if (!dynamicPortalObjectsById.TryGetValue(firstObjectId, out DynamicSkillObjectRuntime firstPortal)
+                || !dynamicPortalObjectsById.TryGetValue(secondObjectId, out DynamicSkillObjectRuntime secondPortal)
+                || firstPortal == null
+                || secondPortal == null
+                || firstPortal.anchor == null
+                || secondPortal.anchor == null)
+            {
+                continue;
+            }
+
+            int pairIndex = i / 2;
+            if (!TryGetPortalLinkRuntimeObject(pairIndex, out DynamicSkillObjectRuntime linkRuntime))
+            {
+                continue;
+            }
+
+            ApplyPortalLink(pairIndex, firstPortal.anchor.position, secondPortal.anchor.position, linkRuntime);
+        }
+
+        HideInactiveDynamicPortalLinks();
+    }
+
+    // - Role: Apply one portal link object.
+    private void ApplyPortalLink(
+        int pairIndex,
+        Vector3 start,
+        Vector3 end,
+        DynamicSkillObjectRuntime linkRuntime)
+    {
+        Vector3 delta = end - start;
+        float length = delta.magnitude;
+        if (length <= 0.0001f || linkRuntime == null || linkRuntime.anchor == null)
+        {
+            return;
+        }
+
+        Transform linkTransform = linkRuntime.anchor;
+        if (!linkTransform.gameObject.activeSelf)
+        {
+            linkTransform.gameObject.SetActive(true);
+        }
+
+        float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+        Vector3 scale = linkRuntime.baseLocalScale == Vector3.zero
+            ? Vector3.one
+            : linkRuntime.baseLocalScale;
+        scale.x *= linkRuntime.baseVisualLengthX > 0.0001f
+            ? length / linkRuntime.baseVisualLengthX
+            : length;
+
+        linkTransform.rotation = Quaternion.Euler(
+            0f,
+            0f,
+            angle + linkRuntime.baseRotationZ + linkRuntime.rotationOffset);
+        linkTransform.localScale = scale;
+        linkTransform.position = GetVisualCenterAlignedPosition(
+            linkTransform,
+            GetFirstSpriteRenderer(linkRuntime.renderElementCaches),
+            (start + end) * 0.5f);
+        ApplyRenderElements(
+            linkRuntime.renderElements,
+            linkRuntime.renderElementCaches,
+            SkillObjectState.Active);
+        activePortalPairIndices.Add(pairIndex);
+    }
+
     // - Role: Hide all render objects.
     private void HideAllObjects()
     {
@@ -247,7 +339,9 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         if (EffectiveSkillType == SkillType.Portal)
         {
             HideRenderElements(PortalTemplateObjectIndex);
+            HideRenderElements(PortalLinkTemplateObjectIndex);
             HideInactiveDynamicPortalObjects();
+            HideInactiveDynamicPortalLinks();
             return;
         }
 
@@ -690,15 +784,46 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     // - Role: Create portal runtime object.
     private DynamicSkillObjectRuntime CreatePortalRuntimeObject(byte skillObjectId)
     {
-        if (!TryGetSkillObject(PortalTemplateObjectIndex, out SkillObjectEntry template) || template.anchor == null)
+        return CreateDynamicRuntimeObject(PortalTemplateObjectIndex, skillObjectId.ToString(), skillObjectId);
+    }
+
+    // - Role: Try to get portal link runtime object.
+    private bool TryGetPortalLinkRuntimeObject(int pairIndex, out DynamicSkillObjectRuntime runtimeObject)
+    {
+        if (dynamicPortalLinksByPairIndex.TryGetValue(pairIndex, out runtimeObject))
+        {
+            return runtimeObject != null && runtimeObject.anchor != null;
+        }
+
+        runtimeObject = CreatePortalLinkRuntimeObject(pairIndex);
+        if (runtimeObject == null)
+        {
+            return false;
+        }
+
+        dynamicPortalLinksByPairIndex.Add(pairIndex, runtimeObject);
+        return true;
+    }
+
+    // - Role: Create portal link runtime object.
+    private DynamicSkillObjectRuntime CreatePortalLinkRuntimeObject(int pairIndex)
+    {
+        return CreateDynamicRuntimeObject(PortalLinkTemplateObjectIndex, $"Link_{pairIndex}", pairIndex + 1);
+    }
+
+    // - Role: Create dynamic skill object runtime from a template object.
+    private DynamicSkillObjectRuntime CreateDynamicRuntimeObject(
+        byte templateIndex,
+        string suffix,
+        int colorSlot)
+    {
+        if (!TryGetSkillObject(templateIndex, out SkillObjectEntry template) || template.anchor == null)
         {
             return null;
         }
 
-        GameObject clone = Instantiate(
-            template.anchor.gameObject,
-            template.anchor.parent);
-        clone.name = $"{template.anchor.name}_{skillObjectId}";
+        GameObject clone = Instantiate(template.anchor.gameObject, template.anchor.parent);
+        clone.name = $"{template.anchor.name}_{suffix}";
         clone.SetActive(false);
 
         Transform cloneAnchor = clone.transform;
@@ -707,6 +832,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             anchor = cloneAnchor,
             rotationOffset = template.rotationOffset,
             baseRotationZ = template.anchor.localEulerAngles.z,
+            baseLocalScale = template.anchor.localScale,
             renderElements = CreateClonedRenderElements(template, cloneAnchor)
         };
 
@@ -716,7 +842,13 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             SkillRenderElementEntry renderElement = runtimeObject.renderElements[i];
             SkillRenderElementCache cache = CreateRenderElementCache(renderElement.targetObject);
             runtimeObject.renderElementCaches[i] = cache;
-            ApplyMainColor(cache, renderElement, skillObjectId);
+            ApplyMainColor(cache, renderElement, colorSlot);
+
+            if (runtimeObject.baseVisualLengthX <= 0.0001f)
+            {
+                SpriteRenderer spriteRenderer = GetFirstSpriteRenderer(cache);
+                runtimeObject.baseVisualLengthX = GetSpriteWorldLengthX(spriteRenderer);
+            }
         }
 
         HideRenderElements(runtimeObject.renderElements, runtimeObject.renderElementCaches);
@@ -809,10 +941,27 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
     }
 
+    // - Role: Hide inactive dynamic portal links.
+    private void HideInactiveDynamicPortalLinks()
+    {
+        foreach (var pair in dynamicPortalLinksByPairIndex)
+        {
+            if (!activePortalPairIndices.Contains(pair.Key))
+            {
+                HideDynamicPortalObject(pair.Value);
+            }
+        }
+    }
+
     // - Role: Hide all dynamic portal objects.
     private void HideAllDynamicPortalObjects()
     {
         foreach (var pair in dynamicPortalObjectsById)
+        {
+            HideDynamicPortalObject(pair.Value);
+        }
+
+        foreach (var pair in dynamicPortalLinksByPairIndex)
         {
             HideDynamicPortalObject(pair.Value);
         }
@@ -844,7 +993,18 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             }
         }
 
+        foreach (var pair in dynamicPortalLinksByPairIndex)
+        {
+            if (pair.Value != null && pair.Value.anchor != null)
+            {
+                Destroy(pair.Value.anchor.gameObject);
+            }
+        }
+
         dynamicPortalObjectsById.Clear();
+        dynamicPortalLinksByPairIndex.Clear();
+        activePortalPairIndices.Clear();
+        activePortalObjectIds.Clear();
     }
 
     // - Role: Get base rotation z.
@@ -909,6 +1069,17 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     private SpriteRenderer GetFirstSpriteRenderer(byte skillObjectIndex)
     {
         SkillRenderElementCache[] caches = GetRenderElementCaches(skillObjectIndex);
+        return GetFirstSpriteRenderer(caches);
+    }
+
+    // - Role: Get first sprite renderer.
+    private static SpriteRenderer GetFirstSpriteRenderer(SkillRenderElementCache[] caches)
+    {
+        if (caches == null)
+        {
+            return null;
+        }
+
         for (int i = 0; i < caches.Length; i++)
         {
             SpriteRenderer spriteRenderer = GetFirstSpriteRenderer(caches[i]);
@@ -1017,6 +1188,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         public Transform anchor;
         public float rotationOffset;
         public float baseRotationZ;
+        public Vector3 baseLocalScale;
+        public float baseVisualLengthX;
         public List<SkillRenderElementEntry> renderElements;
         public SkillRenderElementCache[] renderElementCaches;
     }

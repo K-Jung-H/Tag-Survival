@@ -99,4 +99,27 @@ public abstract class SkillStateMachine
     {
         CooldownRemaining = GetCooldownSeconds(player);
     }
+
+    // - Role: Queue a server-synchronized feedback event.
+    protected static void QueueFeedback(
+        PlayerObject player,
+        GameFeedbackType feedbackType,
+        ulong subjectClientId,
+        ulong targetClientId,
+        Vector2 position,
+        float rotation = 0f)
+    {
+        if (player == null || player.gamePlay == null || player.gamePlay.GameEventQueue == null)
+        {
+            return;
+        }
+
+        player.gamePlay.GameEventQueue.QueueFeedback(
+            player.gamePlay.Tick,
+            feedbackType,
+            subjectClientId,
+            targetClientId,
+            position,
+            rotation);
+    }
 }

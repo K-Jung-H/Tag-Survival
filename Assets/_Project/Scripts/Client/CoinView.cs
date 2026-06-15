@@ -2,9 +2,32 @@ using UnityEngine;
 
 public sealed class CoinView : MonoBehaviour
 {
-    [SerializeField] private GameObject copperObject;
-    [SerializeField] private GameObject silverObject;
-    [SerializeField] private GameObject goldObject;
+    private static readonly int CopperStateHash = Animator.StringToHash(nameof(CoinGrade.Copper));
+    private static readonly int SilverStateHash = Animator.StringToHash(nameof(CoinGrade.Silver));
+    private static readonly int GoldStateHash = Animator.StringToHash(nameof(CoinGrade.Gold));
+
+    [SerializeField] private Animator animator;
+    [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private AnimationClip copperClip;
+    [SerializeField] private AnimationClip silverClip;
+    [SerializeField] private AnimationClip goldClip;
+
+    private CoinGrade currentGrade;
+    private bool hasCurrentGrade;
+
+    // - Role: Cache component references.
+    private void Awake()
+    {
+        if (animator == null)
+        {
+            animator = GetComponent<Animator>();
+        }
+
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+    }
 
     // - Role: Apply snapshot.
     public void ApplySnapshot(ClientCoinSnapshotState snapshotState)
@@ -16,17 +39,72 @@ public sealed class CoinView : MonoBehaviour
     // - Role: Apply visible coin grade.
     private void ApplyGrade(CoinGrade grade)
     {
-        SetActive(copperObject, grade == CoinGrade.Copper);
-        SetActive(silverObject, grade == CoinGrade.Silver);
-        SetActive(goldObject, grade == CoinGrade.Gold);
+        if (hasCurrentGrade && currentGrade == grade)
+        {
+            return;
+        }
+
+        if (animator == null)
+        {
+            return;
+        }
+
+        int stateHash = ResolveStateHash(grade);
+        if (!animator.HasState(0, stateHash))
+        {
+            stateHash = ResolveDefaultStateHash(grade);
+            if (!animator.HasState(0, stateHash))
+            {
+                return;
+            }
+        }
+
+        if (spriteRenderer != null && !spriteRenderer.enabled)
+        {
+            spriteRenderer.enabled = true;
+        }
+
+        animator.Play(stateHash, 0, 0f);
+        currentGrade = grade;
+        hasCurrentGrade = true;
     }
 
-    // - Role: Set active when target exists.
-    private static void SetActive(GameObject target, bool active)
+    // - Role: Resolve animator state hash.
+    private int ResolveStateHash(CoinGrade grade)
     {
-        if (target != null && target.activeSelf != active)
+        AnimationClip clip = ResolveClip(grade);
+        if (clip != null)
         {
-            target.SetActive(active);
+            return Animator.StringToHash(clip.name);
         }
+
+        return grade switch
+        {
+            CoinGrade.Gold => GoldStateHash,
+            CoinGrade.Silver => SilverStateHash,
+            _ => CopperStateHash
+        };
+    }
+
+    // - Role: Resolve default grade state hash.
+    private static int ResolveDefaultStateHash(CoinGrade grade)
+    {
+        return grade switch
+        {
+            CoinGrade.Gold => GoldStateHash,
+            CoinGrade.Silver => SilverStateHash,
+            _ => CopperStateHash
+        };
+    }
+
+    // - Role: Resolve grade animation clip.
+    private AnimationClip ResolveClip(CoinGrade grade)
+    {
+        return grade switch
+        {
+            CoinGrade.Gold => goldClip,
+            CoinGrade.Silver => silverClip,
+            _ => copperClip
+        };
     }
 }

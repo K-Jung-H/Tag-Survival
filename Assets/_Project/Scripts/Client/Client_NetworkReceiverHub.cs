@@ -24,6 +24,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
     private struct QueuedGameEvent
     {
+        public uint sessionId;
         public float applyTime;
         public GameEventEntryPacket packet;
     }
@@ -59,6 +60,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     private FastBufferWriter itemSelectionChoiceWriter;
     private bool itemSelectionChoiceWriterCreated;
     private bool areHandlersRegistered;
+    private uint delayedMessageSessionId;
 
     private void Awake()
     {
@@ -102,6 +104,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
     private void OnDisable()
     {
+        ResetDelayedMessageSession();
+
         if (syncManager != null)
         {
             syncManager.ItemSelectionChoiceRequested -= OnItemSelectionChoiceRequested;
@@ -110,6 +114,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
     private void OnDestroy()
     {
+        ResetDelayedMessageSession();
         UnregisterMessageHandlers();
 
         if (NetworkManager.Singleton != null)
@@ -129,6 +134,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     {
         if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
         {
+            ResetDelayedMessageSession();
             TryRegisterMessageHandlers();
         }
     }
@@ -145,7 +151,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        ClearDelayedMessages();
+        ResetDelayedMessageSession();
         syncManager?.ClearAll();
         UnregisterMessageHandlers();
     }
@@ -269,6 +275,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             {
                 delayedGameEvents.Add(new QueuedGameEvent
                 {
+                    sessionId = delayedMessageSessionId,
                     applyTime = Time.realtimeSinceStartup + delaySeconds,
                     packet = gameEvent
                 });
@@ -428,7 +435,11 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     {
         if (!CanUseOnlineClientMessages())
         {
-            ClearDelayedMessages();
+            if (HasDelayedMessages())
+            {
+                ResetDelayedMessageSession();
+            }
+
             return;
         }
 
@@ -478,6 +489,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         for (int i = 0; i < delayedGameEvents.Count; i++)
         {
             QueuedGameEvent queuedEvent = delayedGameEvents[i];
+            if (queuedEvent.sessionId != delayedMessageSessionId)
+            {
+                delayedGameEvents.RemoveAt(i);
+                i--;
+                continue;
+            }
+
             if (queuedEvent.applyTime > now)
             {
                 continue;
@@ -569,6 +587,31 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         delayedItemSelectionOffers.Clear();
         delayedItemSelectionResults.Clear();
         delayedItemSelectionChoices.Clear();
+    }
+
+    public void ResetOnlineMessageSession()
+    {
+        ResetDelayedMessageSession();
+    }
+
+    private void ResetDelayedMessageSession()
+    {
+        unchecked
+        {
+            delayedMessageSessionId++;
+        }
+
+        ClearDelayedMessages();
+    }
+
+    private bool HasDelayedMessages()
+    {
+        return delayedSnapshots.Count > 0
+            || delayedGameStates.Count > 0
+            || delayedGameEvents.Count > 0
+            || delayedItemSelectionOffers.Count > 0
+            || delayedItemSelectionResults.Count > 0
+            || delayedItemSelectionChoices.Count > 0;
     }
 
     private bool CanUseOnlineClientMessages()

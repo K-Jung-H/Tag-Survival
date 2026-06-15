@@ -35,6 +35,7 @@ public sealed class ClientStageBuilder : MonoBehaviour
         canvasPanelController.ApplyMode(ClientStageUiMode.LocalHost);
 
         syncManager.ConfigureLocalServer(serverRunner, localPlayer.clientId);
+        networkReceiverHub?.ResetOnlineMessageSession();
         localInputBridge.Configure(serverRunner, localPlayer.clientId);
         relayClientBootstrap?.ConfigureInactiveClientMode(
             showHud: true,
@@ -65,6 +66,7 @@ public sealed class ClientStageBuilder : MonoBehaviour
         canvasPanelController.ApplyMode(ClientStageUiMode.OnlineGuest);
 
         syncManager.ConfigureOnline();
+        networkReceiverHub.ResetOnlineMessageSession();
 
         SetBehaviourEnabled(syncManager, true);
         SetBehaviourEnabled(localInputBridge, false);

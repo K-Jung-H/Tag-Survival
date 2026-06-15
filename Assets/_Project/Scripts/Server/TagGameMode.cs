@@ -306,13 +306,6 @@ public abstract class TagGameModeBase : IServerGameMode
 
         OnTaggerChanged(oldTagger, newTagger, changePosition, eventQueue, serverTick);
         eventQueue.QueueTaggerChanged(serverTick, oldTagger.playerId, newTagger.playerId, changePosition);
-        eventQueue.QueueSpawnVfx(
-            serverTick,
-            GameVfxType.TaggerTransfer,
-            oldTagger.playerId,
-            newTagger.playerId,
-            changePosition,
-            0f);
     }
 }
 

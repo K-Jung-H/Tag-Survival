@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 27;
+    public const ushort ProtocolVersion = 28;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -86,21 +86,28 @@ public enum GameEventType : byte
     ItemApplied = 5
 }
 
-public enum GameFeedbackType : byte
+public enum ServerFeedbackType : byte
 {
     None = 0,
     TaggerChanged = 1,
-    GameStart = 2,
-    GameEnd = 3,
-    BlinkEnter = 4,
-    BlinkExit = 5,
-    HookFire = 6,
-    HookHit = 7,
-    ItemRemoved = 8,
-    CoinRemoved = 9,
-    PortalTeleport = 10,
-    TaggerStunnedStart = 11,
-    TaggerStunnedEnd = 12
+    HookFire = 2,
+    HookHit = 3,
+    ItemCollected = 4,
+    CoinCollected = 5,
+    PortalTeleport = 6
+}
+
+public enum ClientFeedbackType : byte
+{
+    None = 0,
+    BlinkEnter = 1,
+    BlinkExit = 2,
+    TaggerStunnedStart = 3,
+    TaggerStunnedEnd = 4,
+    CharacterJump = 5,
+    CharacterLand = 6,
+    CharacterWallStick = 7,
+    CharacterRunStep = 8
 }
 
 public enum GameModeType : byte

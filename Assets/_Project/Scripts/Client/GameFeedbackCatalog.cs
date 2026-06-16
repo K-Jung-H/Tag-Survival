@@ -1,58 +1,32 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
-using UnityEngine.Scripting.APIUpdating;
 
-[MovedFrom(true, null, null, "WorldVfxCatalog")]
 [CreateAssetMenu(menuName = "Tag Survival/Feedback/Game Feedback Catalog")]
 public sealed class GameFeedbackCatalog : ScriptableObject
 {
-    [FormerlySerializedAs("definitions")]
-    [SerializeField] private GameFeedbackProfile[] profiles = Array.Empty<GameFeedbackProfile>();
+    [SerializeField] private ServerFeedbackProfileSet serverProfileSet;
+    [SerializeField] private ClientFeedbackProfileSet clientProfileSet;
 
-    public GameFeedbackProfile[] Profiles => profiles ?? Array.Empty<GameFeedbackProfile>();
-
-    // - Role: Try to get a feedback profile.
-    public bool TryGet(GameFeedbackType type, out GameFeedbackProfile profile)
+    public bool TryGet(ServerFeedbackType type, out GameFeedbackData data)
     {
-        GameFeedbackProfile[] profileArray = Profiles;
-        for (int i = 0; i < profileArray.Length; i++)
+        if (serverProfileSet != null && serverProfileSet.TryGet(type, out data))
         {
-            if (profileArray[i].type != type)
-            {
-                continue;
-            }
-
-            profile = profileArray[i];
             return true;
         }
 
-        profile = default;
+        data = default;
         return false;
     }
 
-    // - Role: Check editor values after they change.
-    private void OnValidate()
+    public bool TryGet(ClientFeedbackType type, out GameFeedbackData data)
     {
-        GameFeedbackProfile[] profileArray = Profiles;
-        HashSet<GameFeedbackType> registeredTypes = new();
-
-        for (int i = 0; i < profileArray.Length; i++)
+        if (clientProfileSet != null && clientProfileSet.TryGet(type, out data))
         {
-            GameFeedbackType type = profileArray[i].type;
-            if (type == GameFeedbackType.None)
-            {
-                continue;
-            }
-
-            if (!registeredTypes.Add(type))
-            {
-                Debug.LogWarning(
-                    $"[GameFeedbackCatalog] Duplicate feedback type '{type}' found at index {i}. The first profile will be used.",
-                    this);
-            }
+            return true;
         }
+
+        data = default;
+        return false;
     }
 }
 
@@ -72,11 +46,8 @@ public enum GameFeedbackSoundSpace : byte
 }
 
 [Serializable]
-[MovedFrom(true, null, null, "WorldVfxDefinition")]
-public struct GameFeedbackProfile
+public struct GameFeedbackData
 {
-    public GameFeedbackType type;
-    [FormerlySerializedAs("prefab")]
     public GameObject visualPrefab;
     public GameFeedbackSound sound;
     public bool useServerRotation;
@@ -92,10 +63,20 @@ public struct GameFeedbackSound
     public AudioClip clip;
     public GameFeedbackSoundSpace space;
     public float volume;
-    public float pitchMin;
-    public float pitchMax;
 
     public float Volume => volume > 0f ? volume : 1f;
-    public float PitchMin => pitchMin > 0f ? pitchMin : 1f;
-    public float PitchMax => pitchMax > 0f ? pitchMax : PitchMin;
+}
+
+[Serializable]
+public struct ServerFeedbackProfile
+{
+    public ServerFeedbackType type;
+    public GameFeedbackData data;
+}
+
+[Serializable]
+public struct ClientFeedbackProfile
+{
+    public ClientFeedbackType type;
+    public GameFeedbackData data;
 }

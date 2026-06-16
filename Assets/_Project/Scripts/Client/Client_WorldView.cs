@@ -116,6 +116,17 @@ public class Client_WorldView : MonoBehaviour
         return true;
     }
 
+    // - Role: Try to play supplied feedback data on a player view.
+    public bool TryPlayPlayerFeedback(ulong clientId, GameFeedbackData data)
+    {
+        if (!playerViews.TryGetValue(clientId, out Client_CharacterView view))
+        {
+            return false;
+        }
+
+        return view != null && view.PlayFeedback(data);
+    }
+
     // - Role: Try to get player snapshot.
     public bool TryGetPlayerSnapshot(ulong clientId, out ClientSnapshotState snapshotState)
     {

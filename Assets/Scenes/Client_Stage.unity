@@ -1451,6 +1451,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 511372896}
+  - component: {fileID: 511372897}
   m_Layer: 0
   m_Name: FeedbackRoot
   m_TagString: Untagged
@@ -1473,6 +1474,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &511372897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 511372895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26a9a62d7f7b4c24ab8e4f1c51d79132, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_WorldVfxSpawner
+  syncManager: {fileID: 1941727314}
+  worldView: {fileID: 515449761}
+  feedbackRoot: {fileID: 511372896}
+  audioSourcePrefab: {fileID: 6670859644962245188, guid: 83cf51c9a2c7a04429a67e68fa1cddc6, type: 3}
+  feedbackCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
 --- !u!1 &515449759
 GameObject:
   m_ObjectHideFlags: 0
@@ -1486,7 +1504,6 @@ GameObject:
   - component: {fileID: 515449762}
   - component: {fileID: 515449763}
   - component: {fileID: 515449764}
-  - component: {fileID: 515449765}
   m_Layer: 0
   m_Name: Render
   m_TagString: Untagged
@@ -1588,23 +1605,6 @@ MonoBehaviour:
   localTopRankColor: {r: 0, g: 1, b: 0, a: 1}
   taggerColor: {r: 1, g: 0.3137255, b: 0.3137255, a: 1}
   defaultTextColor: {r: 1, g: 1, b: 1, a: 1}
---- !u!114 &515449765
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 515449759}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 26a9a62d7f7b4c24ab8e4f1c51d79132, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Client_WorldVfxSpawner
-  syncManager: {fileID: 1941727314}
-  worldView: {fileID: 515449761}
-  feedbackRoot: {fileID: 511372896}
-  audioSourcePrefab: {fileID: 6670859644962245188, guid: 83cf51c9a2c7a04429a67e68fa1cddc6, type: 3}
-  feedbackCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0

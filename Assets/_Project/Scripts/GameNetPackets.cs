@@ -721,7 +721,7 @@ public struct GameEventEntryPacket
     public GameEventType eventType;
     public ulong subjectClientId;
     public ulong targetClientId;
-    public GameFeedbackType feedbackType;
+    public ServerFeedbackType feedbackType;
     public Vector2 position;
     public float rotation;
 
@@ -764,7 +764,7 @@ public struct GameEventEntryPacket
             eventType = (GameEventType)eventType,
             subjectClientId = subjectClientId,
             targetClientId = targetClientId,
-            feedbackType = (GameFeedbackType)feedbackType,
+            feedbackType = (ServerFeedbackType)feedbackType,
             position = new Vector2(positionX, positionY),
             rotation = rotation
         };

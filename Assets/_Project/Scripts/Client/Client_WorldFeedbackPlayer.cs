@@ -1,9 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
-using UnityEngine.Scripting.APIUpdating;
 
-[MovedFrom(true, null, null, "Client_WorldVfxSpawner")]
 public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 {
     private const float DefaultFeedbackLifetimeSeconds = 2f;
@@ -12,12 +9,10 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     [SerializeField] private Client_WorldView worldView;
     [SerializeField] private Transform feedbackRoot;
     [SerializeField] private AudioSource audioSourcePrefab;
-    [FormerlySerializedAs("vfxCatalog")]
     [SerializeField] private GameFeedbackCatalog feedbackCatalog;
 
-    private readonly Dictionary<GameFeedbackType, GameFeedbackProfile> profilesByType = new();
-    private readonly HashSet<GameFeedbackType> warnedMissingProfiles = new();
-    private readonly HashSet<GameFeedbackType> warnedDuplicateProfiles = new();
+    private readonly HashSet<ServerFeedbackType> warnedMissingServerProfiles = new();
+    private readonly HashSet<ClientFeedbackType> warnedMissingClientProfiles = new();
     private readonly Dictionary<ulong, LocomotionState> previousLocomotionStates = new();
     private readonly List<ulong> removedClientIds = new();
     private readonly HashSet<ulong> activeClientIds = new();
@@ -26,16 +21,14 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     private bool previousLocalStunnedState;
     private bool warnedMissingAudioSourcePrefab;
 
-    // - Role: Set up needed links before start.
     private void Awake()
     {
-        CacheProfiles();
+        ClearWarningCache();
     }
 
-    // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
-        CacheProfiles();
+        ClearWarningCache();
 
         if (syncManager != null)
         {
@@ -43,7 +36,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         }
     }
 
-    // - Role: Turn off links when this object is disabled.
     private void OnDisable()
     {
         if (syncManager != null)
@@ -52,7 +44,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         }
     }
 
-    // - Role: Update derived feedback after snapshots are applied.
     private void LateUpdate()
     {
         if (syncManager == null || !syncManager.IsReadyForView)
@@ -65,16 +56,14 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         PlayPlayerStateFeedback();
     }
 
-    // - Role: Handle game event received.
     private void OnGameEventReceived(GameEventEntryPacket gameEvent)
     {
         if (gameEvent.eventType == GameEventType.Feedback)
         {
-            PlayFeedback(gameEvent.feedbackType, gameEvent);
+            PlayServerFeedback(gameEvent.feedbackType, gameEvent);
         }
     }
 
-    // - Role: Play player state feedback from snapshot diff.
     private void PlayPlayerStateFeedback()
     {
         activeClientIds.Clear();
@@ -89,11 +78,11 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
             {
                 if (snapshot.locomotionState == LocomotionState.BlinkEnter)
                 {
-                    PlayFeedbackAt(GameFeedbackType.BlinkEnter, snapshot.position, 0f);
+                    PlayClientFeedback(ClientFeedbackType.BlinkEnter, snapshot.position);
                 }
                 else if (snapshot.locomotionState == LocomotionState.BlinkExit)
                 {
-                    PlayFeedbackAt(GameFeedbackType.BlinkExit, snapshot.position, 0f);
+                    PlayClientFeedback(ClientFeedbackType.BlinkExit, snapshot.position);
                 }
             }
 
@@ -104,7 +93,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         PlayLocalStunnedFeedback();
     }
 
-    // - Role: Remove state cache for missing players.
     private void RemoveMissingPlayerStateCache()
     {
         removedClientIds.Clear();
@@ -122,7 +110,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         }
     }
 
-    // - Role: Play local stunned screen feedback.
     private void PlayLocalStunnedFeedback()
     {
         if (!syncManager.TryGetSnapshot(syncManager.LocalClientId, out ClientSnapshotState snapshot))
@@ -141,74 +128,121 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 
         if (isStunned != previousLocalStunnedState)
         {
-            PlayFeedbackAt(
-                isStunned ? GameFeedbackType.TaggerStunnedStart : GameFeedbackType.TaggerStunnedEnd,
-                snapshot.position,
-                0f);
+            PlayClientFeedback(
+                isStunned ? ClientFeedbackType.TaggerStunnedStart : ClientFeedbackType.TaggerStunnedEnd,
+                snapshot.position);
         }
 
         previousLocalStunnedState = isStunned;
     }
 
-    // - Role: Play feedback from server event.
-    private void PlayFeedback(GameFeedbackType feedbackType, GameEventEntryPacket gameEvent)
+    private void PlayServerFeedback(ServerFeedbackType feedbackType, GameEventEntryPacket gameEvent)
     {
+        if (TryRouteServerFeedbackToPlayerAudio(feedbackType, gameEvent))
+        {
+            return;
+        }
+
         if (!TryResolveFeedbackPosition(gameEvent, out Vector2 position, out Transform followTarget))
         {
             position = gameEvent.position;
         }
 
-        PlayFeedbackAt(feedbackType, position, gameEvent.rotation, followTarget);
+        PlayServerFeedback(feedbackType, position, gameEvent.rotation, followTarget);
     }
 
-    // - Role: Play feedback at a world position.
-    private void PlayFeedbackAt(
-        GameFeedbackType feedbackType,
+    private bool TryRouteServerFeedbackToPlayerAudio(ServerFeedbackType feedbackType, GameEventEntryPacket gameEvent)
+    {
+        if (feedbackType != ServerFeedbackType.PortalTeleport)
+        {
+            return false;
+        }
+
+        if (feedbackCatalog != null
+            && feedbackCatalog.TryGet(feedbackType, out GameFeedbackData data)
+            && worldView != null)
+        {
+            worldView.TryPlayPlayerFeedback(gameEvent.targetClientId, data);
+        }
+
+        return true;
+    }
+
+    public void PlayServerFeedback(
+        ServerFeedbackType feedbackType,
         Vector2 position,
-        float rotation,
+        float rotation = 0f,
         Transform followTarget = null)
     {
-        if (feedbackType == GameFeedbackType.None)
+        if (feedbackType == ServerFeedbackType.None)
         {
             return;
         }
 
-        if (!profilesByType.TryGetValue(feedbackType, out GameFeedbackProfile profile))
+        if (feedbackCatalog == null || !feedbackCatalog.TryGet(feedbackType, out GameFeedbackData data))
         {
-            WarnMissingProfile(feedbackType);
+            WarnMissingServerProfile(feedbackType);
             return;
         }
 
+        PlayFeedbackData(data, position, rotation, followTarget);
+    }
+
+    public void PlayClientFeedback(
+        ClientFeedbackType feedbackType,
+        Vector2 position,
+        float rotation = 0f,
+        Transform followTarget = null)
+    {
+        if (feedbackType == ClientFeedbackType.None)
+        {
+            return;
+        }
+
+        if (feedbackCatalog == null || !feedbackCatalog.TryGet(feedbackType, out GameFeedbackData data))
+        {
+            WarnMissingClientProfile(feedbackType);
+            return;
+        }
+
+        PlayFeedbackData(data, position, rotation, followTarget);
+    }
+
+    private void PlayFeedbackData(
+        GameFeedbackData data,
+        Vector2 position,
+        float rotation,
+        Transform followTarget)
+    {
         Transform parent = feedbackRoot != null ? feedbackRoot : transform;
-        Vector3 spawnPosition = new Vector3(position.x, position.y, profile.spawnZ);
-        Quaternion spawnRotation = Quaternion.Euler(0f, 0f, profile.useServerRotation ? rotation : 0f);
+        Vector3 spawnPosition = new Vector3(position.x, position.y, data.spawnZ);
+        Quaternion spawnRotation = Quaternion.Euler(0f, 0f, data.useServerRotation ? rotation : 0f);
 
-        if (profile.visualPrefab != null)
+        if (data.visualPrefab != null)
         {
-            SpawnVisual(profile, spawnPosition, spawnRotation, parent, followTarget);
+            SpawnVisual(data, spawnPosition, spawnRotation, parent, followTarget);
         }
 
-        if (profile.sound.clip != null)
+        if (data.sound.clip != null)
         {
-            SpawnAudio(profile.sound, profile.spawnMode, spawnPosition, parent, followTarget, profile.followTarget, profile.lifetimeSeconds);
+            SpawnAudio(data.sound, data.spawnMode, spawnPosition, parent, followTarget, data.followTarget, data.lifetimeSeconds);
         }
     }
 
-    // - Role: Spawn visual feedback.
     private void SpawnVisual(
-        GameFeedbackProfile profile,
+        GameFeedbackData data,
         Vector3 position,
         Quaternion rotation,
         Transform parent,
         Transform followTarget)
     {
-        if (profile.spawnMode == GameFeedbackSpawnMode.ScreenOverlay)
+        if (data.spawnMode == GameFeedbackSpawnMode.ScreenOverlay)
         {
-            GameObject overlayInstance = Instantiate(profile.visualPrefab, parent, false);
+            GameObject overlayInstance = Instantiate(data.visualPrefab, parent, false);
             overlayInstance.SetActive(true);
             PlayParticleSystems(overlayInstance);
 
-            float overlayLifetime = ResolveLifetime(overlayInstance, profile.lifetimeSeconds);
+            float overlayLifetime = ResolveLifetime(overlayInstance, data.lifetimeSeconds);
             if (overlayLifetime > 0f)
             {
                 Destroy(overlayInstance, overlayLifetime);
@@ -217,19 +251,18 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
             return;
         }
 
-        Transform visualParent = profile.followTarget && followTarget != null ? followTarget : parent;
-        GameObject instance = Instantiate(profile.visualPrefab, position, rotation, visualParent);
+        Transform visualParent = data.followTarget && followTarget != null ? followTarget : parent;
+        GameObject instance = Instantiate(data.visualPrefab, position, rotation, visualParent);
         instance.SetActive(true);
         PlayParticleSystems(instance);
 
-        float lifetime = ResolveLifetime(instance, profile.lifetimeSeconds);
+        float lifetime = ResolveLifetime(instance, data.lifetimeSeconds);
         if (lifetime > 0f)
         {
             Destroy(instance, lifetime);
         }
     }
 
-    // - Role: Spawn audio feedback.
     private void SpawnAudio(
         GameFeedbackSound sound,
         GameFeedbackSpawnMode spawnMode,
@@ -261,9 +294,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         audioSource.spatialBlend = sound.space == GameFeedbackSoundSpace.World ? 1f : 0f;
         audioSource.dopplerLevel = 0f;
         audioSource.volume *= sound.Volume;
-        float pitchMin = Mathf.Min(sound.PitchMin, sound.PitchMax);
-        float pitchMax = Mathf.Max(sound.PitchMin, sound.PitchMax);
-        audioSource.pitch = Random.Range(pitchMin, pitchMax);
         audioSource.gameObject.SetActive(true);
         audioSource.Play();
 
@@ -274,7 +304,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         Destroy(audioSource.gameObject, lifetime);
     }
 
-    // - Role: Resolve audio source position.
     private static Vector3 ResolveAudioPosition(Vector3 position, GameFeedbackSoundSpace soundSpace)
     {
         if (soundSpace != GameFeedbackSoundSpace.World)
@@ -292,7 +321,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         return position;
     }
 
-    // - Role: Try to resolve feedback position.
     private bool TryResolveFeedbackPosition(
         GameEventEntryPacket gameEvent,
         out Vector2 position,
@@ -301,12 +329,12 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         position = gameEvent.position;
         followTarget = null;
 
-        if (!profilesByType.TryGetValue(gameEvent.feedbackType, out GameFeedbackProfile profile))
+        if (feedbackCatalog == null || !feedbackCatalog.TryGet(gameEvent.feedbackType, out GameFeedbackData data))
         {
             return false;
         }
 
-        ulong clientId = profile.spawnMode switch
+        ulong clientId = data.spawnMode switch
         {
             GameFeedbackSpawnMode.SubjectPlayer => gameEvent.subjectClientId,
             GameFeedbackSpawnMode.TargetPlayer => gameEvent.targetClientId,
@@ -316,8 +344,8 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 
         if (clientId == ulong.MaxValue)
         {
-            return profile.spawnMode == GameFeedbackSpawnMode.EventPosition
-                || profile.spawnMode == GameFeedbackSpawnMode.ScreenOverlay;
+            return data.spawnMode == GameFeedbackSpawnMode.EventPosition
+                || data.spawnMode == GameFeedbackSpawnMode.ScreenOverlay;
         }
 
         if (worldView != null && worldView.TryGetPlayerViewRoot(clientId, out followTarget) && followTarget != null)
@@ -335,40 +363,15 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         return false;
     }
 
-    // - Role: Cache feedback profiles.
-    private void CacheProfiles()
+    private void ClearWarningCache()
     {
-        profilesByType.Clear();
-        warnedDuplicateProfiles.Clear();
-
-        if (feedbackCatalog == null)
-        {
-            return;
-        }
-
-        GameFeedbackProfile[] profiles = feedbackCatalog.Profiles;
-        for (int i = 0; i < profiles.Length; i++)
-        {
-            GameFeedbackProfile profile = profiles[i];
-            if (profile.type == GameFeedbackType.None)
-            {
-                continue;
-            }
-
-            if (profilesByType.ContainsKey(profile.type))
-            {
-                WarnDuplicateProfile(profile.type, i);
-                continue;
-            }
-
-            profilesByType.Add(profile.type, profile);
-        }
+        warnedMissingServerProfiles.Clear();
+        warnedMissingClientProfiles.Clear();
     }
 
-    // - Role: Warn about missing profile.
-    private void WarnMissingProfile(GameFeedbackType feedbackType)
+    private void WarnMissingServerProfile(ServerFeedbackType feedbackType)
     {
-        if (!warnedMissingProfiles.Add(feedbackType))
+        if (!warnedMissingServerProfiles.Add(feedbackType))
         {
             return;
         }
@@ -379,23 +382,25 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
             return;
         }
 
-        Debug.LogWarning($"[Client_WorldFeedbackPlayer] Feedback profile is missing for {feedbackType}.", this);
+        Debug.LogWarning($"[Client_WorldFeedbackPlayer] Server feedback profile is missing for {feedbackType}.", this);
     }
 
-    // - Role: Warn about duplicate profile.
-    private void WarnDuplicateProfile(GameFeedbackType feedbackType, int index)
+    private void WarnMissingClientProfile(ClientFeedbackType feedbackType)
     {
-        if (!warnedDuplicateProfiles.Add(feedbackType))
+        if (!warnedMissingClientProfiles.Add(feedbackType))
         {
             return;
         }
 
-        Debug.LogWarning(
-            $"[Client_WorldFeedbackPlayer] Duplicate feedback profile for {feedbackType} found at index {index}. The first profile will be used.",
-            this);
+        if (feedbackCatalog == null)
+        {
+            Debug.LogWarning($"[Client_WorldFeedbackPlayer] Feedback catalog is not assigned. Cannot play {feedbackType}.", this);
+            return;
+        }
+
+        Debug.LogWarning($"[Client_WorldFeedbackPlayer] Client feedback profile is missing for {feedbackType}.", this);
     }
 
-    // - Role: Play particle systems.
     private static void PlayParticleSystems(GameObject instance)
     {
         ParticleSystem[] particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
@@ -416,7 +421,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         }
     }
 
-    // - Role: Find lifetime.
     private static float ResolveLifetime(GameObject instance, float configuredLifetime)
     {
         if (configuredLifetime > 0f)
@@ -428,7 +432,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         return particleLifetime > 0f ? particleLifetime : DefaultFeedbackLifetimeSeconds;
     }
 
-    // - Role: Get particle lifetime.
     private static float GetParticleLifetime(GameObject instance)
     {
         ParticleSystem[] particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
@@ -454,7 +457,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         return maxLifetime;
     }
 
-    // - Role: Get start lifetime max.
     private static float GetStartLifetimeMax(ParticleSystem.MinMaxCurve lifetime)
     {
         return lifetime.mode switch
@@ -467,7 +469,6 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         };
     }
 
-    // - Role: Get last key time.
     private static float GetLastKeyTime(AnimationCurve curve, float fallback)
     {
         if (curve == null || curve.length == 0)

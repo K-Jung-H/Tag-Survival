@@ -1,0 +1,87 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd95c2b75e2ba73459eee33aac174339, type: 3}
+  m_Name: Feedback Profile Client
+  m_EditorClassIdentifier: Assembly-CSharp::ClientFeedbackProfileSet
+  profiles:
+  - type: 5
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: e55a9362b8ab9074f9ca7bd7cf50a8be, type: 3}
+        space: 1
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0
+      spawnMode: 2
+      followTarget: 1
+  - type: 6
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 0}
+        space: 1
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0
+      spawnMode: 2
+      followTarget: 1
+  - type: 7
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 2abb8c15c611a474da01893e909cc155, type: 3}
+        space: 1
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0
+      spawnMode: 2
+      followTarget: 1
+  - type: 8
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: d246f8b9b51640041a6861a056cc2d45, type: 3}
+        space: 1
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0.3
+      spawnMode: 2
+      followTarget: 1
+  - type: 1
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 8465a5ab04e696b4185f7fd6dd8e429f, type: 3}
+        space: 1
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0
+      spawnMode: 2
+      followTarget: 1
+  - type: 2
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 79690ea01cd518547b4f241d6119db22, type: 3}
+        space: 1
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0
+      spawnMode: 2
+      followTarget: 1

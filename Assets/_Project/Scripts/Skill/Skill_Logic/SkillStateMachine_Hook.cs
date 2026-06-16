@@ -182,7 +182,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
             State = SkillObjectState.Active;
             QueueFeedback(
                 ResolveOwnerPlayer(self),
-                GameFeedbackType.HookHit,
+                ServerFeedbackType.HookHit,
                 ownerClientId,
                 0,
                 anchorPosition,
@@ -230,7 +230,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
         State = SkillObjectState.Spawning;
         QueueFeedback(
             player,
-            GameFeedbackType.HookFire,
+            ServerFeedbackType.HookFire,
             player.playerId,
             0,
             hookPosition,

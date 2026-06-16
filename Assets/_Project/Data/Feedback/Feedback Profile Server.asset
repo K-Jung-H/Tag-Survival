@@ -1,0 +1,87 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1de698f3957b50b47842b2e4cb94bf21, type: 3}
+  m_Name: Feedback Profile Server
+  m_EditorClassIdentifier: Assembly-CSharp::ServerFeedbackProfileSet
+  profiles:
+  - type: 1
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 0d8bfad37dfa3f149a92d996c9554251, type: 3}
+        space: 0
+        volume: 5
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 1
+      spawnMode: 0
+      followTarget: 0
+  - type: 5
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 4810b5971951446d2ba39f367a2dc2d6, type: 3}
+        space: 0
+        volume: 3
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0.5
+      spawnMode: 2
+      followTarget: 0
+  - type: 4
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: a0fbeb571ed114dc29e75de4226e56c5, type: 3}
+        space: 0
+        volume: 3
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0.5
+      spawnMode: 2
+      followTarget: 0
+  - type: 2
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 7be292a48b9d99b42bd1a39d2562a5ae, type: 3}
+        space: 1
+        volume: 3
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0.5
+      spawnMode: 0
+      followTarget: 0
+  - type: 3
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 01087ec363a346145b930d8fb71d55d1, type: 3}
+        space: 1
+        volume: 3
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0.5
+      spawnMode: 0
+      followTarget: 0
+  - type: 6
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 7903e0a427a09ad44b2b06edbfaafe6c, type: 3}
+        space: 1
+        volume: 3
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0.5
+      spawnMode: 1
+      followTarget: 1

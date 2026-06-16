@@ -9,6 +9,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     [SerializeField] private SpriteRenderer body;
     [SerializeField] private SpriteRenderer aimLine;
     [SerializeField] private SpriteRenderer skillIndicator;
+    [SerializeField] private Client_CharacterAudioView audioView;
     [SerializeField] private Transform nameplateAnchor;
     [SerializeField] private Vector2 playerSize = new Vector2(0.8f, 0.8f);
     [SerializeField] private float aimLineLength = 1.8f;
@@ -31,6 +32,18 @@ public sealed class Client_CharacterView : MonoBehaviour
     public CharacterAnimationData AnimationData => animationData;
     public Transform NameplateAnchor => nameplateAnchor != null ? nameplateAnchor : transform;
 
+    // - Role: Play supplied feedback data on this character.
+    public bool PlayFeedback(GameFeedbackData data)
+    {
+        if (audioView == null)
+        {
+            return false;
+        }
+
+        audioView.PlayFeedback(data);
+        return true;
+    }
+
     // - Role: Set up needed links before start.
     private void Awake()
     {
@@ -48,6 +61,11 @@ public sealed class Client_CharacterView : MonoBehaviour
         if (body == null)
         {
             body = GetComponent<SpriteRenderer>();
+        }
+
+        if (audioView == null)
+        {
+            audioView = GetComponent<Client_CharacterAudioView>();
         }
 
         ResolveNameplateAnchor();
@@ -84,6 +102,7 @@ public sealed class Client_CharacterView : MonoBehaviour
 
         hasRenderPosition = false;
         hasCurrentClipState = false;
+        audioView?.ResetAudioState();
 
         if (body != null)
         {
@@ -130,6 +149,7 @@ public sealed class Client_CharacterView : MonoBehaviour
         UpdateAimLine(snapshotState.aim, snapshotState.buttons);
         UpdateSkillIndicator();
         PlayLocomotionClip(stateMachine.State.locomotionState);
+        audioView?.ApplySnapshot(snapshotState);
     }
 
     // - Role: Check if render position should snap.

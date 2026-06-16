@@ -338,7 +338,7 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         StartTeleportCooldown(player.playerId, sourcePortal.interactionCooldownSeconds);
         QueueFeedback(
             player,
-            GameFeedbackType.PortalTeleport,
+            ServerFeedbackType.PortalTeleport,
             sourcePortal.ownerId,
             player.playerId,
             targetPortal.position);

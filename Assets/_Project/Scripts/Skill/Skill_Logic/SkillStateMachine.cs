@@ -103,7 +103,7 @@ public abstract class SkillStateMachine
     // - Role: Queue a server-synchronized feedback event.
     protected static void QueueFeedback(
         PlayerObject player,
-        GameFeedbackType feedbackType,
+        ServerFeedbackType feedbackType,
         ulong subjectClientId,
         ulong targetClientId,
         Vector2 position,

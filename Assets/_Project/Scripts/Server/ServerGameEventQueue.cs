@@ -11,38 +11,38 @@ public sealed class ServerGameEventQueue
     // - Role: Queue game started.
     public void QueueGameStarted(uint serverTick, ulong starterClientId, Vector2 position)
     {
-        Queue(serverTick, GameEventType.GameStarted, starterClientId, starterClientId, GameFeedbackType.None, position, 0f);
+        Queue(serverTick, GameEventType.GameStarted, starterClientId, starterClientId, ServerFeedbackType.None, position, 0f);
     }
 
     // - Role: Queue game ended.
     public void QueueGameEnded(uint serverTick, Vector2 position)
     {
-        Queue(serverTick, GameEventType.GameEnded, 0, 0, GameFeedbackType.None, position, 0f);
+        Queue(serverTick, GameEventType.GameEnded, 0, 0, ServerFeedbackType.None, position, 0f);
     }
 
     // - Role: Queue tagger changed.
     public void QueueTaggerChanged(uint serverTick, ulong oldTaggerId, ulong newTaggerId, Vector2 position)
     {
-        Queue(serverTick, GameEventType.TaggerChanged, oldTaggerId, newTaggerId, GameFeedbackType.None, position, 0f);
-        QueueFeedback(serverTick, GameFeedbackType.TaggerChanged, oldTaggerId, newTaggerId, position, 0f);
+        Queue(serverTick, GameEventType.TaggerChanged, oldTaggerId, newTaggerId, ServerFeedbackType.None, position, 0f);
+        QueueFeedback(serverTick, ServerFeedbackType.TaggerChanged, oldTaggerId, newTaggerId, position, 0f);
     }
 
     // - Role: Queue item applied.
     public void QueueItemApplied(uint serverTick, ulong playerId, uint itemId, Vector2 position)
     {
-        Queue(serverTick, GameEventType.ItemApplied, playerId, itemId, GameFeedbackType.None, position, 0f);
+        Queue(serverTick, GameEventType.ItemApplied, playerId, itemId, ServerFeedbackType.None, position, 0f);
     }
 
     // - Role: Queue item collected.
     public void QueueItemCollected(uint serverTick, ulong playerId, uint itemId, Vector2 position)
     {
-        QueueFeedback(serverTick, GameFeedbackType.ItemRemoved, playerId, itemId, position, 0f);
+        QueueFeedback(serverTick, ServerFeedbackType.ItemCollected, playerId, itemId, position, 0f);
     }
 
     // - Role: Queue coin collected.
     public void QueueCoinCollected(uint serverTick, ulong playerId, uint coinId, Vector2 position)
     {
-        QueueFeedback(serverTick, GameFeedbackType.CoinRemoved, playerId, coinId, position, 0f);
+        QueueFeedback(serverTick, ServerFeedbackType.CoinCollected, playerId, coinId, position, 0f);
     }
 
     // - Role: Queue one game event.
@@ -51,7 +51,7 @@ public sealed class ServerGameEventQueue
         GameEventType eventType,
         ulong subjectClientId,
         ulong targetClientId,
-        GameFeedbackType feedbackType,
+        ServerFeedbackType feedbackType,
         Vector2 position,
         float rotation)
     {
@@ -78,7 +78,7 @@ public sealed class ServerGameEventQueue
     // - Role: Queue feedback.
     public void QueueFeedback(
         uint serverTick,
-        GameFeedbackType feedbackType,
+        ServerFeedbackType feedbackType,
         ulong subjectClientId,
         ulong targetClientId,
         Vector2 position,

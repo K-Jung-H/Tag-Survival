@@ -1486,11 +1486,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26a9a62d7f7b4c24ab8e4f1c51d79132, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_WorldVfxSpawner
-  syncManager: {fileID: 1941727314}
-  worldView: {fileID: 515449761}
   feedbackRoot: {fileID: 511372896}
   audioSourcePrefab: {fileID: 6670859644962245188, guid: 83cf51c9a2c7a04429a67e68fa1cddc6, type: 3}
-  feedbackCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
 --- !u!1 &515449759
 GameObject:
   m_ObjectHideFlags: 0
@@ -5028,6 +5025,56 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &1576433659
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1576433661}
+  - component: {fileID: 1576433660}
+  m_Layer: 5
+  m_Name: ScreenOverlayRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1576433660
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1576433659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21d8135a66224290a00a843eb091b93a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_ScreenOverlayFeedbackPlayer
+  overlayRoot: {fileID: 1576433661}
+  audioSourcePrefab: {fileID: 6670859644962245188, guid: 83cf51c9a2c7a04429a67e68fa1cddc6, type: 3}
+--- !u!224 &1576433661
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1576433659}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1795723599}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1589532309
 GameObject:
   m_ObjectHideFlags: 0
@@ -5989,8 +6036,9 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 411244613}
   - {fileID: 1739542463}
+  - {fileID: 1576433661}
+  - {fileID: 411244613}
   - {fileID: 2000001001}
   - {fileID: 1304396817}
   - {fileID: 91990075}
@@ -6360,6 +6408,7 @@ GameObject:
   - component: {fileID: 1941727314}
   - component: {fileID: 1941727313}
   - component: {fileID: 1941727312}
+  - component: {fileID: 1941727315}
   m_Layer: 0
   m_Name: Network
   m_TagString: Untagged
@@ -6425,6 +6474,24 @@ MonoBehaviour:
   syncMode: 0
   localServerRunner: {fileID: 0}
   localServerClientId: 0
+--- !u!114 &1941727315
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1941727305}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5826a21052b849fd807fb77734ab487a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Client_FeedbackRouter
+  syncManager: {fileID: 1941727314}
+  worldView: {fileID: 515449761}
+  worldFeedbackPlayer: {fileID: 511372897}
+  screenOverlayFeedbackPlayer: {fileID: 1576433660}
+  targetCamera: {fileID: 519420031}
+  feedbackCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
 --- !u!1 &1943225131
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e14af77aee142a2b23ecedfcb08ecc3, type: 3}
+  m_Name: Feedback Profile Screen Overlay
+  m_EditorClassIdentifier: Assembly-CSharp::ScreenOverlayFeedbackProfileSet
+  profiles:
+  - type: 1
+    panelPrefab: {fileID: 8010567571202091370, guid: 4a61f5a7167f22644b816de4b568d7aa, type: 3}
+    data:
+      visualPrefab: {fileID: 0}
+      sound:
+        clip: {fileID: 8300000, guid: 4f5bc64a69b9741b49c08897fbf40c67, type: 3}
+        space: 0
+        volume: 0
+      useServerRotation: 0
+      spawnZ: 0
+      lifetimeSeconds: 0
+      followTarget: 0

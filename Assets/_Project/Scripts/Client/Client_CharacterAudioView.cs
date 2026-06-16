@@ -103,13 +103,13 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
     {
         if (oneShotAudioSource == null
             || feedbackCatalog == null
-            || !feedbackCatalog.TryGet(feedbackType, out GameFeedbackData data)
-            || data.sound.clip == null)
+            || !feedbackCatalog.TryGet(feedbackType, out ClientFeedbackProfile profile)
+            || profile.data.sound.clip == null)
         {
             return 0f;
         }
 
-        return PlayOneShot(data);
+        return PlayOneShot(profile.data);
     }
 
     // - Role: Play cloned one-shot sound data and return its interval.

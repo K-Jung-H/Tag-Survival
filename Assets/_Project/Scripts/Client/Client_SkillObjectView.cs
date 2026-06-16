@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Serialization;
 
 public sealed class Client_SkillObjectView : MonoBehaviour
 {
@@ -1157,7 +1156,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     [Serializable]
     public struct SkillObjectEntry
     {
-        [FormerlySerializedAs("skillObject")] public Transform anchor;
+        public Transform anchor;
         public float rotationOffset;
         public List<SkillRenderElementEntry> renderElements;
     }

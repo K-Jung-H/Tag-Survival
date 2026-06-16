@@ -9,9 +9,10 @@ public class OffScreenIndicatorView : MonoBehaviour
     [SerializeField] private Camera targetCamera;
     [SerializeField] private string indicatorObjectName = "OffScreenIndicator";
     [SerializeField] private float viewportPadding = 0.06f;
-    [SerializeField] private float indicatorZ = 0f;
     [SerializeField] private float rotationOffset = 0f;
     [SerializeField] private bool showInsideView = false;
+    [SerializeField, Range(0.01f, 1f)] private float minimumScale = 0.3f;
+    [SerializeField] private float distanceForMinimumScale = 20f;
 
     private struct IndicatorEntry
     {
@@ -19,6 +20,8 @@ public class OffScreenIndicatorView : MonoBehaviour
         public Transform playerRoot;
         public SpriteRenderer indicator;
         public Color defaultColor;
+        public Vector3 defaultScale;
+        public float fixedZ;
     }
 
     private readonly Dictionary<ulong, IndicatorEntry> indicators = new();
@@ -140,13 +143,21 @@ public class OffScreenIndicatorView : MonoBehaviour
             clientId = viewRef.clientId,
             playerRoot = viewRef.root,
             indicator = indicator,
-            defaultColor = indicator.color
+            defaultColor = indicator.color,
+            defaultScale = indicator.transform.localScale,
+            fixedZ = indicator.transform.position.z
         });
     }
 
     // - Role: Update indicators.
     private void UpdateIndicators()
     {
+        if (!TryGetLocalTaggerSnapshot(out ClientSnapshotState localSnapshot))
+        {
+            HideIndicators();
+            return;
+        }
+
         foreach (var pair in indicators)
         {
             IndicatorEntry entry = pair.Value;
@@ -154,13 +165,19 @@ public class OffScreenIndicatorView : MonoBehaviour
             if (entry.playerRoot == null || entry.indicator == null)
                 continue;
 
-            UpdateIndicator(entry);
+            UpdateIndicator(entry, localSnapshot);
         }
     }
 
     // - Role: Update indicator.
-    private void UpdateIndicator(IndicatorEntry entry)
+    private void UpdateIndicator(IndicatorEntry entry, ClientSnapshotState localSnapshot)
     {
+        if (entry.clientId == worldView.LocalClientId)
+        {
+            entry.indicator.enabled = false;
+            return;
+        }
+
         Vector3 playerPosition = entry.playerRoot.position;
         Vector3 viewportPosition = targetCamera.WorldToViewportPoint(playerPosition);
         bool isInsideView = IsInsideViewport(viewportPosition);
@@ -171,14 +188,47 @@ public class OffScreenIndicatorView : MonoBehaviour
             return;
         }
 
-        Vector3 indicatorPosition = GetClampedWorldPosition(viewportPosition);
+        Vector3 indicatorPosition = GetClampedWorldPosition(viewportPosition, entry.fixedZ);
         Transform indicatorTransform = entry.indicator.transform;
 
         indicatorTransform.position = indicatorPosition;
         RotateToTarget(indicatorTransform, indicatorPosition, playerPosition);
 
         entry.indicator.color = GetIndicatorColor(entry.clientId, entry.defaultColor);
+        indicatorTransform.localScale = entry.defaultScale * ResolveDistanceScale(localSnapshot.position, playerPosition);
         entry.indicator.enabled = true;
+    }
+
+    // - Role: Try to get local tagger snapshot.
+    private bool TryGetLocalTaggerSnapshot(out ClientSnapshotState localSnapshot)
+    {
+        localSnapshot = default;
+
+        return worldView != null
+            && worldView.TryGetLocalPlayerSnapshot(out localSnapshot)
+            && localSnapshot.isTagger;
+    }
+
+    // - Role: Hide all indicators.
+    private void HideIndicators()
+    {
+        foreach (var pair in indicators)
+        {
+            SpriteRenderer indicator = pair.Value.indicator;
+            if (indicator != null)
+            {
+                indicator.enabled = false;
+            }
+        }
+    }
+
+    // - Role: Resolve scale by distance from local player.
+    private float ResolveDistanceScale(Vector2 localPosition, Vector3 targetPosition)
+    {
+        float safeDistanceForMinimumScale = Mathf.Max(0.0001f, distanceForMinimumScale);
+        float distance = Vector2.Distance(localPosition, targetPosition);
+        float t = Mathf.Clamp01(distance / safeDistanceForMinimumScale);
+        return Mathf.Lerp(1f, Mathf.Clamp(minimumScale, 0.01f, 1f), t);
     }
 
     // - Role: Get indicator color.
@@ -210,7 +260,7 @@ public class OffScreenIndicatorView : MonoBehaviour
     }
 
     // - Role: Get clamped world position.
-    private Vector3 GetClampedWorldPosition(Vector3 viewportPosition)
+    private Vector3 GetClampedWorldPosition(Vector3 viewportPosition, float fixedZ)
     {
         if (viewportPosition.z < 0f)
         {
@@ -224,7 +274,7 @@ public class OffScreenIndicatorView : MonoBehaviour
         viewportPosition.y = Mathf.Clamp(viewportPosition.y, viewportPadding, 1f - viewportPadding);
 
         Vector3 worldPosition = targetCamera.ViewportToWorldPoint(viewportPosition);
-        worldPosition.z = indicatorZ;
+        worldPosition.z = fixedZ;
 
         return worldPosition;
     }

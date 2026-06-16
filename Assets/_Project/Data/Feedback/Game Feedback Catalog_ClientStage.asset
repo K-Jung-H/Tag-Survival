@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WorldVfxCatalog
   serverProfileSet: {fileID: 11400000, guid: 459399c60965ff64f86eaf19a22bcac0, type: 2}
   clientProfileSet: {fileID: 11400000, guid: ae609e46f9d0d1240adc7f306efac349, type: 2}
+  screenOverlayProfileSet: {fileID: 11400000, guid: da4ee685e58d69c45bfa36780d3c340a, type: 2}

@@ -1,28 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 [Serializable]
 public struct StagePhysicsModifier
 {
     public StageSurfaceType surfacePhysicType;
-    [FormerlySerializedAs("moveSpeedMultiplier")]
     public float moveSpeedRate;
-    [FormerlySerializedAs("groundAccelerationMultiplier")]
     public float moveAccelRate;
-    [FormerlySerializedAs("groundDecelerationMultiplier")]
     public float moveDecelRate;
-    [FormerlySerializedAs("overSpeedDecelerationMultiplier")]
     public float overSpeedDecelRate;
-    [FormerlySerializedAs("jumpVelocityMultiplier")]
     public float jumpStartSpeedRate;
     public float gravityScale;
-    [FormerlySerializedAs("maxFallSpeedMultiplier")]
     public float maxFallSpeedRate;
-    [FormerlySerializedAs("wallUpMoveMultiplier")]
     public float wallUpMoveRate;
-    [FormerlySerializedAs("wallDownMoveMultiplier")]
     public float wallDownMoveRate;
     public float wallIdleSlideAcceleration;
     public float wallMaxSlideSpeed;

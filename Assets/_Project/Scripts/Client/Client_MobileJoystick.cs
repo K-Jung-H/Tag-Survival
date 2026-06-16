@@ -1,13 +1,10 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, ICancelHandler
 {
-    [FormerlySerializedAs("moveArea")]
     [SerializeField] private RectTransform areaRectTransform;
-    [FormerlySerializedAs("cooldownFillImage")]
     [SerializeField] private Image areaBackgroundImage;
     [SerializeField] private RectTransform handle;
     [SerializeField] private float deadZone = 0.08f;

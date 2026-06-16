@@ -6,26 +6,38 @@ public sealed class GameFeedbackCatalog : ScriptableObject
 {
     [SerializeField] private ServerFeedbackProfileSet serverProfileSet;
     [SerializeField] private ClientFeedbackProfileSet clientProfileSet;
+    [SerializeField] private ScreenOverlayFeedbackProfileSet screenOverlayProfileSet;
 
-    public bool TryGet(ServerFeedbackType type, out GameFeedbackData data)
+    public bool TryGet(ServerFeedbackType type, out ServerFeedbackProfile profile)
     {
-        if (serverProfileSet != null && serverProfileSet.TryGet(type, out data))
+        if (serverProfileSet != null && serverProfileSet.TryGet(type, out profile))
         {
             return true;
         }
 
-        data = default;
+        profile = default;
         return false;
     }
 
-    public bool TryGet(ClientFeedbackType type, out GameFeedbackData data)
+    public bool TryGet(ClientFeedbackType type, out ClientFeedbackProfile profile)
     {
-        if (clientProfileSet != null && clientProfileSet.TryGet(type, out data))
+        if (clientProfileSet != null && clientProfileSet.TryGet(type, out profile))
         {
             return true;
         }
 
-        data = default;
+        profile = default;
+        return false;
+    }
+
+    public bool TryGet(ScreenOverlayFeedbackType type, out ScreenOverlayFeedbackProfile profile)
+    {
+        if (screenOverlayProfileSet != null && screenOverlayProfileSet.TryGet(type, out profile))
+        {
+            return true;
+        }
+
+        profile = default;
         return false;
     }
 }
@@ -35,8 +47,7 @@ public enum GameFeedbackSpawnMode : byte
     EventPosition = 0,
     SubjectPlayer = 1,
     TargetPlayer = 2,
-    LocalPlayer = 3,
-    ScreenOverlay = 4
+    LocalPlayer = 3
 }
 
 public enum GameFeedbackSoundSpace : byte
@@ -53,7 +64,6 @@ public struct GameFeedbackData
     public bool useServerRotation;
     public float spawnZ;
     public float lifetimeSeconds;
-    public GameFeedbackSpawnMode spawnMode;
     public bool followTarget;
 }
 
@@ -71,6 +81,7 @@ public struct GameFeedbackSound
 public struct ServerFeedbackProfile
 {
     public ServerFeedbackType type;
+    public GameFeedbackSpawnMode spawnMode;
     public GameFeedbackData data;
 }
 
@@ -78,5 +89,14 @@ public struct ServerFeedbackProfile
 public struct ClientFeedbackProfile
 {
     public ClientFeedbackType type;
+    public GameFeedbackSpawnMode spawnMode;
+    public GameFeedbackData data;
+}
+
+[Serializable]
+public struct ScreenOverlayFeedbackProfile
+{
+    public ScreenOverlayFeedbackType type;
+    public GameObject panelPrefab;
     public GameFeedbackData data;
 }

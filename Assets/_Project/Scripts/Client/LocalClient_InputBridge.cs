@@ -1,11 +1,9 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 [DefaultExecutionOrder(-50)]
 public sealed class LocalClient_InputBridge : MonoBehaviour
 {
     [SerializeField] private Server_GamePlayRunner serverRunner;
-    [FormerlySerializedAs("inputProviders")]
     [SerializeField] private InputProvider_Client_Base[] inputProviderList;
     [SerializeField] private ulong localClientId;
     [SerializeField] private float maxInputAccumulatedTime = 0.15f;

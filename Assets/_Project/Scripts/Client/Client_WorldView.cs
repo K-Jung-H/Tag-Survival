@@ -41,6 +41,7 @@ public class Client_WorldView : MonoBehaviour
     public event Action<ulong> PlayerViewRemoved;
 
     public int PlayerViewCount => playerViews.Count;
+    public ulong LocalClientId => syncManager != null ? syncManager.LocalClientId : ulong.MaxValue;
 
     // - Role: Set up needed links before start.
     private void Awake()
@@ -133,6 +134,14 @@ public class Client_WorldView : MonoBehaviour
         snapshotState = default;
 
         return syncManager != null && syncManager.TryGetSnapshot(clientId, out snapshotState);
+    }
+
+    // - Role: Try to get local player snapshot.
+    public bool TryGetLocalPlayerSnapshot(out ClientSnapshotState snapshotState)
+    {
+        snapshotState = default;
+
+        return syncManager != null && syncManager.TryGetSnapshot(syncManager.LocalClientId, out snapshotState);
     }
 
     // - Role: Check if render world can happen.

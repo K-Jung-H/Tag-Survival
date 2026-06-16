@@ -9,7 +9,7 @@ public sealed class ClientFeedbackProfileSet : ScriptableObject
 
     public ClientFeedbackProfile[] Profiles => profiles ?? Array.Empty<ClientFeedbackProfile>();
 
-    public bool TryGet(ClientFeedbackType type, out GameFeedbackData data)
+    public bool TryGet(ClientFeedbackType type, out ClientFeedbackProfile profile)
     {
         ClientFeedbackProfile[] profileArray = Profiles;
         for (int i = 0; i < profileArray.Length; i++)
@@ -19,11 +19,11 @@ public sealed class ClientFeedbackProfileSet : ScriptableObject
                 continue;
             }
 
-            data = profileArray[i].data;
+            profile = profileArray[i];
             return true;
         }
 
-        data = default;
+        profile = default;
         return false;
     }
 

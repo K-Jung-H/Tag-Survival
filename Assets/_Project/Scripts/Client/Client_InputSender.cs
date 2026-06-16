@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 public class Client_InputSender : MonoBehaviour
 {
@@ -12,7 +11,6 @@ public class Client_InputSender : MonoBehaviour
         public float sendTime;
     }
 
-    [FormerlySerializedAs("inputProviders")]
     [SerializeField] private InputProvider_Client_Base[] inputProviderList;
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
     [SerializeField] private float maxInputAccumulatedTime = 0.15f;

@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEngine.Serialization;
 
 [CreateAssetMenu(menuName = "Tag Survival/Character/Character Animation Data")]
 public sealed class CharacterAnimationData : ScriptableObject

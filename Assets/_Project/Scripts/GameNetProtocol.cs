@@ -102,12 +102,16 @@ public enum ClientFeedbackType : byte
     None = 0,
     BlinkEnter = 1,
     BlinkExit = 2,
-    TaggerStunnedStart = 3,
-    TaggerStunnedEnd = 4,
     CharacterJump = 5,
     CharacterLand = 6,
     CharacterWallStick = 7,
     CharacterRunStep = 8
+}
+
+public enum ScreenOverlayFeedbackType : byte
+{
+    None = 0,
+    TaggerStunned = 1
 }
 
 public enum GameModeType : byte

@@ -15,7 +15,11 @@ public sealed class StageBakeRequest
 {
     public string stageId;
     public Grid grid;
+    public Transform backgroundRoot;
+    public Transform environmentRoot;
+    public Transform foregroundRoot;
     public StageBakeData output;
+    public StageDefinition stageDefinition;
     public RectInt cellBounds;
     public StageBoundaryMode leftBoundary;
     public StageBoundaryMode rightBoundary;
@@ -33,6 +37,7 @@ public sealed class StageBakeReport
     public int bakedCellCount;
     public int colliderCount;
     public int spatialBucketCount;
+    public string renderPrefabPath;
     public readonly List<string> warnings = new();
     public readonly List<string> errors = new();
 
@@ -150,6 +155,13 @@ public static class StageBaker
             colliders,
             spatialBuckets);
 
+        GameObject renderPrefab = BakeRenderPrefab(request, report);
+        if (request.stageDefinition != null && renderPrefab != null)
+        {
+            request.stageDefinition.SetStageRenderPrefab(renderPrefab);
+            EditorUtility.SetDirty(request.stageDefinition);
+        }
+
         EditorUtility.SetDirty(request.output);
         AssetDatabase.SaveAssets();
 
@@ -157,6 +169,155 @@ public static class StageBaker
         report.colliderCount = colliders.Length;
         report.spatialBucketCount = spatialBuckets.Length;
         return report;
+    }
+
+    // - Role: Bake the visual stage prefab.
+    private static GameObject BakeRenderPrefab(StageBakeRequest request, StageBakeReport report)
+    {
+        if (request.grid == null)
+        {
+            return null;
+        }
+
+        string prefabPath = ResolveRenderPrefabPath(request);
+        if (string.IsNullOrWhiteSpace(prefabPath))
+        {
+            report.warnings.Add("Stage render prefab path could not be resolved.");
+            return null;
+        }
+
+        EnsurePrefabDirectory(prefabPath);
+
+        WarnIfRootIsUnderGrid(request.backgroundRoot, request.grid, "BackgroundRoot", report);
+        WarnIfRootIsUnderGrid(request.environmentRoot, request.grid, "EnvironmentRoot", report);
+        WarnIfRootIsUnderGrid(request.foregroundRoot, request.grid, "ForegroundRoot", report);
+
+        GameObject prefabRoot = new GameObject($"{ResolveStageName(request)}_StageRender");
+        StageRenderBinding binding = prefabRoot.AddComponent<StageRenderBinding>();
+
+        Grid gridClone = CloneGrid(request.grid, prefabRoot.transform);
+        Transform backgroundClone = CloneOrCreateRoot(request.backgroundRoot, prefabRoot.transform, "BackgroundRoot");
+        Transform environmentClone = CloneOrCreateRoot(request.environmentRoot, prefabRoot.transform, "EnvironmentRoot");
+        Transform foregroundClone = CloneOrCreateRoot(request.foregroundRoot, prefabRoot.transform, "ForegroundRoot");
+        binding.Configure(gridClone, backgroundClone, environmentClone, foregroundClone);
+
+        GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath);
+        Object.DestroyImmediate(prefabRoot);
+
+        if (savedPrefab == null)
+        {
+            report.errors.Add($"Failed to save stage render prefab: {prefabPath}");
+            return null;
+        }
+
+        report.renderPrefabPath = prefabPath;
+        return savedPrefab;
+    }
+
+    // - Role: Clone the source Grid.
+    private static Grid CloneGrid(Grid sourceGrid, Transform parent)
+    {
+        GameObject clone = Object.Instantiate(sourceGrid.gameObject);
+        clone.name = "Grid";
+        clone.transform.SetParent(parent, true);
+        return clone.GetComponent<Grid>();
+    }
+
+    // - Role: Clone a visual root or create an empty placeholder.
+    private static Transform CloneOrCreateRoot(Transform sourceRoot, Transform parent, string fallbackName)
+    {
+        GameObject rootObject;
+        if (sourceRoot != null)
+        {
+            rootObject = Object.Instantiate(sourceRoot.gameObject);
+            rootObject.name = fallbackName;
+        }
+        else
+        {
+            rootObject = new GameObject(fallbackName);
+        }
+
+        rootObject.transform.SetParent(parent, true);
+        return rootObject.transform;
+    }
+
+    // - Role: Resolve render prefab path.
+    private static string ResolveRenderPrefabPath(StageBakeRequest request)
+    {
+        string outputPath = AssetDatabase.GetAssetPath(request.output);
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            return null;
+        }
+
+        string directory = System.IO.Path.GetDirectoryName(outputPath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return null;
+        }
+
+        string fileName = $"{ResolveStageName(request)}_StageRender.prefab";
+        return $"{directory.Replace("\\", "/")}/{fileName}";
+    }
+
+    // - Role: Make sure the prefab folder exists.
+    private static void EnsurePrefabDirectory(string prefabPath)
+    {
+        string directory = System.IO.Path.GetDirectoryName(prefabPath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        if (System.IO.Directory.Exists(directory))
+        {
+            return;
+        }
+
+        System.IO.Directory.CreateDirectory(directory);
+        AssetDatabase.Refresh();
+    }
+
+    // - Role: Resolve stage name.
+    private static string ResolveStageName(StageBakeRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.stageId))
+        {
+            return SanitizeFileName(request.stageId.Trim());
+        }
+
+        return request.output != null ? SanitizeFileName(request.output.name) : "Stage";
+    }
+
+    // - Role: Remove invalid file name characters.
+    private static string SanitizeFileName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Stage";
+        }
+
+        char[] invalidCharacters = System.IO.Path.GetInvalidFileNameChars();
+        for (int i = 0; i < invalidCharacters.Length; i++)
+        {
+            value = value.Replace(invalidCharacters[i], '_');
+        }
+
+        return value;
+    }
+
+    // - Role: Warn about roots that will be duplicated.
+    private static void WarnIfRootIsUnderGrid(Transform root, Grid grid, string label, StageBakeReport report)
+    {
+        if (root == null || grid == null)
+        {
+            return;
+        }
+
+        if (root.IsChildOf(grid.transform))
+        {
+            report.warnings.Add($"{label} is a child of Grid. It can be duplicated because Grid is baked as a full prefab clone.");
+        }
     }
 
     // - Role: Validate the bake request.

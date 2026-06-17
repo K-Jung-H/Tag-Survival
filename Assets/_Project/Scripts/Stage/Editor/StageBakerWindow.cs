@@ -16,8 +16,12 @@ public sealed class StageBakerWindow : EditorWindow
     }
 
     [SerializeField] private StageBakeData output;
+    [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private string stageId = "Stage";
     [SerializeField] private Grid grid;
+    [SerializeField] private Transform backgroundRoot;
+    [SerializeField] private Transform environmentRoot;
+    [SerializeField] private Transform foregroundRoot;
     [SerializeField] private RectInt cellBounds = new RectInt(0, 0, 64, 32);
     [SerializeField] private StageBoundaryMode leftBoundary = StageBoundaryMode.Solid;
     [SerializeField] private StageBoundaryMode rightBoundary = StageBoundaryMode.Solid;
@@ -29,6 +33,7 @@ public sealed class StageBakerWindow : EditorWindow
     [SerializeField] private List<TilemapEntry> tilemapEntries = new List<TilemapEntry>();
     [SerializeField] private bool showBounds = true;
     [SerializeField] private bool showBakeSettings = true;
+    [SerializeField] private bool showVisualRoots = true;
     [SerializeField] private bool showTilemapLayers = true;
 
     private Vector2 scrollPosition;
@@ -49,6 +54,7 @@ public sealed class StageBakerWindow : EditorWindow
         DrawOutputSection();
         DrawBoundsSection();
         DrawBakeSettingsSection();
+        DrawVisualRootSection();
         DrawTilemapSection();
         DrawActionSection();
 
@@ -60,6 +66,7 @@ public sealed class StageBakerWindow : EditorWindow
     {
         EditorGUILayout.LabelField("Output", EditorStyles.boldLabel);
         output = (StageBakeData)EditorGUILayout.ObjectField("Stage Bake Data", output, typeof(StageBakeData), false);
+        stageDefinition = (StageDefinition)EditorGUILayout.ObjectField("Stage Definition", stageDefinition, typeof(StageDefinition), false);
         stageId = EditorGUILayout.TextField("Stage Id", stageId);
         grid = (Grid)EditorGUILayout.ObjectField("Grid", grid, typeof(Grid), true);
         EditorGUILayout.Space(8f);
@@ -110,6 +117,22 @@ public sealed class StageBakerWindow : EditorWindow
         mergeRectColliders = EditorGUILayout.Toggle("Merge Rect Colliders", mergeRectColliders);
         generateSpatialIndex = EditorGUILayout.Toggle("Generate Spatial Index", generateSpatialIndex);
         uniformGridSize = Mathf.Max(1, EditorGUILayout.IntField("Uniform Grid Size", uniformGridSize));
+        EditorGUILayout.Space(8f);
+    }
+
+    // - Role: Draw visual root section.
+    private void DrawVisualRootSection()
+    {
+        showVisualRoots = EditorGUILayout.Foldout(showVisualRoots, "Visual Roots", true, EditorStyles.foldoutHeader);
+        if (!showVisualRoots)
+        {
+            EditorGUILayout.Space(8f);
+            return;
+        }
+
+        backgroundRoot = (Transform)EditorGUILayout.ObjectField("Background Root", backgroundRoot, typeof(Transform), true);
+        environmentRoot = (Transform)EditorGUILayout.ObjectField("Environment Root", environmentRoot, typeof(Transform), true);
+        foregroundRoot = (Transform)EditorGUILayout.ObjectField("Foreground Root", foregroundRoot, typeof(Transform), true);
         EditorGUILayout.Space(8f);
     }
 
@@ -269,7 +292,11 @@ public sealed class StageBakerWindow : EditorWindow
         {
             stageId = stageId,
             grid = grid,
+            backgroundRoot = backgroundRoot,
+            environmentRoot = environmentRoot,
+            foregroundRoot = foregroundRoot,
             output = output,
+            stageDefinition = stageDefinition,
             cellBounds = cellBounds,
             leftBoundary = leftBoundary,
             rightBoundary = rightBoundary,
@@ -301,9 +328,12 @@ public sealed class StageBakerWindow : EditorWindow
             return;
         }
 
+        string renderPrefabMessage = string.IsNullOrWhiteSpace(report.renderPrefabPath)
+            ? string.Empty
+            : $", render prefab: {report.renderPrefabPath}";
         Debug.Log(
             $"{label} complete. Baked cells: {report.bakedCellCount}, " +
             $"colliders: {report.colliderCount}, spatial buckets: {report.spatialBucketCount}, " +
-            $"scanned cells: {report.scannedCellCount}.");
+            $"scanned cells: {report.scannedCellCount}{renderPrefabMessage}.");
     }
 }

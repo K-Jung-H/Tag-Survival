@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b6741d6a5187484f9cb8a80e847847a, type: 3}
+  m_Name: T Definition
+  m_EditorClassIdentifier: Assembly-CSharp::StageDefinition
+  stageBakeData: {fileID: 11400000, guid: 256b4ae9902ac2a43aa7ad6438f7349d, type: 2}
+  stageRenderPrefab: {fileID: 4768190994418013215, guid: a5cf9d22e43236e4f982cc4b498a1870, type: 3}
+  physicsModifiers:
+  - surfacePhysicType: 1
+    moveSpeedRate: 1
+    moveAccelRate: 1
+    moveDecelRate: 1
+    overSpeedDecelRate: 1
+    jumpStartSpeedRate: 1
+    gravityScale: 1
+    maxFallSpeedRate: 1
+    wallUpMoveRate: 1
+    wallDownMoveRate: 1
+    wallIdleSlideAcceleration: 0
+    wallMaxSlideSpeed: 0

@@ -1,27 +1,37 @@
 using UnityEngine;
-using UnityEngine.Tilemaps;
 
 public sealed class Client_StageRenderer : MonoBehaviour
 {
-    [SerializeField] private StageDefinition stageDefinition;
+    private StageDefinition stageDefinition;
+    private Camera targetCamera;
+    private StageRenderBinding runtimeStageRender;
+    private bool isConfigured;
 
-    private Grid runtimeStageGrid;
-
-    // - Role: Set up needed links before start.
-    private void Awake()
+    // - Role: Configure and build stage rendering.
+    public void Configure(StageDefinition newStageDefinition, Camera newTargetCamera)
     {
-        EnsureRuntimeStageGrid();
+        stageDefinition = newStageDefinition;
+        targetCamera = newTargetCamera;
+        isConfigured = true;
+
+        EnsureRuntimeStageRender();
         ApplyStageOffset();
-        EnableTilemapRenderers();
+        EnableRenderers();
+        BindParallaxLayers();
     }
 
     // - Role: Apply stage offset.
     public void ApplyStageOffset()
     {
-        Grid targetGrid = GetTargetGrid();
-        if (targetGrid == null)
+        if (!isConfigured)
         {
-            Debug.LogWarning("[Client_StageRenderer] Stage Grid is not assigned.", this);
+            return;
+        }
+
+        StageRenderBinding targetStageRender = GetTargetStageRender();
+        if (targetStageRender == null || targetStageRender.Grid == null)
+        {
+            Debug.LogWarning("[Client_StageRenderer] Stage render prefab or Grid binding is not assigned.", this);
             return;
         }
 
@@ -33,61 +43,102 @@ public sealed class Client_StageRenderer : MonoBehaviour
         }
 
         Vector2Int offset = stageBakeData.StageOffsetPosition;
-        Vector3 cellSize = targetGrid.cellSize;
-        targetGrid.transform.localPosition = new Vector3(
+        Vector3 cellSize = targetStageRender.Grid.cellSize;
+        Transform stageRoot = targetStageRender.transform;
+        stageRoot.localPosition = new Vector3(
             -offset.x * cellSize.x,
             -offset.y * cellSize.y,
-            targetGrid.transform.localPosition.z);
+            stageRoot.localPosition.z);
     }
 
-    // - Role: Make sure the runtime stage grid exists.
-    private void EnsureRuntimeStageGrid()
+    // - Role: Make sure the runtime stage render exists.
+    private void EnsureRuntimeStageRender()
     {
-        Grid stageGridPrefab = stageDefinition != null ? stageDefinition.StageGridPrefab : null;
-        if (stageGridPrefab == null)
-        {
-            Debug.LogWarning("[Client_StageRenderer] StageDefinition or Stage Grid Prefab is not assigned.", this);
-            return;
-        }
-
-        if (stageGridPrefab.gameObject.scene.IsValid())
-        {
-            runtimeStageGrid = stageGridPrefab;
-            return;
-        }
-
-        runtimeStageGrid = Instantiate(stageGridPrefab, transform);
-        runtimeStageGrid.name = stageGridPrefab.name;
-        runtimeStageGrid.gameObject.SetActive(true);
-    }
-
-    // - Role: Get target grid.
-    private Grid GetTargetGrid()
-    {
-        if (runtimeStageGrid != null)
-        {
-            return runtimeStageGrid;
-        }
-
-        return stageDefinition != null ? stageDefinition.StageGridPrefab : null;
-    }
-
-    // - Role: Enable tilemap renderers.
-    private void EnableTilemapRenderers()
-    {
-        Grid targetGrid = GetTargetGrid();
-        if (targetGrid == null)
+        if (runtimeStageRender != null)
         {
             return;
         }
 
-        targetGrid.gameObject.SetActive(true);
+        GameObject stageRenderPrefab = stageDefinition != null ? stageDefinition.StageRenderPrefab : null;
+        if (stageRenderPrefab == null)
+        {
+            Debug.LogWarning("[Client_StageRenderer] StageDefinition or Stage Render Prefab is not assigned.", this);
+            return;
+        }
 
-        TilemapRenderer[] renderers = targetGrid.GetComponentsInChildren<TilemapRenderer>(true);
+        if (stageRenderPrefab.scene.IsValid())
+        {
+            runtimeStageRender = stageRenderPrefab.GetComponent<StageRenderBinding>();
+            return;
+        }
+
+        GameObject instance = Instantiate(stageRenderPrefab, transform);
+        instance.name = stageRenderPrefab.name;
+        instance.SetActive(true);
+        runtimeStageRender = instance.GetComponent<StageRenderBinding>();
+        if (runtimeStageRender == null)
+        {
+            Debug.LogWarning("[Client_StageRenderer] Stage Render Prefab has no StageRenderBinding.", this);
+        }
+    }
+
+    // - Role: Get target stage render.
+    private StageRenderBinding GetTargetStageRender()
+    {
+        if (runtimeStageRender != null)
+        {
+            return runtimeStageRender;
+        }
+
+        GameObject stageRenderPrefab = stageDefinition != null ? stageDefinition.StageRenderPrefab : null;
+        return stageRenderPrefab != null ? stageRenderPrefab.GetComponent<StageRenderBinding>() : null;
+    }
+
+    // - Role: Enable stage renderers.
+    private void EnableRenderers()
+    {
+        StageRenderBinding targetStageRender = GetTargetStageRender();
+        if (targetStageRender == null)
+        {
+            return;
+        }
+
+        targetStageRender.gameObject.SetActive(true);
+
+        Renderer[] renderers = targetStageRender.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
             renderers[i].gameObject.SetActive(true);
             renderers[i].enabled = true;
         }
+    }
+
+    // - Role: Bind camera to parallax layers.
+    private void BindParallaxLayers()
+    {
+        StageRenderBinding targetStageRender = GetTargetStageRender();
+        if (targetStageRender == null || targetStageRender.BackgroundRoot == null)
+        {
+            return;
+        }
+
+        Camera resolvedCamera = ResolveTargetCamera();
+        if (resolvedCamera == null)
+        {
+            Debug.LogWarning("[Client_StageRenderer] Target camera is not assigned. Stage parallax layers will not move.", this);
+            return;
+        }
+
+        StageParallaxLayer[] parallaxLayers = targetStageRender.BackgroundRoot.GetComponentsInChildren<StageParallaxLayer>(true);
+        for (int i = 0; i < parallaxLayers.Length; i++)
+        {
+            parallaxLayers[i].BindCamera(resolvedCamera.transform);
+        }
+    }
+
+    // - Role: Resolve target camera.
+    private Camera ResolveTargetCamera()
+    {
+        return targetCamera;
     }
 }

@@ -6,7 +6,6 @@ public class OffScreenIndicatorView : MonoBehaviour
     private static readonly Color TaggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
 
     [SerializeField] private Client_WorldView worldView;
-    [SerializeField] private Camera targetCamera;
     [SerializeField] private string indicatorObjectName = "OffScreenIndicator";
     [SerializeField] private float viewportPadding = 0.06f;
     [SerializeField] private float rotationOffset = 0f;
@@ -27,16 +26,14 @@ public class OffScreenIndicatorView : MonoBehaviour
     private readonly Dictionary<ulong, IndicatorEntry> indicators = new();
     private readonly List<ClientWorldPlayerViewRef> existingPlayerViews = new();
     private readonly List<ulong> removeTargets = new();
+    private Camera targetCamera;
 
     public int IndicatorCount => indicators.Count;
 
-    // - Role: Set up needed links before start.
-    private void Awake()
+    // - Role: Bind the camera used by indicators.
+    public void BindCamera(Camera newTargetCamera)
     {
-        if (targetCamera == null)
-        {
-            targetCamera = Camera.main;
-        }
+        targetCamera = newTargetCamera;
     }
 
     // - Role: Turn on links when this object is enabled.

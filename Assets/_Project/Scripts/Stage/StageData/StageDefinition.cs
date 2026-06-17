@@ -51,17 +51,24 @@ public struct StagePhysicsModifier
 public sealed class StageDefinition : ScriptableObject
 {
     [SerializeField] private StageBakeData stageBakeData;
-    [SerializeField] private Grid stageGridPrefab;
+    [SerializeField] private GameObject stageRenderPrefab;
     [SerializeField] private StagePhysicsModifier[] physicsModifiers =
     {
         StagePhysicsModifier.Normal
     };
 
     public StageBakeData StageBakeData => stageBakeData;
-    public Grid StageGridPrefab => stageGridPrefab;
+    public GameObject StageRenderPrefab => stageRenderPrefab;
     public StagePhysicsModifier[] PhysicsModifiers => physicsModifiers ?? Array.Empty<StagePhysicsModifier>();
     public float GravityScale => ResolvePhysicsModifier(StageSurfaceType.Normal).GravityScale;
     public float MaxFallSpeedRate => ResolvePhysicsModifier(StageSurfaceType.Normal).MaxFallSpeedRate;
+
+#if UNITY_EDITOR
+    public void SetStageRenderPrefab(GameObject prefab)
+    {
+        stageRenderPrefab = prefab;
+    }
+#endif
 
     // - Role: Try to get physics modifier.
     public bool TryGetPhysicsModifier(StageSurfaceType surfacePhysicType, out StagePhysicsModifier modifier)

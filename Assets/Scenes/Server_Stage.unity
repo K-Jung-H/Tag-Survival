@@ -1133,10 +1133,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Server_GamePlayRunner
   runMode: 1
-  stageDefinition: {fileID: 11400000, guid: e280c1ed45f119242908d58f59ccdb55, type: 2}
+  stageDefinition: {fileID: 11400000, guid: d0db464f5d65150499205afc5dd5514a, type: 2}
   characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
   skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
   itemEffectCatalog: {fileID: 11400000, guid: 201007d370f95064080b807c828d4353, type: 2}
+  gameModeType: 0
+  gameModeConfig: {fileID: 0}
   maxActiveItemCount: 20
   itemSelectionTimeoutSeconds: 10
   gameDurationSeconds: 360

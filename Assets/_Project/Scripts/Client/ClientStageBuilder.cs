@@ -6,6 +6,13 @@ public sealed class ClientStageBuilder : MonoBehaviour
     [Header("Stage Roots")]
     [SerializeField] private GameObject networkRuntimeRoot;
 
+    [Header("Stage Presentation")]
+    [SerializeField] private StageDefinition stageDefinition;
+    [SerializeField] private Camera mainCamera;
+    [SerializeField] private Client_StageRenderer stageRenderer;
+    [SerializeField] private Client_CameraFollow cameraFollow;
+    [SerializeField] private OffScreenIndicatorView indicatorView;
+
     [Header("Client Components")]
     [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private ClientCanvasPanelController canvasPanelController;
@@ -33,6 +40,7 @@ public sealed class ClientStageBuilder : MonoBehaviour
 
         SetGameObjectActive(networkRuntimeRoot, false);
         canvasPanelController.ApplyMode(ClientStageUiMode.LocalHost);
+        ApplyStagePresentationReferences();
 
         syncManager.ConfigureLocalServer(serverRunner, localPlayer.clientId);
         networkReceiverHub?.ResetOnlineMessageSession();
@@ -64,6 +72,7 @@ public sealed class ClientStageBuilder : MonoBehaviour
 
         SetGameObjectActive(networkRuntimeRoot, true);
         canvasPanelController.ApplyMode(ClientStageUiMode.OnlineGuest);
+        ApplyStagePresentationReferences();
 
         syncManager.ConfigureOnline();
         networkReceiverHub.ResetOnlineMessageSession();
@@ -167,7 +176,39 @@ public sealed class ClientStageBuilder : MonoBehaviour
             return false;
         }
 
+        if (stageDefinition == null)
+        {
+            Fail("StageDefinition is not assigned.");
+            return false;
+        }
+
+        if (mainCamera == null)
+        {
+            Fail("MainCamera is not assigned.");
+            return false;
+        }
+
+        if (stageRenderer == null)
+        {
+            Fail("Client_StageRenderer is not assigned.");
+            return false;
+        }
+
+        if (cameraFollow == null)
+        {
+            Fail("Client_CameraFollow is not assigned.");
+            return false;
+        }
+
         return true;
+    }
+
+    // - Role: Pass stage presentation references to client components.
+    private void ApplyStagePresentationReferences()
+    {
+        stageRenderer.Configure(stageDefinition, mainCamera);
+        cameraFollow.StageDefinition = stageDefinition;
+        indicatorView?.BindCamera(mainCamera);
     }
 
     private static void SetGameObjectActive(GameObject target, bool active)

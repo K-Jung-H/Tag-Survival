@@ -1,13 +1,35 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class StartSceneManager : MonoBehaviour
 {
     public string serverSceneName = "";
     public string clientSceneName = "";
+    [SerializeField] private GameFlowManager gameFlowManager;
     [SerializeField] private GameSessionManager gameSessionManager;
     [SerializeField] private GameModeType gameModeType = GameModeType.TimeAttack;
     [SerializeField] private GameModeConfig gameModeConfig;
+
+    public void SelectModeScene()
+    {
+        if (gameFlowManager == null)
+        {
+            Debug.LogError("[StartSceneManager] GameFlowManager is not assigned.", this);
+            return;
+        }
+
+        gameFlowManager.LoadModeSelectScene();
+    }
+
+    public void SelectOnlineScene()
+    {
+        if (gameFlowManager == null)
+        {
+            Debug.LogError("[StartSceneManager] GameFlowManager is not assigned.", this);
+            return;
+        }
+
+        gameFlowManager.LoadOnlineScene();
+    }
 
     // - Role: Select server mode.
     public void SelectServer()
@@ -25,7 +47,13 @@ public class StartSceneManager : MonoBehaviour
     // - Role: Select client mode.
     public void SelectClient()
     {
-        SceneManager.LoadScene(clientSceneName);
+        if (gameFlowManager == null)
+        {
+            Debug.LogError("[StartSceneManager] GameFlowManager is not assigned.", this);
+            return;
+        }
+
+        _ = gameFlowManager.LoadSceneAsync(clientSceneName);
     }
 
     public void SelectPlayerHost()

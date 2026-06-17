@@ -4,6 +4,8 @@ using UnityEngine;
 public sealed class SkillDefinition : ScriptableObject
 {
     [SerializeField] private byte skillId;
+    [SerializeField] private string displayName;
+    [SerializeField] private Sprite icon;
     [SerializeField] private string logicKey;
     [SerializeField] private SkillType skillType;
     [SerializeField] private float range = 1f;
@@ -12,6 +14,8 @@ public sealed class SkillDefinition : ScriptableObject
     [SerializeField] private SkillConfig config;
 
     public byte SkillId => skillId;
+    public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
+    public Sprite Icon => icon;
     public string LogicKey => logicKey;
     public SkillType SkillType => skillType;
     public float Range => Mathf.Max(0f, range);

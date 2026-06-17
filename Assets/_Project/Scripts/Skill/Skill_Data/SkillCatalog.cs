@@ -10,6 +10,8 @@ public sealed class SkillCatalog : ScriptableObject
     private readonly Dictionary<byte, SkillDefinition> definitionsById = new();
     private bool isCacheDirty = true;
 
+    public int Count => definitions != null ? definitions.Length : 0;
+
     // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
@@ -51,6 +53,25 @@ public sealed class SkillCatalog : ScriptableObject
         }
 
         definition = null;
+        return false;
+    }
+
+    public bool TryGetIndexById(byte skillId, out int index)
+    {
+        if (definitions != null)
+        {
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                SkillDefinition definition = definitions[i];
+                if (definition != null && definition.SkillId == skillId)
+                {
+                    index = i;
+                    return true;
+                }
+            }
+        }
+
+        index = -1;
         return false;
     }
 

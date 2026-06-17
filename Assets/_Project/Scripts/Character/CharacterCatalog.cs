@@ -10,6 +10,8 @@ public sealed class CharacterCatalog : ScriptableObject
     private readonly Dictionary<byte, CharacterDefinition> definitionsById = new();
     private bool isCacheDirty = true;
 
+    public int Count => definitions != null ? definitions.Length : 0;
+
     // - Role: Turn on links when this object is enabled.
     private void OnEnable()
     {
@@ -51,6 +53,25 @@ public sealed class CharacterCatalog : ScriptableObject
         }
 
         definition = null;
+        return false;
+    }
+
+    public bool TryGetIndexById(byte characterId, out int index)
+    {
+        if (definitions != null)
+        {
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                CharacterDefinition definition = definitions[i];
+                if (definition != null && definition.CharacterId == characterId)
+                {
+                    index = i;
+                    return true;
+                }
+            }
+        }
+
+        index = -1;
         return false;
     }
 

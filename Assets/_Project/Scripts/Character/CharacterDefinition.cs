@@ -5,7 +5,7 @@ public sealed class CharacterDefinition : ScriptableObject
 {
     [SerializeField] private byte characterId;
     [SerializeField] private string displayName;
-    [SerializeField] private Sprite icon;
+    [SerializeField] private Color color = Color.white;
     [SerializeField] private GameObject playerViewPrefab;
     [SerializeField] private CharacterAnimationData animationData;
     [SerializeField] private float moveSpeed = GameSimulationConfig.PlayerMoveSpeed;
@@ -25,7 +25,7 @@ public sealed class CharacterDefinition : ScriptableObject
 
     public byte CharacterId => characterId;
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
-    public Sprite Icon => icon;
+    public Color CharacterColor => color;
     public GameObject PlayerViewPrefab => playerViewPrefab;
     public CharacterAnimationData AnimationData => animationData;
     public CharacterMovementStats MovementStats => CharacterMovementStats.Create(

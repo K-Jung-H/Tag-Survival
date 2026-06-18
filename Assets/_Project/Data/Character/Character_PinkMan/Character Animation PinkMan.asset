@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Character Animation PinkMan
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
   animatorController: {fileID: 9100000, guid: fd09b39fc6734c74ea2a962abafe77e0, type: 2}
+  roomIdleClip: {fileID: 7400000, guid: fb9fc57b5e4daad43a09088b0cdb4a2b, type: 2}
   idleClip: {fileID: 7400000, guid: db56c60736643f34ebe46b84abdfe6a2, type: 2}
   runClip: {fileID: 7400000, guid: 0f610f75082cb5c489438d064183e168, type: 2}
   jumpClip: {fileID: 7400000, guid: 15540338c7a8ea349a6c0c8563cbf270, type: 2}

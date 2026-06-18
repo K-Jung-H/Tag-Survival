@@ -1100,7 +1100,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1076854066}
   - component: {fileID: 1076854065}
-  - component: {fileID: 1076854064}
   m_Layer: 0
   m_Name: Server_Logic
   m_TagString: Untagged
@@ -1108,18 +1107,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1076854064
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1076854063}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0b20d13c772c4184e9e319c359af301a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Relay_ServerBootstrap
 --- !u!114 &1076854065
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2063,7 +2050,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ServerStageBuilder
   gamePlayRunner: {fileID: 1076854065}
-  relayServerBootstrap: {fileID: 1076854064}
   serverCanvas: {fileID: 668729905}
   serverGameHudView: {fileID: 889283533}
   dedicatedServerCamera: {fileID: 1246568499}

@@ -44,11 +44,14 @@ public sealed class ServerItemSystem
     private Server_GamePlay gamePlay;
     private StageCollisionSystem collisionSystem;
     private ItemEffectCatalog effectCatalog;
+    private int fallbackMaxActiveItemCount;
+    private int minActiveItemCount;
     private int maxActiveItemCount;
     private float selectionTimeoutSeconds = DefaultSelectionTimeoutSeconds;
     private float spawnTimer;
     private uint nextItemId = 1;
     private uint nextSelectionRequestId = 1;
+    private readonly List<ItemTypeWeightConfig> itemTypeWeights = new();
 
     // - Role: Bind needed links.
     public void Bind(
@@ -60,8 +63,35 @@ public sealed class ServerItemSystem
         this.gamePlay = gamePlay;
         this.effectCatalog = effectCatalog;
         collisionSystem = gamePlay != null ? gamePlay.CollisionSystem : null;
-        this.maxActiveItemCount = Mathf.Clamp(maxActiveItemCount, 0, GameNetProtocol.MaxItems);
+        fallbackMaxActiveItemCount = Mathf.Clamp(maxActiveItemCount, 0, GameNetProtocol.MaxItems);
+        minActiveItemCount = fallbackMaxActiveItemCount;
+        this.maxActiveItemCount = fallbackMaxActiveItemCount;
         this.selectionTimeoutSeconds = Mathf.Max(0.1f, selectionTimeoutSeconds);
+        SetDefaultItemTypeWeights();
+    }
+
+    public void ConfigureSpawn(GameModeConfig config)
+    {
+        if (config == null)
+        {
+            minActiveItemCount = fallbackMaxActiveItemCount;
+            maxActiveItemCount = fallbackMaxActiveItemCount;
+            SetDefaultItemTypeWeights();
+            return;
+        }
+
+        minActiveItemCount = config.MinActiveItems;
+        maxActiveItemCount = config.MaxActiveItems;
+        itemTypeWeights.Clear();
+
+        IReadOnlyList<ItemTypeWeightConfig> weights = config.ItemTypeWeights;
+        if (weights != null)
+        {
+            for (int i = 0; i < weights.Count; i++)
+            {
+                itemTypeWeights.Add(weights[i]);
+            }
+        }
     }
 
     // - Role: Tick item spawning.
@@ -69,18 +99,18 @@ public sealed class ServerItemSystem
     {
         TickSelections(deltaTime);
 
-        if (maxActiveItemCount <= 0 || effectCatalog == null || collisionSystem == null)
+        if (maxActiveItemCount <= 0 || minActiveItemCount <= 0 || effectCatalog == null || collisionSystem == null)
         {
             return;
         }
 
         spawnTimer -= Mathf.Max(0f, deltaTime);
-        if (items.Count >= maxActiveItemCount || spawnTimer > 0f)
+        if (items.Count >= minActiveItemCount || spawnTimer > 0f)
         {
             return;
         }
 
-        while (items.Count < maxActiveItemCount && TrySpawnItem())
+        while (items.Count < minActiveItemCount && items.Count < maxActiveItemCount && TrySpawnItem())
         {
         }
 
@@ -562,8 +592,45 @@ public sealed class ServerItemSystem
     // - Role: Pick item type.
     private ItemType PickItemType()
     {
-        bool hasStats = effectCatalog != null && effectCatalog.HasEffects(ItemType.Stats);
-        bool hasSkill = effectCatalog != null && effectCatalog.HasEffects(ItemType.Skill);
+        int totalWeight = 0;
+        for (int i = 0; i < itemTypeWeights.Count; i++)
+        {
+            ItemTypeWeightConfig weightConfig = itemTypeWeights[i];
+            if (weightConfig.weight <= 0 || !HasItemTypeEffects(weightConfig.itemType))
+            {
+                continue;
+            }
+
+            totalWeight += weightConfig.weight;
+        }
+
+        if (totalWeight > 0)
+        {
+            int roll = random.Next(0, totalWeight);
+            for (int i = 0; i < itemTypeWeights.Count; i++)
+            {
+                ItemTypeWeightConfig weightConfig = itemTypeWeights[i];
+                if (weightConfig.weight <= 0 || !HasItemTypeEffects(weightConfig.itemType))
+                {
+                    continue;
+                }
+
+                if (roll < weightConfig.weight)
+                {
+                    return weightConfig.itemType;
+                }
+
+                roll -= weightConfig.weight;
+            }
+        }
+
+        return PickAvailableItemTypeEqually();
+    }
+
+    private ItemType PickAvailableItemTypeEqually()
+    {
+        bool hasStats = HasItemTypeEffects(ItemType.Stats);
+        bool hasSkill = HasItemTypeEffects(ItemType.Skill);
 
         if (hasStats && hasSkill)
         {
@@ -576,6 +643,18 @@ public sealed class ServerItemSystem
         }
 
         return hasSkill ? ItemType.Skill : ItemType.None;
+    }
+
+    private bool HasItemTypeEffects(ItemType itemType)
+    {
+        return itemType != ItemType.None && effectCatalog != null && effectCatalog.HasEffects(itemType);
+    }
+
+    private void SetDefaultItemTypeWeights()
+    {
+        itemTypeWeights.Clear();
+        itemTypeWeights.Add(new ItemTypeWeightConfig { itemType = ItemType.Stats, weight = 1 });
+        itemTypeWeights.Add(new ItemTypeWeightConfig { itemType = ItemType.Skill, weight = 1 });
     }
 
     // - Role: Get random stage position.

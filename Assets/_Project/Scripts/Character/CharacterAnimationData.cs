@@ -4,6 +4,7 @@
 public sealed class CharacterAnimationData : ScriptableObject
 {
     [SerializeField] private RuntimeAnimatorController animatorController;
+    [SerializeField] private AnimationClip roomIdleClip;
     [SerializeField] private AnimationClip idleClip;
     [SerializeField] private AnimationClip runClip;
     [SerializeField] private AnimationClip jumpClip;
@@ -14,6 +15,7 @@ public sealed class CharacterAnimationData : ScriptableObject
     [SerializeField] private AnimationClip blinkExitClip;
 
     public RuntimeAnimatorController AnimatorController => animatorController;
+    public AnimationClip RoomIdleClip => roomIdleClip;
     public AnimationClip IdleClip => idleClip;
     public AnimationClip RunClip => runClip;
     public AnimationClip JumpClip => jumpClip;

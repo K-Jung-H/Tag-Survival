@@ -3,9 +3,6 @@ using UnityEngine;
 
 public sealed class ClientStageBuilder : MonoBehaviour
 {
-    [Header("Stage Roots")]
-    [SerializeField] private GameObject networkRuntimeRoot;
-
     [Header("Stage Presentation")]
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private Camera mainCamera;
@@ -19,17 +16,23 @@ public sealed class ClientStageBuilder : MonoBehaviour
     [SerializeField] private LocalClient_InputBridge localInputBridge;
     [SerializeField] private Client_NetworkReceiverHub networkReceiverHub;
     [SerializeField] private Client_InputSender networkInputSender;
-    [SerializeField] private Relay_ClientBootstrap relayClientBootstrap;
 
     public event Action<ClientStageBuilder> BuildCompleted;
     public event Action<ClientStageBuilder, string> BuildFailed;
 
     public bool IsBuilt { get; private set; }
 
+    public void ConfigureStageDefinition(StageDefinition newStageDefinition)
+    {
+        if (newStageDefinition != null)
+        {
+            stageDefinition = newStageDefinition;
+        }
+    }
+
     public bool BuildLocalHostClient(
         Server_GamePlayRunner serverRunner,
-        GameSessionPlayerProfile localPlayer,
-        string joinCode)
+        GameSessionPlayerProfile localPlayer)
     {
         IsBuilt = false;
 
@@ -38,23 +41,17 @@ public sealed class ClientStageBuilder : MonoBehaviour
             return false;
         }
 
-        SetGameObjectActive(networkRuntimeRoot, false);
         canvasPanelController.ApplyMode(ClientStageUiMode.LocalHost);
         ApplyStagePresentationReferences();
 
         syncManager.ConfigureLocalServer(serverRunner, localPlayer.clientId);
         networkReceiverHub?.ResetOnlineMessageSession();
         localInputBridge.Configure(serverRunner, localPlayer.clientId);
-        relayClientBootstrap?.ConfigureInactiveClientMode(
-            showHud: true,
-            joinCode: joinCode,
-            status: "Local Host");
 
         SetBehaviourEnabled(syncManager, true);
         SetBehaviourEnabled(localInputBridge, true);
         SetBehaviourEnabled(networkReceiverHub, false);
         SetBehaviourEnabled(networkInputSender, false);
-        SetBehaviourEnabled(relayClientBootstrap, true);
 
         IsBuilt = true;
         BuildCompleted?.Invoke(this);
@@ -70,7 +67,6 @@ public sealed class ClientStageBuilder : MonoBehaviour
             return false;
         }
 
-        SetGameObjectActive(networkRuntimeRoot, true);
         canvasPanelController.ApplyMode(ClientStageUiMode.OnlineGuest);
         ApplyStagePresentationReferences();
 
@@ -81,7 +77,6 @@ public sealed class ClientStageBuilder : MonoBehaviour
         SetBehaviourEnabled(localInputBridge, false);
         SetBehaviourEnabled(networkReceiverHub, true);
         SetBehaviourEnabled(networkInputSender, true);
-        SetBehaviourEnabled(relayClientBootstrap, true);
 
         IsBuilt = true;
         BuildCompleted?.Invoke(this);
@@ -147,23 +142,11 @@ public sealed class ClientStageBuilder : MonoBehaviour
             return false;
         }
 
-        if (relayClientBootstrap == null)
-        {
-            Fail("Relay_ClientBootstrap is not assigned.");
-            return false;
-        }
-
         return true;
     }
 
     private bool ValidateStageReferences()
     {
-        if (networkRuntimeRoot == null)
-        {
-            Fail("Network runtime root is not assigned.");
-            return false;
-        }
-
         if (canvasPanelController == null)
         {
             Fail("ClientCanvasPanelController is not assigned.");
@@ -209,16 +192,6 @@ public sealed class ClientStageBuilder : MonoBehaviour
         stageRenderer.Configure(stageDefinition, mainCamera);
         cameraFollow.StageDefinition = stageDefinition;
         indicatorView?.BindCamera(mainCamera);
-    }
-
-    private static void SetGameObjectActive(GameObject target, bool active)
-    {
-        if (target == null)
-        {
-            return;
-        }
-
-        target.SetActive(active);
     }
 
     private static void SetBehaviourEnabled(Behaviour behaviour, bool enabledValue)

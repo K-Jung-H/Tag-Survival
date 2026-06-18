@@ -3,17 +3,16 @@ using UnityEngine;
 public sealed class Client_RoomBuilder : MonoBehaviour
 {
     [SerializeField] private Client_RoomSyncManager syncManager;
+    [SerializeField] private Client_RoomNetwork roomNetwork;
     [SerializeField] private Client_RoomView roomView;
 
     private readonly Client_RoomInputSender inputSender = new();
 
     public bool IsBuilt { get; private set; }
-    public RoomLaunchRequest CurrentRequest { get; private set; }
-    public Server_RoomBuilder LocalServerRoomBuilder { get; private set; }
 
     public bool BuildLocalHostRoom(RoomLaunchRequest request, Server_RoomBuilder serverRoomBuilder)
     {
-        if (!ValidateReferences())
+        if (!ValidateReferences(requireRoomNetwork: false))
         {
             return false;
         }
@@ -24,34 +23,42 @@ public sealed class Client_RoomBuilder : MonoBehaviour
             return false;
         }
 
-        CurrentRequest = request;
-        LocalServerRoomBuilder = serverRoomBuilder;
         syncManager.ConfigureLocalServer(serverRoomBuilder.RoomManager, 0);
         inputSender.ConfigureLocalServer(serverRoomBuilder.RoomManager, syncManager);
+        syncManager.StartRequested -= OnRoomStartRequested;
+        syncManager.StartRequested += OnRoomStartRequested;
         roomView?.Configure(syncManager, inputSender, request);
         IsBuilt = true;
-        Debug.Log("[Client_RoomBuilder] Local host room build placeholder.", this);
+        Debug.Log("[Client_RoomBuilder] Local host room built.", this);
         return true;
     }
 
     public bool BuildOnlineGuestRoom(RoomLaunchRequest request)
     {
-        if (!ValidateReferences())
+        if (!ValidateReferences(requireRoomNetwork: true))
         {
             return false;
         }
 
-        CurrentRequest = request;
-        LocalServerRoomBuilder = null;
-        syncManager.ConfigureOnline(0);
-        inputSender.ConfigureOnline(syncManager);
+        ulong localClientId = NetworkSessionManager.Instance != null
+            ? NetworkSessionManager.Instance.LocalClientId
+            : 0;
+        syncManager.ConfigureOnline(localClientId);
+        if (!roomNetwork.Build(syncManager, request))
+        {
+            return false;
+        }
+
+        inputSender.ConfigureOnline(syncManager, roomNetwork);
+        syncManager.StartRequested -= OnRoomStartRequested;
+        syncManager.StartRequested += OnRoomStartRequested;
         roomView?.Configure(syncManager, inputSender, request);
         IsBuilt = true;
-        Debug.Log("[Client_RoomBuilder] Online guest room build placeholder.", this);
+        Debug.Log("[Client_RoomBuilder] Online guest room built.", this);
         return true;
     }
 
-    private bool ValidateReferences()
+    private bool ValidateReferences(bool requireRoomNetwork)
     {
         if (syncManager == null)
         {
@@ -59,7 +66,26 @@ public sealed class Client_RoomBuilder : MonoBehaviour
             return false;
         }
 
+        if (requireRoomNetwork && roomNetwork == null)
+        {
+            Debug.LogError("[Client_RoomBuilder] Client_RoomNetwork is not assigned.", this);
+            return false;
+        }
+
         return true;
+    }
+
+    private void OnDestroy()
+    {
+        if (syncManager != null)
+        {
+            syncManager.StartRequested -= OnRoomStartRequested;
+        }
+    }
+
+    private void OnRoomStartRequested(RoomSnapshotPacket snapshot)
+    {
+        GameFlowManager.Instance?.StartStageFromRoom(snapshot);
     }
 }
 
@@ -67,19 +93,22 @@ public sealed class Client_RoomInputSender
 {
     private Client_RoomSyncManager syncManager;
     private Server_RoomManager localServerRoomManager;
+    private Client_RoomNetwork roomNetwork;
     private byte selectedCharacterId;
     private byte selectedSkillId;
 
     public void ConfigureLocalServer(Server_RoomManager serverRoomManager, Client_RoomSyncManager roomSyncManager)
     {
         localServerRoomManager = serverRoomManager;
+        roomNetwork = null;
         syncManager = roomSyncManager;
         ResolveLocalSelectionFromSnapshot();
     }
 
-    public void ConfigureOnline(Client_RoomSyncManager roomSyncManager)
+    public void ConfigureOnline(Client_RoomSyncManager roomSyncManager, Client_RoomNetwork clientRoomNetwork)
     {
         localServerRoomManager = null;
+        roomNetwork = clientRoomNetwork;
         syncManager = roomSyncManager;
         ResolveLocalSelectionFromSnapshot();
     }
@@ -96,6 +125,44 @@ public sealed class Client_RoomInputSender
         SendSelection();
     }
 
+    public void SelectStage(ushort stageIndex)
+    {
+        if (syncManager == null)
+        {
+            return;
+        }
+
+        if (localServerRoomManager != null)
+        {
+            localServerRoomManager.TrySetStageIndex(syncManager.LocalClientId, stageIndex);
+            return;
+        }
+
+        if (roomNetwork != null)
+        {
+            roomNetwork.SendSettings(stageIndex, GetCurrentGameModeIndex());
+        }
+    }
+
+    public void SelectGameMode(ushort gameModeIndex)
+    {
+        if (syncManager == null)
+        {
+            return;
+        }
+
+        if (localServerRoomManager != null)
+        {
+            localServerRoomManager.TrySetGameModeIndex(syncManager.LocalClientId, gameModeIndex);
+            return;
+        }
+
+        if (roomNetwork != null)
+        {
+            roomNetwork.SendSettings(GetCurrentStageIndex(), gameModeIndex);
+        }
+    }
+
     public void SetReady(bool isReady)
     {
         if (syncManager == null)
@@ -109,7 +176,10 @@ public sealed class Client_RoomInputSender
             return;
         }
 
-        Debug.Log("[Client_RoomInputSender] Online ready request is not implemented yet.");
+        if (roomNetwork != null)
+        {
+            roomNetwork.SendReady(isReady);
+        }
     }
 
     public void ToggleReady()
@@ -135,7 +205,10 @@ public sealed class Client_RoomInputSender
             return;
         }
 
-        Debug.Log("[Client_RoomInputSender] Online selection request is not implemented yet.");
+        if (roomNetwork != null)
+        {
+            roomNetwork.SendSelection(selectedCharacterId, selectedSkillId);
+        }
     }
 
     private void ResolveLocalSelectionFromSnapshot()
@@ -172,5 +245,25 @@ public sealed class Client_RoomInputSender
         }
 
         return false;
+    }
+
+    private ushort GetCurrentStageIndex()
+    {
+        if (syncManager == null || syncManager.CurrentSnapshot.protocolVersion != RoomNetProtocol.ProtocolVersion)
+        {
+            return 0;
+        }
+
+        return syncManager.CurrentSnapshot.stageIndex;
+    }
+
+    private ushort GetCurrentGameModeIndex()
+    {
+        if (syncManager == null || syncManager.CurrentSnapshot.protocolVersion != RoomNetProtocol.ProtocolVersion)
+        {
+            return 0;
+        }
+
+        return syncManager.CurrentSnapshot.gameModeIndex;
     }
 }

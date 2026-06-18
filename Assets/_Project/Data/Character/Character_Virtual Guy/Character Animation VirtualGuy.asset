@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Character Animation VirtualGuy
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
   animatorController: {fileID: 9100000, guid: 8b196b573d40e354694537a32ae69922, type: 2}
+  roomIdleClip: {fileID: 7400000, guid: 1ae3ff86e4fe533468f0c619946599cb, type: 2}
   idleClip: {fileID: 7400000, guid: e0dda6abcc5d21c429c57f8edd111645, type: 2}
   runClip: {fileID: 7400000, guid: 23f7a6ebfa581d94a90eb01b34d9e549, type: 2}
   jumpClip: {fileID: 7400000, guid: 9bb361403bec47e4daf387fb30c3e845, type: 2}

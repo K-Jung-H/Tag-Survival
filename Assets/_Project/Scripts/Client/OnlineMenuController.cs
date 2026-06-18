@@ -3,6 +3,7 @@ using UnityEngine;
 
 public sealed class OnlineMenuController : MonoBehaviour
 {
+    [SerializeField] private TMP_InputField nicknameInput;
     [SerializeField] private TMP_InputField connectServerJoinCodeInput;
     [SerializeField] private TMP_InputField connectRoomJoinCodeInput;
 
@@ -25,7 +26,7 @@ public sealed class OnlineMenuController : MonoBehaviour
             return;
         }
 
-        manager.StartHostRoom();
+        manager.StartHostRoom(GetInputText(nicknameInput));
     }
 
     public void SelectConnectRoom()
@@ -36,7 +37,7 @@ public sealed class OnlineMenuController : MonoBehaviour
             return;
         }
 
-        manager.StartJoinRoom(GetInputText(connectRoomJoinCodeInput));
+        manager.StartJoinRoom(GetInputText(connectRoomJoinCodeInput), GetInputText(nicknameInput));
     }
 
     public void SelectConnectServer()

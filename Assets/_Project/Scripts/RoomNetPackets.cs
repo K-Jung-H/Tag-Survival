@@ -111,6 +111,43 @@ public struct RoomReadyRequestPacket
     }
 }
 
+public struct RoomSettingsRequestPacket
+{
+    public ushort protocolVersion;
+    public ushort stageIndex;
+    public ushort gameModeIndex;
+
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+        writer.WriteValueSafe(stageIndex);
+        writer.WriteValueSafe(gameModeIndex);
+    }
+
+    public static bool TryRead(ref FastBufferReader reader, out RoomSettingsRequestPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        reader.ReadValueSafe(out ushort stageIndex);
+        reader.ReadValueSafe(out ushort gameModeIndex);
+
+        if (protocolVersion != RoomNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new RoomSettingsRequestPacket
+        {
+            protocolVersion = protocolVersion,
+            stageIndex = stageIndex,
+            gameModeIndex = gameModeIndex
+        };
+
+        return true;
+    }
+}
+
 public struct RoomPlayerStatePacket
 {
     public ulong clientId;
@@ -159,6 +196,9 @@ public struct RoomSnapshotPacket
     public uint roomSeq;
     public RoomState roomState;
     public ushort maxPlayers;
+    public ulong roomOwnerClientId;
+    public ushort stageIndex;
+    public ushort gameModeIndex;
     public ushort playerCount;
     public ushort countdownRemainingMs;
     public RoomPlayerStatePacket[] players;
@@ -169,6 +209,9 @@ public struct RoomSnapshotPacket
         writer.WriteValueSafe(roomSeq);
         writer.WriteValueSafe((byte)roomState);
         writer.WriteValueSafe(maxPlayers);
+        writer.WriteValueSafe(roomOwnerClientId);
+        writer.WriteValueSafe(stageIndex);
+        writer.WriteValueSafe(gameModeIndex);
 
         int count = players != null
             ? Mathf.Min(playerCount, players.Length, RoomNetProtocol.MaxRoomPlayers)
@@ -190,6 +233,9 @@ public struct RoomSnapshotPacket
         reader.ReadValueSafe(out uint roomSeq);
         reader.ReadValueSafe(out byte roomState);
         reader.ReadValueSafe(out ushort maxPlayers);
+        reader.ReadValueSafe(out ulong roomOwnerClientId);
+        reader.ReadValueSafe(out ushort stageIndex);
+        reader.ReadValueSafe(out ushort gameModeIndex);
         reader.ReadValueSafe(out ushort playerCount);
         reader.ReadValueSafe(out ushort countdownRemainingMs);
 
@@ -218,6 +264,9 @@ public struct RoomSnapshotPacket
             roomSeq = roomSeq,
             roomState = (RoomState)roomState,
             maxPlayers = maxPlayers,
+            roomOwnerClientId = roomOwnerClientId,
+            stageIndex = stageIndex,
+            gameModeIndex = gameModeIndex,
             playerCount = playerCount,
             countdownRemainingMs = countdownRemainingMs,
             players = players

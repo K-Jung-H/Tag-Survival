@@ -14,11 +14,11 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
     [SerializeField] private GameObject mobileInputPanel;
 
     [Header("Online")]
-    [SerializeField] private GameObject connectionPanel;
     [SerializeField] private GameObject networkDelayPanel;
 
     [Header("Overlay")]
     [SerializeField] private GameObject itemSelectionRoot;
+    [SerializeField] private GameObject gameResultPanel;
 
     public bool HasRequiredReferences(out string missingReferenceName)
     {
@@ -37,12 +37,6 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
         if (mobileInputPanel == null)
         {
             missingReferenceName = nameof(mobileInputPanel);
-            return false;
-        }
-
-        if (connectionPanel == null)
-        {
-            missingReferenceName = nameof(connectionPanel);
             return false;
         }
 
@@ -75,33 +69,29 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
         }
     }
 
-    public void ApplyOnlineConnectionState(bool connected)
-    {
-        SetActive(connectionPanel, !connected);
-        SetActive(networkDelayPanel, connected);
-        SetActive(hudPanel, connected);
-        SetActive(nameplatePanel, true);
-        SetActive(mobileInputPanel, true);
-    }
-
     private void ApplyLocalHost()
     {
         SetActive(hudPanel, true);
         SetActive(nameplatePanel, true);
         SetActive(mobileInputPanel, true);
-        SetActive(connectionPanel, false);
         SetActive(networkDelayPanel, false);
         SetActive(itemSelectionRoot, true);
+        SetActive(gameResultPanel, false);
     }
 
     private void ApplyOnlineGuest()
     {
-        SetActive(hudPanel, false);
+        SetActive(hudPanel, true);
         SetActive(nameplatePanel, true);
         SetActive(mobileInputPanel, true);
-        SetActive(connectionPanel, true);
-        SetActive(networkDelayPanel, false);
+        SetActive(networkDelayPanel, true);
         SetActive(itemSelectionRoot, true);
+        SetActive(gameResultPanel, false);
+    }
+
+    public void SetGameResultVisible(bool visible)
+    {
+        SetActive(gameResultPanel, visible);
     }
 
     private static void SetActive(GameObject target, bool active)

@@ -16,8 +16,10 @@ public sealed class Client_RoomSyncManager : MonoBehaviour
     private RoomSnapshotPacket currentSnapshot;
     private uint lastRoomSeq;
     private ulong localClientId;
+    private bool hasRequestedStart;
 
     public event Action<RoomSnapshotPacket> SnapshotChanged;
+    public event Action<RoomSnapshotPacket> StartRequested;
 
     public ClientRoomSyncMode SyncMode => syncMode;
     public ulong LocalClientId => localClientId;
@@ -29,6 +31,7 @@ public sealed class Client_RoomSyncManager : MonoBehaviour
         localClientId = clientId;
         syncMode = ClientRoomSyncMode.LocalServer;
         lastRoomSeq = 0;
+        hasRequestedStart = false;
         PollLocalServerSnapshot(force: true);
     }
 
@@ -38,6 +41,7 @@ public sealed class Client_RoomSyncManager : MonoBehaviour
         localClientId = clientId;
         syncMode = ClientRoomSyncMode.Online;
         lastRoomSeq = 0;
+        hasRequestedStart = false;
         currentSnapshot = default;
     }
 
@@ -48,6 +52,21 @@ public sealed class Client_RoomSyncManager : MonoBehaviour
             return;
         }
 
+        ApplySnapshot(snapshot);
+    }
+
+    public void ApplyStartCommand(RoomStartGameCommandPacket command)
+    {
+        if (syncMode != ClientRoomSyncMode.Online)
+        {
+            return;
+        }
+
+        RoomSnapshotPacket snapshot = currentSnapshot;
+        snapshot.protocolVersion = RoomNetProtocol.ProtocolVersion;
+        snapshot.roomState = RoomState.Starting;
+        snapshot.stageIndex = command.stageIndex;
+        snapshot.gameModeIndex = command.gameModeIndex;
         ApplySnapshot(snapshot);
     }
 
@@ -80,5 +99,17 @@ public sealed class Client_RoomSyncManager : MonoBehaviour
         currentSnapshot = snapshot;
         lastRoomSeq = snapshot.roomSeq;
         SnapshotChanged?.Invoke(currentSnapshot);
+        TryRequestStart(currentSnapshot);
+    }
+
+    private void TryRequestStart(RoomSnapshotPacket snapshot)
+    {
+        if (hasRequestedStart || snapshot.roomState != RoomState.Starting)
+        {
+            return;
+        }
+
+        hasRequestedStart = true;
+        StartRequested?.Invoke(snapshot);
     }
 }

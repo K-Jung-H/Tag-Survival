@@ -60,6 +60,9 @@ public sealed class Client_SyncManager : MonoBehaviour
     public event Action RosterUpdated;
     public event Action<ItemSelectionOfferPacket> ItemSelectionOfferReceived;
     public event Action<ItemSelectionResultPacket> ItemSelectionResultReceived;
+    public event Action<ServerGameEndPacket> GameEndReceived;
+    public event Action<ServerResultCommandPacket> ResultCommandReceived;
+    public event Action<GameResultChoice> ResultChoiceRequested;
     public event Action<uint, int> ItemSelectionChoiceRequested;
 
     public ClientSyncMode SyncMode => syncMode;
@@ -69,6 +72,8 @@ public sealed class Client_SyncManager : MonoBehaviour
     public IReadOnlyDictionary<uint, ClientCoinSnapshotState> CoinSnapshots => coinSnapshots;
     public ClientGameStateSnapshotState CurrentGameState { get; private set; }
     public bool HasGameState => hasGameState;
+    public bool HasGameEnd { get; private set; }
+    public ServerGameEndPacket LastGameEnd { get; private set; }
     public bool HasRoster => hasRoster;
     public uint LastSnapshotSeq => lastSnapshotSeq;
     public uint LastServerTick => lastServerTick;
@@ -160,6 +165,8 @@ public sealed class Client_SyncManager : MonoBehaviour
         hasAppliedFullGameState = false;
         hasAppliedGameEvent = false;
         hasRoster = false;
+        HasGameEnd = false;
+        LastGameEnd = default;
         lastSnapshotSeq = 0;
         lastServerTick = 0;
         lastGameStateSeq = 0;
@@ -267,6 +274,23 @@ public sealed class Client_SyncManager : MonoBehaviour
         ItemSelectionResultReceived?.Invoke(packet);
     }
 
+    public void ApplyGameEnd(ServerGameEndPacket packet)
+    {
+        if (HasGameEnd && packet.gameStateSeq < LastGameEnd.gameStateSeq)
+        {
+            return;
+        }
+
+        HasGameEnd = true;
+        LastGameEnd = packet;
+        GameEndReceived?.Invoke(packet);
+    }
+
+    public void ApplyResultCommand(ServerResultCommandPacket packet)
+    {
+        ResultCommandReceived?.Invoke(packet);
+    }
+
     public void SendItemSelectionChoice(uint requestId, int selectedId)
     {
         if (syncMode == ClientSyncMode.LocalServer
@@ -278,6 +302,22 @@ public sealed class Client_SyncManager : MonoBehaviour
         }
 
         ItemSelectionChoiceRequested?.Invoke(requestId, selectedId);
+    }
+
+    public void SendResultChoice(GameResultChoice choice)
+    {
+        if (choice == GameResultChoice.None)
+        {
+            return;
+        }
+
+        if (syncMode == ClientSyncMode.LocalServer && localServerRunner != null)
+        {
+            localServerRunner.HandleResultChoice(localServerClientId, choice);
+            return;
+        }
+
+        ResultChoiceRequested?.Invoke(choice);
     }
 
     private void SubscribeLocalServerRunner()
@@ -292,6 +332,8 @@ public sealed class Client_SyncManager : MonoBehaviour
         subscribedLocalServerRunner.LocalItemSelectionOfferReady += ApplyItemSelectionOffer;
         subscribedLocalServerRunner.LocalItemSelectionResultReady += ApplyItemSelectionResult;
         subscribedLocalServerRunner.LocalGameEventReady += ApplyGameEvent;
+        subscribedLocalServerRunner.LocalGameEndReady += ApplyGameEnd;
+        subscribedLocalServerRunner.LocalResultCommandReady += ApplyResultCommand;
     }
 
     private void UnsubscribeLocalServerRunner()
@@ -304,6 +346,8 @@ public sealed class Client_SyncManager : MonoBehaviour
         subscribedLocalServerRunner.LocalItemSelectionOfferReady -= ApplyItemSelectionOffer;
         subscribedLocalServerRunner.LocalItemSelectionResultReady -= ApplyItemSelectionResult;
         subscribedLocalServerRunner.LocalGameEventReady -= ApplyGameEvent;
+        subscribedLocalServerRunner.LocalGameEndReady -= ApplyGameEnd;
+        subscribedLocalServerRunner.LocalResultCommandReady -= ApplyResultCommand;
         subscribedLocalServerRunner.ClearLocalDirectClient();
         subscribedLocalServerRunner = null;
     }

@@ -30,7 +30,9 @@ public class Server_GamePlay
         SkillCatalog skillCatalog,
         ItemEffectCatalog itemEffectCatalog,
         int maxActiveItemCount,
-        float itemSelectionTimeoutSeconds)
+        float itemSelectionTimeoutSeconds,
+        GameModeType gameModeType,
+        GameModeConfig gameModeConfig)
     {
         this.stageDefinition = stageDefinition;
         this.characterCatalog = characterCatalog;
@@ -42,7 +44,7 @@ public class Server_GamePlay
         skillSystem.Bind(this);
         playerSystem.Bind(skillSystem, collisionSystem, stageDefinition);
         itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount, itemSelectionTimeoutSeconds);
-        ConfigureGameMode(GameModeType.TimeAttack);
+        ConfigureGameMode(gameModeType, gameModeConfig);
     }
 
     public uint Tick { get; private set; }
@@ -85,6 +87,7 @@ public class Server_GamePlay
 
         gameMode = CreateGameMode(modeType, modeConfig);
         gameMode.SetGameDurationSeconds(durationSeconds);
+        itemSystem.ConfigureSpawn(modeConfig);
     }
 
     // - Role: Add player.

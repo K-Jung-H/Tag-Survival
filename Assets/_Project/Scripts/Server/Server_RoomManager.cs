@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Unity.Collections;
+using System;
 using UnityEngine;
 
 public sealed class Server_RoomManager : MonoBehaviour
@@ -7,19 +8,28 @@ public sealed class Server_RoomManager : MonoBehaviour
     [SerializeField] private int maxPlayers = 4;
     [SerializeField] private int minPlayersToStart = 2;
     [SerializeField] private float countdownSeconds = 3f;
+    [SerializeField] private ushort stageIndex;
+    [SerializeField] private ushort gameModeIndex;
     [SerializeField] private byte defaultCharacterId;
     [SerializeField] private byte defaultSkillId = 1;
+    [SerializeField] private GameStageCatalog gameStageCatalog;
+    [SerializeField] private GameModeCatalog gameModeCatalog;
 
     private readonly List<RoomPlayerStatePacket> players = new();
     private uint roomSeq;
     private RoomState roomState = RoomState.Waiting;
     private float countdownRemainingSeconds;
+    private bool hasRequestedStart;
+    private ulong roomOwnerClientId;
+    private bool hasRoomOwner;
 
     public int MaxPlayers => Mathf.Clamp(maxPlayers, 1, RoomNetProtocol.MaxRoomPlayers);
     public int MinPlayersToStart => Mathf.Clamp(minPlayersToStart, 1, MaxPlayers);
     public RoomState RoomState => roomState;
     public float CountdownRemainingSeconds => countdownRemainingSeconds;
     public int PlayerCount => players.Count;
+    public ulong RoomOwnerClientId => hasRoomOwner ? roomOwnerClientId : ulong.MaxValue;
+    public event Action<RoomSnapshotPacket> StartRequested;
 
     private void Update()
     {
@@ -51,6 +61,12 @@ public sealed class Server_RoomManager : MonoBehaviour
             skillId = defaultSkillId,
             isReady = false
         });
+
+        if (!hasRoomOwner)
+        {
+            AssignRoomOwner(clientId);
+        }
+
         MarkRoomChanged(cancelCountdown: true);
         return true;
     }
@@ -63,6 +79,11 @@ public sealed class Server_RoomManager : MonoBehaviour
         }
 
         players.RemoveAt(index);
+        if (hasRoomOwner && roomOwnerClientId == clientId)
+        {
+            ReassignRoomOwner();
+        }
+
         MarkRoomChanged(cancelCountdown: true);
     }
 
@@ -111,6 +132,106 @@ public sealed class Server_RoomManager : MonoBehaviour
         return true;
     }
 
+    public bool CanEditRoomSettings(ulong clientId)
+    {
+        return hasRoomOwner && roomOwnerClientId == clientId;
+    }
+
+    public bool TrySetStageIndex(ulong clientId, ushort nextStageIndex)
+    {
+        if (!CanEditRoomSettings(clientId))
+        {
+            return false;
+        }
+
+        if (stageIndex == nextStageIndex)
+        {
+            return true;
+        }
+
+        stageIndex = nextStageIndex;
+        MarkRoomChanged(cancelCountdown: true);
+        return true;
+    }
+
+    public bool TrySetGameModeIndex(ulong clientId, ushort nextGameModeIndex)
+    {
+        if (!CanEditRoomSettings(clientId))
+        {
+            return false;
+        }
+
+        if (gameModeIndex == nextGameModeIndex)
+        {
+            return true;
+        }
+
+        gameModeIndex = nextGameModeIndex;
+        MarkRoomChanged(cancelCountdown: true);
+        return true;
+    }
+
+    public void ConfigureRematchState(RoomSnapshotPacket previousSnapshot)
+    {
+        if (previousSnapshot.protocolVersion != RoomNetProtocol.ProtocolVersion)
+        {
+            return;
+        }
+
+        stageIndex = previousSnapshot.stageIndex;
+        gameModeIndex = previousSnapshot.gameModeIndex;
+
+        RoomPlayerStatePacket[] previousPlayers = previousSnapshot.players;
+        int previousCount = previousPlayers != null
+            ? Mathf.Min(previousSnapshot.playerCount, previousPlayers.Length, MaxPlayers)
+            : 0;
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            RoomPlayerStatePacket player = players[i];
+            if (TryFindPreviousPlayer(previousPlayers, previousCount, player.clientId, out RoomPlayerStatePacket previousPlayer))
+            {
+                player.characterId = previousPlayer.characterId;
+                player.skillId = previousPlayer.skillId;
+            }
+
+            player.isReady = false;
+            players[i] = player;
+        }
+
+        if (!hasRoomOwner && players.Count > 0)
+        {
+            AssignRoomOwner(players[0].clientId);
+        }
+
+        roomState = RoomState.Waiting;
+        countdownRemainingSeconds = 0f;
+        hasRequestedStart = false;
+        MarkRoomChanged(cancelCountdown: false);
+    }
+
+    private static bool TryFindPreviousPlayer(
+        RoomPlayerStatePacket[] previousPlayers,
+        int previousCount,
+        ulong clientId,
+        out RoomPlayerStatePacket previousPlayer)
+    {
+        if (previousPlayers != null)
+        {
+            for (int i = 0; i < previousCount; i++)
+            {
+                if (previousPlayers[i].clientId == clientId)
+                {
+                    previousPlayer = previousPlayers[i];
+                    return true;
+                }
+            }
+        }
+
+        previousPlayer = default;
+        return false;
+    }
+
     public RoomSnapshotPacket CreateSnapshot()
     {
         return new RoomSnapshotPacket
@@ -119,6 +240,9 @@ public sealed class Server_RoomManager : MonoBehaviour
             roomSeq = roomSeq,
             roomState = roomState,
             maxPlayers = (ushort)MaxPlayers,
+            roomOwnerClientId = RoomOwnerClientId,
+            stageIndex = stageIndex,
+            gameModeIndex = gameModeIndex,
             playerCount = (ushort)Mathf.Min(players.Count, RoomNetProtocol.MaxRoomPlayers),
             countdownRemainingMs = (ushort)Mathf.Clamp(
                 Mathf.CeilToInt(countdownRemainingSeconds * 1000f),
@@ -145,8 +269,10 @@ public sealed class Server_RoomManager : MonoBehaviour
         MarkRoomChanged(cancelCountdown: false);
         if (countdownRemainingSeconds <= 0f)
         {
+            ResolveFinalSelectionsForStart();
             roomState = RoomState.Starting;
             MarkRoomChanged(cancelCountdown: false);
+            RequestStart();
         }
     }
 
@@ -199,6 +325,7 @@ public sealed class Server_RoomManager : MonoBehaviour
 
         roomState = RoomState.Waiting;
         countdownRemainingSeconds = 0f;
+        hasRequestedStart = false;
         MarkRoomChanged(cancelCountdown: false);
     }
 
@@ -208,9 +335,58 @@ public sealed class Server_RoomManager : MonoBehaviour
         {
             roomState = RoomState.Waiting;
             countdownRemainingSeconds = 0f;
+            hasRequestedStart = false;
         }
 
         roomSeq++;
+    }
+
+    private void ResolveFinalSelectionsForStart()
+    {
+        if (gameStageCatalog != null
+            && gameStageCatalog.TryGetByIndex(stageIndex, out GameStageCatalogEntry stageEntry)
+            && stageEntry.IsRandom
+            && gameStageCatalog.TryGetRandomResolvedIndex(out ushort resolvedStageIndex))
+        {
+            stageIndex = resolvedStageIndex;
+        }
+
+        if (gameModeCatalog != null
+            && gameModeCatalog.TryGetByIndex(gameModeIndex, out GameModeCatalogEntry modeEntry)
+            && modeEntry.IsRandom
+            && gameModeCatalog.TryGetRandomResolvedIndex(out ushort resolvedGameModeIndex))
+        {
+            gameModeIndex = resolvedGameModeIndex;
+        }
+    }
+
+    private void RequestStart()
+    {
+        if (hasRequestedStart)
+        {
+            return;
+        }
+
+        hasRequestedStart = true;
+        StartRequested?.Invoke(CreateSnapshot());
+    }
+
+    private void AssignRoomOwner(ulong clientId)
+    {
+        roomOwnerClientId = clientId;
+        hasRoomOwner = true;
+    }
+
+    private void ReassignRoomOwner()
+    {
+        if (players.Count <= 0)
+        {
+            roomOwnerClientId = 0;
+            hasRoomOwner = false;
+            return;
+        }
+
+        AssignRoomOwner(players[0].clientId);
     }
 
     private bool TryFindPlayerIndex(ulong clientId, out int index)

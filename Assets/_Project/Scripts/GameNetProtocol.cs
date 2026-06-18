@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 28;
+    public const ushort ProtocolVersion = 30;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -10,9 +10,13 @@ public static class GameNetProtocol
 
     public const int InputPacketBufferSize = 64;
     public const int ClientJoinProfilePacketBufferSize = 128;
+    public const int ClientStageSyncRequestPacketBufferSize = 16;
     public const int ItemSelectionPacketBufferSize = 256;
     public const int SnapshotPacketBufferSize = 12288;
     public const int GameStatePacketBufferSize = 1024;
+    public const int GameEndPacketBufferSize = 1024;
+    public const int ResultChoicePacketBufferSize = 32;
+    public const int ResultCommandPacketBufferSize = 32;
     public const int GameEventPacketBufferSize = 2048;
     public const int RosterPacketBufferSize = 2048;
     public const int MaxPlayers = 10;
@@ -24,10 +28,14 @@ public static class GameNetProtocol
 public static class GameNetMessages
 {
     public const string ClientJoinProfile = "client_join_profile";
+    public const string ClientStageSyncRequest = "client_stage_sync_request";
     public const string ClientInput = "client_input";
     public const string ClientItemSelectionChoice = "client_item_selection_choice";
+    public const string ClientResultChoice = "client_result_choice";
     public const string ServerSnapshot = "server_snapshot";
     public const string ServerGameState = "server_game_state";
+    public const string ServerGameEnd = "server_game_end";
+    public const string ServerResultCommand = "server_result_command";
     public const string ServerGameEvent = "server_game_event";
     public const string ServerItemSelectionOffer = "server_item_selection_offer";
     public const string ServerItemSelectionResult = "server_item_selection_result";
@@ -133,4 +141,18 @@ public enum ItemSelectionResultType : byte
     PlayerSelected = 1,
     TimeoutRandom = 2,
     Cancelled = 3
+}
+
+public enum GameResultChoice : byte
+{
+    None = 0,
+    Rematch = 1,
+    Exit = 2
+}
+
+public enum GameResultCommand : byte
+{
+    None = 0,
+    RematchToRoom = 1,
+    RoomClosed = 2
 }

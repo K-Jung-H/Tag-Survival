@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Character Animation Data MaskMan
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationData
   animatorController: {fileID: 9100000, guid: 343c6dd85553ff346bb7ab8985acc8af, type: 2}
+  roomIdleClip: {fileID: 7400000, guid: 3854b8484fe83d946b6e8896178161eb, type: 2}
   idleClip: {fileID: 7400000, guid: f5065e9e2e671aa48860d86a2bc9454f, type: 2}
   runClip: {fileID: 7400000, guid: d7610bc0a83ef8741804862bc5e27aa8, type: 2}
   jumpClip: {fileID: 7400000, guid: b59996b294f72154b814fb5a98aa71ae, type: 2}

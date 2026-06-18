@@ -29,6 +29,12 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         public GameEventEntryPacket packet;
     }
 
+    private struct QueuedGameEnd
+    {
+        public float applyTime;
+        public ServerGameEndPacket packet;
+    }
+
     private struct QueuedItemSelectionOffer
     {
         public float applyTime;
@@ -49,18 +55,27 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
     [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
+    [SerializeField] private float stageSyncRequestRetryInterval = 0.5f;
+    [SerializeField] private int maxStageSyncRequestAttempts = 10;
 
     private readonly List<QueuedServerSnapshot> delayedSnapshots = new();
     private readonly List<QueuedGameStateSnapshot> delayedGameStates = new();
     private readonly List<QueuedGameEvent> delayedGameEvents = new();
+    private readonly List<QueuedGameEnd> delayedGameEnds = new();
     private readonly List<QueuedItemSelectionOffer> delayedItemSelectionOffers = new();
     private readonly List<QueuedItemSelectionResult> delayedItemSelectionResults = new();
     private readonly List<QueuedItemSelectionChoice> delayedItemSelectionChoices = new();
 
     private FastBufferWriter itemSelectionChoiceWriter;
+    private FastBufferWriter stageSyncRequestWriter;
+    private FastBufferWriter resultChoiceWriter;
     private bool itemSelectionChoiceWriterCreated;
+    private bool stageSyncRequestWriterCreated;
+    private bool resultChoiceWriterCreated;
     private bool areHandlersRegistered;
     private uint delayedMessageSessionId;
+    private float stageSyncRequestTimer;
+    private int stageSyncRequestAttempts;
 
     private void Awake()
     {
@@ -72,7 +87,11 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         }
 
         itemSelectionChoiceWriter = new FastBufferWriter(GameNetProtocol.ItemSelectionPacketBufferSize, Allocator.Persistent);
+        stageSyncRequestWriter = new FastBufferWriter(GameNetProtocol.ClientStageSyncRequestPacketBufferSize, Allocator.Persistent);
+        resultChoiceWriter = new FastBufferWriter(GameNetProtocol.ResultChoicePacketBufferSize, Allocator.Persistent);
         itemSelectionChoiceWriterCreated = true;
+        stageSyncRequestWriterCreated = true;
+        resultChoiceWriterCreated = true;
     }
 
     private void OnEnable()
@@ -80,6 +99,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         if (syncManager != null)
         {
             syncManager.ItemSelectionChoiceRequested += OnItemSelectionChoiceRequested;
+            syncManager.ResultChoiceRequested += OnResultChoiceRequested;
         }
     }
 
@@ -99,6 +119,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     private void Update()
     {
         TryRegisterMessageHandlers();
+        SendStageSyncRequestIfNeeded();
         FlushDelayedMessages();
     }
 
@@ -109,6 +130,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         if (syncManager != null)
         {
             syncManager.ItemSelectionChoiceRequested -= OnItemSelectionChoiceRequested;
+            syncManager.ResultChoiceRequested -= OnResultChoiceRequested;
         }
     }
 
@@ -127,6 +149,18 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         {
             itemSelectionChoiceWriter.Dispose();
             itemSelectionChoiceWriterCreated = false;
+        }
+
+        if (stageSyncRequestWriterCreated)
+        {
+            stageSyncRequestWriter.Dispose();
+            stageSyncRequestWriterCreated = false;
+        }
+
+        if (resultChoiceWriterCreated)
+        {
+            resultChoiceWriter.Dispose();
+            resultChoiceWriterCreated = false;
         }
     }
 
@@ -154,6 +188,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         ResetDelayedMessageSession();
         syncManager?.ClearAll();
         UnregisterMessageHandlers();
+
+        if (NetworkSessionManager.Instance != null
+            && NetworkSessionManager.Instance.Role == NetworkSessionRole.Guest
+            && clientId == NetworkManager.ServerClientId)
+        {
+            GameFlowManager.Instance?.ExitStageToOnline();
+        }
     }
 
     private void TryRegisterMessageHandlers()
@@ -166,11 +207,15 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         CustomMessagingManager messagingManager = NetworkManager.Singleton.CustomMessagingManager;
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerSnapshot, OnServerSnapshotReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerGameState, OnServerGameStateReceived);
+        messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerGameEnd, OnServerGameEndReceived);
+        messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerResultCommand, OnServerResultCommandReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerGameEvent, OnServerGameEventReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerRoster, OnServerRosterReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerItemSelectionOffer, OnItemSelectionOfferReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerItemSelectionResult, OnItemSelectionResultReceived);
         areHandlersRegistered = true;
+        stageSyncRequestTimer = 0f;
+        stageSyncRequestAttempts = 0;
     }
 
     private void UnregisterMessageHandlers()
@@ -185,6 +230,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         CustomMessagingManager messagingManager = NetworkManager.Singleton.CustomMessagingManager;
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerSnapshot);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerGameState);
+        messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerGameEnd);
+        messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerResultCommand);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerGameEvent);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerRoster);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerItemSelectionOffer);
@@ -286,6 +333,45 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         }
     }
 
+    private void OnServerGameEndReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseOnlineClientMessages())
+        {
+            return;
+        }
+
+        if (!ServerGameEndPacket.TryRead(ref reader, out ServerGameEndPacket packet))
+        {
+            return;
+        }
+
+        float delaySeconds = GetNetworkDelaySeconds();
+        if (delaySeconds > 0f)
+        {
+            delayedGameEnds.Add(new QueuedGameEnd
+            {
+                applyTime = Time.realtimeSinceStartup + delaySeconds,
+                packet = packet
+            });
+            return;
+        }
+
+        syncManager.ApplyGameEnd(packet);
+    }
+
+    private void OnServerResultCommandReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseOnlineClientMessages())
+        {
+            return;
+        }
+
+        if (ServerResultCommandPacket.TryRead(ref reader, out ServerResultCommandPacket packet))
+        {
+            syncManager.ApplyResultCommand(packet);
+        }
+    }
+
     private void OnServerRosterReceived(ulong senderClientId, FastBufferReader reader)
     {
         if (!CanUseOnlineClientMessages())
@@ -374,6 +460,28 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         SendItemSelectionChoiceNow(packet);
     }
 
+    private void OnResultChoiceRequested(GameResultChoice choice)
+    {
+        if (!CanUseOnlineClientMessages() || !resultChoiceWriterCreated)
+        {
+            return;
+        }
+
+        ClientResultChoicePacket packet = new ClientResultChoicePacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            choice = choice
+        };
+
+        resultChoiceWriter.Truncate(0);
+        packet.Write(ref resultChoiceWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ClientResultChoice,
+            NetworkManager.ServerClientId,
+            resultChoiceWriter,
+            NetworkDelivery.ReliableSequenced);
+    }
+
     private static bool TryReadSnapshot(
         ref FastBufferReader reader,
         out ServerSnapshotHeaderPacket header,
@@ -447,6 +555,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         FlushDelayedSnapshots(now);
         FlushDelayedGameStates(now);
         FlushDelayedGameEvents(now);
+        FlushDelayedGameEnds(now);
         FlushDelayedItemSelectionOffers(now);
         FlushDelayedItemSelectionResults(now);
         FlushDelayedItemSelectionChoices(now);
@@ -504,6 +613,22 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             delayedGameEvents.RemoveAt(i);
             i--;
             syncManager.ApplyGameEvent(queuedEvent.packet);
+        }
+    }
+
+    private void FlushDelayedGameEnds(float now)
+    {
+        for (int i = 0; i < delayedGameEnds.Count; i++)
+        {
+            QueuedGameEnd queuedEnd = delayedGameEnds[i];
+            if (queuedEnd.applyTime > now)
+            {
+                continue;
+            }
+
+            delayedGameEnds.RemoveAt(i);
+            i--;
+            syncManager.ApplyGameEnd(queuedEnd.packet);
         }
     }
 
@@ -579,11 +704,52 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             NetworkDelivery.ReliableSequenced);
     }
 
+    private void SendStageSyncRequestIfNeeded()
+    {
+        if (!areHandlersRegistered
+            || !CanUseOnlineClientMessages()
+            || !stageSyncRequestWriterCreated
+            || HasLocalRosterEntry()
+            || stageSyncRequestAttempts >= Mathf.Max(1, maxStageSyncRequestAttempts))
+        {
+            return;
+        }
+
+        stageSyncRequestTimer -= Time.deltaTime;
+        if (stageSyncRequestTimer > 0f)
+        {
+            return;
+        }
+
+        ClientStageSyncRequestPacket packet = new ClientStageSyncRequestPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion
+        };
+
+        stageSyncRequestWriter.Truncate(0);
+        packet.Write(ref stageSyncRequestWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ClientStageSyncRequest,
+            NetworkManager.ServerClientId,
+            stageSyncRequestWriter,
+            NetworkDelivery.ReliableSequenced);
+
+        stageSyncRequestAttempts++;
+        stageSyncRequestTimer = Mathf.Max(0.1f, stageSyncRequestRetryInterval);
+    }
+
+    private bool HasLocalRosterEntry()
+    {
+        return NetworkManager.Singleton != null
+            && syncManager.TryGetRosterEntry(NetworkManager.Singleton.LocalClientId, out _);
+    }
+
     private void ClearDelayedMessages()
     {
         delayedSnapshots.Clear();
         delayedGameStates.Clear();
         delayedGameEvents.Clear();
+        delayedGameEnds.Clear();
         delayedItemSelectionOffers.Clear();
         delayedItemSelectionResults.Clear();
         delayedItemSelectionChoices.Clear();
@@ -602,6 +768,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         }
 
         ClearDelayedMessages();
+        stageSyncRequestTimer = 0f;
+        stageSyncRequestAttempts = 0;
     }
 
     private bool HasDelayedMessages()
@@ -609,6 +777,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         return delayedSnapshots.Count > 0
             || delayedGameStates.Count > 0
             || delayedGameEvents.Count > 0
+            || delayedGameEnds.Count > 0
             || delayedItemSelectionOffers.Count > 0
             || delayedItemSelectionResults.Count > 0
             || delayedItemSelectionChoices.Count > 0;

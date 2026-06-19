@@ -242,7 +242,7 @@ public sealed class StageCollisionSystem
             return true;
         }
 
-        normal = GetFallbackSatNormal(delta, firstId, secondId);
+        normal = GetDeterministicSatNormal(delta, firstId, secondId);
         penetration = overlapX;
         return true;
     }
@@ -892,8 +892,8 @@ public sealed class StageCollisionSystem
             && (collider.flags & StageTileFlags.Solid) != 0;
     }
 
-    // - Role: Get fallback SAT normal.
-    private Vector2 GetFallbackSatNormal(Vector2 delta, ulong firstId, ulong secondId)
+    // - Role: Get deterministic SAT normal.
+    private Vector2 GetDeterministicSatNormal(Vector2 delta, ulong firstId, ulong secondId)
     {
         if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
         {

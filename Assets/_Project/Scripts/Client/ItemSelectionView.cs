@@ -23,7 +23,6 @@ public sealed class ItemSelectionView : MonoBehaviour
     // - Role: Set up view before start.
     private void Awake()
     {
-        ResolvePanel();
         SetPanelVisible(false);
     }
 
@@ -240,19 +239,9 @@ public sealed class ItemSelectionView : MonoBehaviour
         }
     }
 
-    // - Role: Resolve selection panel.
-    private void ResolvePanel()
-    {
-        if (selectionPanel == null)
-        {
-            selectionPanel = GetComponentInChildren<ItemSelectionPanel>(true);
-        }
-    }
-
     // - Role: Check panel is ready.
     private bool HasPanel()
     {
-        ResolvePanel();
         if (selectionPanel != null)
         {
             return true;

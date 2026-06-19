@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Test Stage Definition
   m_EditorClassIdentifier: Assembly-CSharp::StageDefinition
   stageBakeData: {fileID: 11400000, guid: 327c8e9f47c8f654ba9a8fca35b580e1, type: 2}
-  stageRenderPrefab: {fileID: 6534580457682713819, guid: dd1ebe8316d6e784591af8e4298d4296, type: 3}
+  stageRenderPrefab: {fileID: 5890492677437824587, guid: 2cbcf78a8aa04e542b5f914764cc3dd5, type: 3}
   physicsModifiers:
   - surfacePhysicType: 1
     moveSpeedRate: 1

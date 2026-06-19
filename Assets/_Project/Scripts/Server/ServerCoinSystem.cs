@@ -10,6 +10,7 @@ public sealed class ServerCoinSystem
     private readonly List<CoinObject> coins = new();
     private readonly List<uint> expiredCoinIds = new();
     private readonly System.Random random = new();
+    private readonly HashSet<CoinGrade> missingGradeWarnings = new();
 
     private Server_GamePlay gamePlay;
     private StageCollisionSystem collisionSystem;
@@ -168,17 +169,23 @@ public sealed class ServerCoinSystem
                 continue;
             }
 
-            AddCoin(PickGrade(), position);
-            return true;
+            if (PickGrade(out CoinGrade grade) && AddCoin(grade, position))
+            {
+                return true;
+            }
         }
 
         return false;
     }
 
     // - Role: Add one coin.
-    private void AddCoin(CoinGrade grade, Vector2 position)
+    private bool AddCoin(CoinGrade grade, Vector2 position)
     {
-        CoinGradeConfig gradeConfig = ResolveGradeConfig(grade);
+        if (!TryResolveGradeConfig(grade, out CoinGradeConfig gradeConfig))
+        {
+            return false;
+        }
+
         CoinObject coin = new CoinObject
         {
             coinId = nextCoinId++,
@@ -192,46 +199,63 @@ public sealed class ServerCoinSystem
 
         coinsById.Add(coin.coinId, coin);
         coins.Add(coin);
+        return true;
     }
 
     // - Role: Pick weighted grade.
-    private CoinGrade PickGrade()
+    private bool PickGrade(out CoinGrade grade)
     {
+        grade = CoinGrade.Copper;
         int totalWeight = 0;
         for (int i = 0; i <= (int)CoinGrade.Gold; i++)
         {
-            CoinGradeConfig gradeConfig = ResolveGradeConfig((CoinGrade)i);
+            if (!TryResolveGradeConfig((CoinGrade)i, out CoinGradeConfig gradeConfig))
+            {
+                continue;
+            }
+
             totalWeight += Mathf.Max(0, gradeConfig.weight);
         }
 
         if (totalWeight <= 0)
         {
-            return CoinGrade.Copper;
+            return false;
         }
 
         int roll = random.Next(0, totalWeight);
         for (int i = 0; i <= (int)CoinGrade.Gold; i++)
         {
-            CoinGradeConfig gradeConfig = ResolveGradeConfig((CoinGrade)i);
+            if (!TryResolveGradeConfig((CoinGrade)i, out CoinGradeConfig gradeConfig))
+            {
+                continue;
+            }
+
             roll -= Mathf.Max(0, gradeConfig.weight);
             if (roll < 0)
             {
-                return (CoinGrade)i;
+                grade = (CoinGrade)i;
+                return true;
             }
         }
 
-        return CoinGrade.Copper;
+        return false;
     }
 
     // - Role: Resolve grade config.
-    private CoinGradeConfig ResolveGradeConfig(CoinGrade grade)
+    private bool TryResolveGradeConfig(CoinGrade grade, out CoinGradeConfig gradeConfig)
     {
-        if (config != null && config.TryGetGrade(grade, out CoinGradeConfig gradeConfig))
+        if (config != null && config.TryGetGrade(grade, out gradeConfig))
         {
-            return gradeConfig;
+            return true;
         }
 
-        return CoinCollectGameModeConfig.GetFallbackGrade(grade);
+        if (missingGradeWarnings.Add(grade))
+        {
+            Debug.LogError($"[ServerCoinSystem] Coin grade config is missing. grade={grade}");
+        }
+
+        gradeConfig = default;
+        return false;
     }
 
     // - Role: Get random stage position.

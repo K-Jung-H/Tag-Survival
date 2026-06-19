@@ -4,7 +4,6 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Tag Survival/Character/Character Catalog")]
 public sealed class CharacterCatalog : ScriptableObject
 {
-    [SerializeField] private CharacterDefinition fallbackDefinition;
     [SerializeField] private CharacterDefinition[] definitions;
 
     private readonly Dictionary<byte, CharacterDefinition> definitionsById = new();
@@ -27,13 +26,7 @@ public sealed class CharacterCatalog : ScriptableObject
     // - Role: Try to get a character definition.
     public bool TryGet(byte characterId, out CharacterDefinition definition)
     {
-        if (TryGetById(characterId, out definition))
-        {
-            return true;
-        }
-
-        definition = fallbackDefinition;
-        return definition != null;
+        return TryGetById(characterId, out definition);
     }
 
     // - Role: Try to get by ID.

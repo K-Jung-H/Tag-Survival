@@ -42,17 +42,7 @@ public sealed class CoinCollectGameModeConfig : GameModeConfig
             return true;
         }
 
-        config = GetFallbackGrade(grade);
-        return true;
-    }
-
-    public static CoinGradeConfig GetFallbackGrade(CoinGrade grade)
-    {
-        return grade switch
-        {
-            CoinGrade.Gold => new CoinGradeConfig { weight = 5, value = 5 },
-            CoinGrade.Silver => new CoinGradeConfig { weight = 25, value = 3 },
-            _ => new CoinGradeConfig { weight = 70, value = 1 }
-        };
+        config = default;
+        return false;
     }
 }

@@ -83,34 +83,4 @@ public readonly struct ItemData
         return false;
     }
 
-    // - Role: Get fallback effect label.
-    public string GetFallbackEffectLabel()
-    {
-        return type == ItemType.Stats
-            ? GetFirstModifierLabel("Stats")
-            : GetFirstModifierLabel("Skill");
-    }
-
-    // - Role: Get first modifier label.
-    private string GetFirstModifierLabel(string fallback)
-    {
-        if (modifiers == null)
-        {
-            return fallback;
-        }
-
-        for (int i = 0; i < modifiers.Length; i++)
-        {
-            if (!modifiers[i].IsValidFor(type))
-            {
-                continue;
-            }
-
-            return type == ItemType.Stats
-                ? modifiers[i].statEffect.ToString()
-                : modifiers[i].parameterKey;
-        }
-
-        return fallback;
-    }
 }

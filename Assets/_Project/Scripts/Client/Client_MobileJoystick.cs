@@ -25,7 +25,6 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
     private void Awake()
     {
         rectTransform = transform as RectTransform;
-        ResolveReferences();
         ResetJoystick(clearPendingRelease: true);
     }
 
@@ -33,7 +32,6 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
     private void OnValidate()
     {
         rectTransform = transform as RectTransform;
-        ResolveReferences();
     }
 
     // - Role: Turn off links when this object is disabled.
@@ -94,8 +92,6 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
     // - Role: Set cooldown ready progress.
     public void SetCooldownReadyProgress(float readyProgress)
     {
-        ResolveReferences();
-
         if (areaBackgroundImage == null)
             return;
 
@@ -104,69 +100,6 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
         areaBackgroundImage.fillOrigin = (int)Image.Origin360.Top;
         areaBackgroundImage.fillClockwise = true;
         areaBackgroundImage.fillAmount = Mathf.Clamp01(readyProgress);
-    }
-
-    // - Role: Find references.
-    private void ResolveReferences()
-    {
-        if (rectTransform == null)
-        {
-            rectTransform = transform as RectTransform;
-        }
-
-        if (areaRectTransform == null)
-        {
-            Transform foundMoveArea = transform.Find("MoveArea");
-            if (foundMoveArea != null)
-            {
-                areaRectTransform = foundMoveArea as RectTransform;
-            }
-        }
-
-        if (areaRectTransform == null)
-        {
-            Transform foundAreaBackground = transform.Find("AreaBackground");
-            if (foundAreaBackground != null)
-            {
-                areaRectTransform = foundAreaBackground as RectTransform;
-            }
-        }
-
-        if (areaRectTransform == null)
-        {
-            Transform foundAreaBackground = transform.Find("Area_Background");
-            if (foundAreaBackground != null)
-            {
-                areaRectTransform = foundAreaBackground as RectTransform;
-            }
-        }
-
-        if (handle == null)
-        {
-            Transform foundHandle = transform.Find("Handle");
-            if (foundHandle != null)
-            {
-                handle = foundHandle as RectTransform;
-            }
-        }
-
-        if (areaRectTransform == null)
-        {
-            areaRectTransform = rectTransform;
-        }
-
-        if (handle == null && transform.childCount > 0)
-        {
-            handle = transform.GetChild(0) as RectTransform;
-        }
-
-        if (areaBackgroundImage == null && areaRectTransform != null)
-        {
-            areaBackgroundImage = areaRectTransform.GetComponent<Image>();
-        }
-
-        DisableChildRaycastTarget(areaRectTransform);
-        DisableChildRaycastTarget(handle);
     }
 
     // - Role: Update value.
@@ -228,23 +161,9 @@ public sealed class Client_MobileJoystick : MonoBehaviour, IPointerDownHandler, 
     // - Role: Set handle position.
     private void SetHandlePosition(Vector2 value)
     {
-        ResolveReferences();
-
         if (handle == null)
             return;
 
         handle.anchoredPosition = Vector2.ClampMagnitude(value, 1f) * maxHandleDistance;
-    }
-
-    // - Role: Disable a child raycast target.
-    private void DisableChildRaycastTarget(RectTransform target)
-    {
-        if (target == null || target == rectTransform)
-            return;
-
-        if (target.TryGetComponent(out Graphic graphic))
-        {
-            graphic.raycastTarget = false;
-        }
     }
 }

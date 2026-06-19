@@ -17,7 +17,8 @@ public abstract class TagGameModeBase : IServerGameMode
     public float GameDurationSeconds => gameDurationSeconds;
     public float GameElapsedSeconds => gameElapsedSeconds;
     public float RemainingSeconds => Mathf.Max(0f, gameDurationSeconds - gameElapsedSeconds);
-    public bool IsGameStarted => Phase != GamePhase.Preparing;
+    public bool IsSimulationStarted => Phase == GamePhase.Countdown || Phase == GamePhase.Playing;
+    public bool IsGameStarted => Phase == GamePhase.Playing;
     public bool IsGameEnded => Phase == GamePhase.Ended;
 
     // - Role: Set game duration seconds.
@@ -30,6 +31,24 @@ public abstract class TagGameModeBase : IServerGameMode
         }
     }
 
+    // - Role: Start world simulation before the game timer starts.
+    public bool BeginCountdown(
+        Dictionary<ulong, PlayerObject> players,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+        if (Phase != GamePhase.Preparing)
+        {
+            return false;
+        }
+
+        Phase = GamePhase.Countdown;
+        gameElapsedSeconds = 0f;
+        OnCountdownStarted(players, eventQueue, serverTick, eventPosition);
+        return true;
+    }
+
     // - Role: Handle player added.
     public bool OnPlayerAdded(
         Dictionary<ulong, PlayerObject> players,
@@ -38,13 +57,34 @@ public abstract class TagGameModeBase : IServerGameMode
         uint serverTick,
         Vector2 eventPosition)
     {
-        bool changed = AssignInitialTaggerIfNeeded(players, clientId);
-        if (StartGameIfNeeded(players, clientId, eventQueue, serverTick, eventPosition))
+        return AssignInitialTaggerIfNeeded(players, clientId);
+    }
+
+    // - Role: Start the game explicitly.
+    public bool StartGame(
+        Dictionary<ulong, PlayerObject> players,
+        ulong starterClientId,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+        if (Phase != GamePhase.Countdown)
         {
-            changed = true;
+            return false;
         }
 
-        return changed;
+        Phase = GamePhase.Playing;
+        gameElapsedSeconds = 0f;
+
+        eventQueue.QueueGameStarted(serverTick, starterClientId, eventPosition);
+        OnGameStarted(players, eventQueue, serverTick, eventPosition);
+
+        if (gameDurationSeconds <= 0f)
+        {
+            EndGame(eventQueue, serverTick, eventPosition);
+        }
+
+        return true;
     }
 
     // - Role: Handle player removed.
@@ -54,7 +94,7 @@ public abstract class TagGameModeBase : IServerGameMode
         ServerGameEventQueue eventQueue,
         uint serverTick)
     {
-        return ChangeFallbackTagger(players, removedPlayer, eventQueue, serverTick);
+        return ChangeTaggerAfterRemoval(players, removedPlayer, eventQueue, serverTick);
     }
 
     // - Role: Update the game mode by time.
@@ -65,7 +105,7 @@ public abstract class TagGameModeBase : IServerGameMode
         uint serverTick,
         Vector2 eventPosition)
     {
-        if (Phase != GamePhase.Playing)
+        if (Phase != GamePhase.Countdown && Phase != GamePhase.Playing)
         {
             return false;
         }
@@ -76,8 +116,14 @@ public abstract class TagGameModeBase : IServerGameMode
             return false;
         }
 
+        bool changed = OnSimulationTick(players, safeDeltaTime, eventQueue, serverTick, eventPosition);
+        if (Phase != GamePhase.Playing)
+        {
+            return changed;
+        }
+
         gameElapsedSeconds = Mathf.Min(gameDurationSeconds, gameElapsedSeconds + safeDeltaTime);
-        bool changed = OnPlayingTick(players, safeDeltaTime, eventQueue, serverTick, eventPosition);
+        changed |= OnPlayingTick(players, safeDeltaTime, eventQueue, serverTick, eventPosition);
         if (gameElapsedSeconds < gameDurationSeconds)
         {
             return changed;
@@ -126,6 +172,26 @@ public abstract class TagGameModeBase : IServerGameMode
         return false;
     }
 
+    // - Role: Update mode-specific world state while simulation is active.
+    protected virtual bool OnSimulationTick(
+        Dictionary<ulong, PlayerObject> players,
+        float deltaTime,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+        return false;
+    }
+
+    // - Role: Handle countdown start.
+    protected virtual void OnCountdownStarted(
+        Dictionary<ulong, PlayerObject> players,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+    }
+
     // - Role: Handle mode-specific tagger changed logic.
     protected virtual void OnTaggerChanged(
         PlayerObject oldTagger,
@@ -151,33 +217,6 @@ public abstract class TagGameModeBase : IServerGameMode
         uint serverTick,
         Vector2 eventPosition)
     {
-    }
-
-    // - Role: Start game if needed.
-    private bool StartGameIfNeeded(
-        Dictionary<ulong, PlayerObject> players,
-        ulong starterClientId,
-        ServerGameEventQueue eventQueue,
-        uint serverTick,
-        Vector2 eventPosition)
-    {
-        if (Phase != GamePhase.Preparing)
-        {
-            return false;
-        }
-
-        Phase = GamePhase.Playing;
-        gameElapsedSeconds = 0f;
-
-        eventQueue.QueueGameStarted(serverTick, starterClientId, eventPosition);
-        OnGameStarted(players, eventQueue, serverTick, eventPosition);
-
-        if (gameDurationSeconds <= 0f)
-        {
-            EndGame(eventQueue, serverTick, eventPosition);
-        }
-
-        return true;
     }
 
     // - Role: End game.
@@ -217,8 +256,8 @@ public abstract class TagGameModeBase : IServerGameMode
         return true;
     }
 
-    // - Role: Change fallback tagger when needed.
-    private bool ChangeFallbackTagger(
+    // - Role: Change tagger after the current tagger is removed.
+    private bool ChangeTaggerAfterRemoval(
         Dictionary<ulong, PlayerObject> players,
         PlayerObject removedPlayer,
         ServerGameEventQueue eventQueue,
@@ -472,8 +511,8 @@ public sealed class CoinCollectGameMode : TagGameModeBase
         coinSystem.CopySnapshotsTo(target);
     }
 
-    // - Role: Update coin collect state.
-    protected override bool OnPlayingTick(
+    // - Role: Update coin collect world state while simulation is active.
+    protected override bool OnSimulationTick(
         Dictionary<ulong, PlayerObject> players,
         float deltaTime,
         ServerGameEventQueue eventQueue,

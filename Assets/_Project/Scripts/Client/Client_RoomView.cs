@@ -10,8 +10,6 @@ public sealed class Client_RoomView : MonoBehaviour
     [SerializeField] private SkillCatalog skillCatalog;
     [SerializeField] private GameModeCatalog gameModeCatalog;
     [SerializeField] private GameStageCatalog gameStageCatalog;
-    [SerializeField] private Transform localPlayerSlotRoot;
-    [SerializeField] private Transform remotePlayerSlotRoot;
     [SerializeField] private RoomInfoBinding roomInfo;
     [SerializeField] private Client_RoomPlayerInfoBinder localPlayerSlot;
     [SerializeField] private Client_RoomPlayerInfoBinder[] remotePlayerSlots = Array.Empty<Client_RoomPlayerInfoBinder>();
@@ -45,7 +43,6 @@ public sealed class Client_RoomView : MonoBehaviour
 
     private void OnEnable()
     {
-        BindPlayerSlots();
         Subscribe();
         SyncLocalSelectionFromSnapshot(syncManager != null ? syncManager.CurrentSnapshot : default);
         SyncRoomSettingsFromSnapshot(syncManager != null ? syncManager.CurrentSnapshot : default);
@@ -224,8 +221,6 @@ public sealed class Client_RoomView : MonoBehaviour
 
     private void RenderPlayerSlots(RoomSnapshotPacket snapshot)
     {
-        BindPlayerSlots();
-
         bool hasLocalPlayer = TryGetLocalPlayer(snapshot, out RoomPlayerStatePacket localPlayer);
         if (localPlayerSlot != null)
         {
@@ -280,19 +275,6 @@ public sealed class Client_RoomView : MonoBehaviour
             {
                 remotePlayerSlots[i].RenderEmpty();
             }
-        }
-    }
-
-    private void BindPlayerSlots()
-    {
-        if (localPlayerSlot == null && localPlayerSlotRoot != null)
-        {
-            localPlayerSlot = localPlayerSlotRoot.GetComponentInChildren<Client_RoomPlayerInfoBinder>(true);
-        }
-
-        if ((remotePlayerSlots == null || remotePlayerSlots.Length == 0) && remotePlayerSlotRoot != null)
-        {
-            remotePlayerSlots = remotePlayerSlotRoot.GetComponentsInChildren<Client_RoomPlayerInfoBinder>(true);
         }
     }
 

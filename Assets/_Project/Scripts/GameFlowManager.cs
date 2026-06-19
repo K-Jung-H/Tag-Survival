@@ -280,7 +280,12 @@ public sealed class GameFlowManager : MonoBehaviour
         RoomSnapshotPacket resolvedRoomSnapshot = ResolveFinalRoomSnapshot(roomSnapshot);
         lastStartedRoomSnapshot = resolvedRoomSnapshot;
 
-        ResolveStageSelection(resolvedRoomSnapshot.stageIndex, out StageDefinition stageDefinition);
+        if (!ResolveStageSelection(resolvedRoomSnapshot.stageIndex, out StageDefinition stageDefinition))
+        {
+            isTransitioning = false;
+            return;
+        }
+
         if (!ResolveGameModeSelection(resolvedRoomSnapshot.gameModeIndex, out GameModeType gameModeType, out GameModeConfig gameModeConfig))
         {
             isTransitioning = false;
@@ -470,14 +475,29 @@ public sealed class GameFlowManager : MonoBehaviour
         return SceneManager.GetSceneByName(sceneName);
     }
 
-    private void ResolveStageSelection(ushort stageIndex, out StageDefinition stageDefinition)
+    private bool ResolveStageSelection(ushort stageIndex, out StageDefinition stageDefinition)
     {
         stageDefinition = null;
-        if (gameStageCatalog != null
-            && gameStageCatalog.TryGetByIndex(stageIndex, out GameStageCatalogEntry entry))
+        if (gameStageCatalog == null)
         {
-            stageDefinition = entry.StageDefinition;
+            Debug.LogError("[GameFlowManager] GameStageCatalog is not assigned.", this);
+            return false;
         }
+
+        if (!gameStageCatalog.TryGetByIndex(stageIndex, out GameStageCatalogEntry entry))
+        {
+            Debug.LogError($"[GameFlowManager] Stage index is invalid. index={stageIndex}", this);
+            return false;
+        }
+
+        if (entry.StageDefinition == null)
+        {
+            Debug.LogError($"[GameFlowManager] StageDefinition is not assigned. index={stageIndex}, name={entry.DisplayName}", this);
+            return false;
+        }
+
+        stageDefinition = entry.StageDefinition;
+        return true;
     }
 
     private bool ResolveGameModeSelection(
@@ -535,7 +555,7 @@ public sealed class GameFlowManager : MonoBehaviour
     private static GameSessionPlayerProfile ResolveRoomPlayerProfile(
         RoomSnapshotPacket roomSnapshot,
         ulong clientId,
-        string fallbackNickname)
+        string requestNickname)
     {
         RoomPlayerStatePacket[] players = roomSnapshot.players;
         if (players != null)
@@ -558,7 +578,7 @@ public sealed class GameFlowManager : MonoBehaviour
         return new GameSessionPlayerProfile
         {
             clientId = clientId,
-            nickname = string.IsNullOrWhiteSpace(fallbackNickname) ? "Player" : fallbackNickname,
+            nickname = requestNickname,
             characterId = 0,
             skillId = 1
         };

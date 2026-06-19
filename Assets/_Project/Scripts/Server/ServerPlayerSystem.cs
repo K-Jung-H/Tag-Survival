@@ -294,7 +294,7 @@ public sealed class ServerPlayerSystem
     // - Role: Find facing sign.
     private static sbyte ResolveFacingSign(PlayerObject player, sbyte currentFacingSign)
     {
-        sbyte fallbackFacingSign = currentFacingSign == 0 ? (sbyte)1 : currentFacingSign;
+        sbyte retainedFacingSign = currentFacingSign == 0 ? (sbyte)1 : currentFacingSign;
         float horizontalInput = PlayerMovementController.GetHorizontalInput(player.input);
 
         if (player.isOnWall)
@@ -302,7 +302,7 @@ public sealed class ServerPlayerSystem
             if (horizontalInput > FacingDirectionThreshold) return 1;
             if (horizontalInput < -FacingDirectionThreshold) return -1;
 
-            return fallbackFacingSign;
+            return retainedFacingSign;
         }
 
         if (player.hasAimInput)
@@ -310,13 +310,13 @@ public sealed class ServerPlayerSystem
             if (Mathf.Abs(player.aim.x) > FacingDirectionThreshold)
                 return player.aim.x > 0f ? (sbyte)1 : (sbyte)-1;
 
-            return fallbackFacingSign;
+            return retainedFacingSign;
         }
 
         if (horizontalInput > FacingDirectionThreshold) return 1;
         if (horizontalInput < -FacingDirectionThreshold) return -1;
 
-        return fallbackFacingSign;
+        return retainedFacingSign;
     }
 
     // - Role: Update stun timer.

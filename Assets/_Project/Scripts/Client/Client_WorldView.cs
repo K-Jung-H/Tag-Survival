@@ -16,11 +16,12 @@ public class Client_WorldView : MonoBehaviour
     private static readonly Color TaggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
 
     [SerializeField] private Client_SyncManager syncManager;
-    [SerializeField] private Client_CameraFollow cameraFollow;
+    [SerializeField] private Client_CameraController cameraController;
     [SerializeField] private CharacterCatalog characterCatalog;
     [SerializeField] private SkillCatalog skillCatalog;
     [SerializeField] private ItemView itemViewPrefab;
     [SerializeField] private CoinView coinViewPrefab;
+    [SerializeField] private Transform audioListenerTransform;
 
     [Header("View Smoothing")]
     [SerializeField] private float localFollowSpeed = 50f;
@@ -42,6 +43,16 @@ public class Client_WorldView : MonoBehaviour
 
     public int PlayerViewCount => playerViews.Count;
     public ulong LocalClientId => syncManager != null ? syncManager.LocalClientId : ulong.MaxValue;
+
+    // - Role: Bind scene-level audio listener transform.
+    public void BindAudioListener(Transform listenerTransform)
+    {
+        audioListenerTransform = listenerTransform;
+        foreach (var pair in playerViews)
+        {
+            pair.Value?.BindAudioListener(audioListenerTransform);
+        }
+    }
 
     // - Role: Set up needed links before start.
     private void Awake()
@@ -115,6 +126,21 @@ public class Client_WorldView : MonoBehaviour
 
         root = view.transform;
         return true;
+    }
+
+    // - Role: Try to get player view.
+    public bool TryGetPlayerView(ulong clientId, out Client_CharacterView view)
+    {
+        return playerViews.TryGetValue(clientId, out view) && view != null;
+    }
+
+    // - Role: Set all player renderers visible.
+    public void SetAllPlayerRenderVisible(bool visible)
+    {
+        foreach (var pair in playerViews)
+        {
+            pair.Value?.SetRenderVisible(visible);
+        }
     }
 
     // - Role: Try to play supplied feedback data on a player view.
@@ -219,6 +245,7 @@ public class Client_WorldView : MonoBehaviour
         }
 
         view.name = $"PlayerView_{clientId}_Character_{characterId}";
+        view.BindAudioListener(audioListenerTransform);
         view.Initialize(clientId, definition);
         view.ApplyTaggerColor(isTagger: false, TaggerColor);
 
@@ -539,13 +566,13 @@ public class Client_WorldView : MonoBehaviour
         if (!IsLocalPlayer(clientId))
             return;
 
-        if (cameraFollow == null)
+        if (cameraController == null)
         {
-            Debug.LogWarning("[Client_WorldView] CameraFollow is not assigned.", this);
+            Debug.LogWarning("[Client_WorldView] CameraController is not assigned.", this);
             return;
         }
 
-        cameraFollow.Target = root;
+        cameraController.Target = root;
     }
 
     // - Role: Clear local camera target if needed.
@@ -554,12 +581,12 @@ public class Client_WorldView : MonoBehaviour
         if (!IsLocalPlayer(clientId))
             return;
 
-        if (cameraFollow == null)
+        if (cameraController == null)
             return;
 
-        if (cameraFollow.Target == root)
+        if (cameraController.Target == root)
         {
-            cameraFollow.Target = null;
+            cameraController.Target = null;
         }
     }
 

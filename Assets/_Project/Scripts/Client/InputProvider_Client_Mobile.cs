@@ -9,7 +9,6 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     [SerializeField] private Vector2 defaultAim = Vector2.right;
     [SerializeField] private bool releaseSkillOnAimJoystickUp = true;
     [SerializeField] private bool blockSkillInputDuringLocalCooldown = true;
-    [SerializeField] private float fallbackSkillCooldownSeconds = 0.25f;
     [SerializeField] private float skillFireHoldSeconds = 0.08f;
 
     private Vector2 lastAim;
@@ -23,7 +22,6 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     private void Awake()
     {
         lastAim = NormalizeOrDefault(defaultAim, Vector2.right);
-        localSkillCooldownDuration = Mathf.Max(0f, fallbackSkillCooldownSeconds);
     }
 
     // - Role: Turn on links when this object is enabled.
@@ -179,7 +177,7 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
             return Mathf.Max(0f, snapshot.skillCooldownDurationSeconds);
         }
 
-        return Mathf.Max(0f, fallbackSkillCooldownSeconds);
+        return 0f;
     }
 
     // - Role: Get skill cooldown remaining seconds.
@@ -223,13 +221,13 @@ public sealed class InputProvider_Client_Mobile : InputProvider_Client_Base
     }
 
     // - Role: Normalize or default.
-    private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 fallback)
+    private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 defaultValue)
     {
         if (value.sqrMagnitude > 0.0001f)
             return value.normalized;
 
-        if (fallback.sqrMagnitude > 0.0001f)
-            return fallback.normalized;
+        if (defaultValue.sqrMagnitude > 0.0001f)
+            return defaultValue.normalized;
 
         return Vector2.right;
     }

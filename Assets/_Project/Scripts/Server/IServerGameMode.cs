@@ -8,16 +8,32 @@ public interface IServerGameMode
     float GameDurationSeconds { get; }
     float GameElapsedSeconds { get; }
     float RemainingSeconds { get; }
+    bool IsSimulationStarted { get; }
     bool IsGameStarted { get; }
     bool IsGameEnded { get; }
 
     // - Role: Set game duration seconds.
     void SetGameDurationSeconds(float durationSeconds);
 
+    // - Role: Start world simulation before the game timer starts.
+    bool BeginCountdown(
+        Dictionary<ulong, PlayerObject> players,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition);
+
     // - Role: Handle player added.
     bool OnPlayerAdded(
         Dictionary<ulong, PlayerObject> players,
         ulong clientId,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition);
+
+    // - Role: Start the game explicitly.
+    bool StartGame(
+        Dictionary<ulong, PlayerObject> players,
+        ulong starterClientId,
         ServerGameEventQueue eventQueue,
         uint serverTick,
         Vector2 eventPosition);

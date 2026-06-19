@@ -62,8 +62,11 @@ public sealed class Client_SyncManager : MonoBehaviour
     public event Action<ItemSelectionResultPacket> ItemSelectionResultReceived;
     public event Action<ServerGameEndPacket> GameEndReceived;
     public event Action<ServerResultCommandPacket> ResultCommandReceived;
+    public event Action<ServerStageFlowCommandPacket> StageFlowCommandReceived;
     public event Action<GameResultChoice> ResultChoiceRequested;
     public event Action<uint, int> ItemSelectionChoiceRequested;
+    public event Action StageReadyRequested;
+    public event Action StageIntroReadyRequested;
 
     public ClientSyncMode SyncMode => syncMode;
     public IReadOnlyDictionary<ulong, ClientSnapshotState> Snapshots => snapshots;
@@ -74,6 +77,8 @@ public sealed class Client_SyncManager : MonoBehaviour
     public bool HasGameState => hasGameState;
     public bool HasGameEnd { get; private set; }
     public ServerGameEndPacket LastGameEnd { get; private set; }
+    public bool HasStageFlowCommand { get; private set; }
+    public ServerStageFlowCommandPacket LastStageFlowCommand { get; private set; }
     public bool HasRoster => hasRoster;
     public uint LastSnapshotSeq => lastSnapshotSeq;
     public uint LastServerTick => lastServerTick;
@@ -167,6 +172,8 @@ public sealed class Client_SyncManager : MonoBehaviour
         hasRoster = false;
         HasGameEnd = false;
         LastGameEnd = default;
+        HasStageFlowCommand = false;
+        LastStageFlowCommand = default;
         lastSnapshotSeq = 0;
         lastServerTick = 0;
         lastGameStateSeq = 0;
@@ -291,6 +298,40 @@ public sealed class Client_SyncManager : MonoBehaviour
         ResultCommandReceived?.Invoke(packet);
     }
 
+    public void ApplyStageFlowCommand(ServerStageFlowCommandPacket packet)
+    {
+        if (HasStageFlowCommand && packet.serverTick < LastStageFlowCommand.serverTick)
+        {
+            return;
+        }
+
+        HasStageFlowCommand = true;
+        LastStageFlowCommand = packet;
+        StageFlowCommandReceived?.Invoke(packet);
+    }
+
+    public void SendStageReady()
+    {
+        if (syncMode == ClientSyncMode.LocalServer && localServerRunner != null)
+        {
+            localServerRunner.MarkStageReady(localServerClientId);
+            return;
+        }
+
+        StageReadyRequested?.Invoke();
+    }
+
+    public void SendStageIntroReady()
+    {
+        if (syncMode == ClientSyncMode.LocalServer && localServerRunner != null)
+        {
+            localServerRunner.MarkStageIntroReady(localServerClientId);
+            return;
+        }
+
+        StageIntroReadyRequested?.Invoke();
+    }
+
     public void SendItemSelectionChoice(uint requestId, int selectedId)
     {
         if (syncMode == ClientSyncMode.LocalServer
@@ -334,6 +375,7 @@ public sealed class Client_SyncManager : MonoBehaviour
         subscribedLocalServerRunner.LocalGameEventReady += ApplyGameEvent;
         subscribedLocalServerRunner.LocalGameEndReady += ApplyGameEnd;
         subscribedLocalServerRunner.LocalResultCommandReady += ApplyResultCommand;
+        subscribedLocalServerRunner.LocalStageFlowCommandReady += ApplyStageFlowCommand;
     }
 
     private void UnsubscribeLocalServerRunner()
@@ -348,6 +390,7 @@ public sealed class Client_SyncManager : MonoBehaviour
         subscribedLocalServerRunner.LocalGameEventReady -= ApplyGameEvent;
         subscribedLocalServerRunner.LocalGameEndReady -= ApplyGameEnd;
         subscribedLocalServerRunner.LocalResultCommandReady -= ApplyResultCommand;
+        subscribedLocalServerRunner.LocalStageFlowCommandReady -= ApplyStageFlowCommand;
         subscribedLocalServerRunner.ClearLocalDirectClient();
         subscribedLocalServerRunner = null;
     }

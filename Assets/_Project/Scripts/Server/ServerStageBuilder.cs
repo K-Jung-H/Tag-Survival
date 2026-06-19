@@ -40,12 +40,17 @@ public sealed class ServerStageBuilder : MonoBehaviour
     {
         IsBuilt = false;
 
-        if (!ValidateGamePlayRunner())
+        if (!ValidateGamePlayRunnerAssigned())
         {
             return false;
         }
 
         gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
+        if (!ValidateGamePlayReady())
+        {
+            return false;
+        }
+
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.LocalSimulation);
         gamePlayRunner.enabled = true;
 
@@ -83,7 +88,7 @@ public sealed class ServerStageBuilder : MonoBehaviour
     {
         IsBuilt = false;
 
-        if (!ValidateGamePlayRunner())
+        if (!ValidateGamePlayRunnerAssigned())
         {
             return false;
         }
@@ -99,6 +104,11 @@ public sealed class ServerStageBuilder : MonoBehaviour
         }
 
         gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
+        if (!ValidateGamePlayReady())
+        {
+            return false;
+        }
+
         gamePlayRunner.ConfigureResultAuthority(roomSnapshot.roomOwnerClientId);
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.NetworkServer);
         gamePlayRunner.enabled = true;
@@ -127,7 +137,7 @@ public sealed class ServerStageBuilder : MonoBehaviour
         }
     }
 
-    private bool ValidateGamePlayRunner()
+    private bool ValidateGamePlayRunnerAssigned()
     {
         if (gamePlayRunner == null)
         {
@@ -135,6 +145,11 @@ public sealed class ServerStageBuilder : MonoBehaviour
             return false;
         }
 
+        return true;
+    }
+
+    private bool ValidateGamePlayReady()
+    {
         if (gamePlayRunner.GamePlay == null)
         {
             Fail("Server_GamePlayRunner.GamePlay is not ready.");

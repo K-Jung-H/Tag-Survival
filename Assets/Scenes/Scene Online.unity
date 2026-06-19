@@ -445,6 +445,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f25d1136335c85a4eafe94308d76f8df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkSessionManager
+  networkManager: {fileID: 160604353}
+  unityTransport: {fileID: 160604352}
 --- !u!4 &160604351
 Transform:
   m_ObjectHideFlags: 0

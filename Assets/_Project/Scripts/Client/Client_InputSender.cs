@@ -43,11 +43,6 @@ public class Client_InputSender : MonoBehaviour
 
         if (networkDelaySimulator == null)
         {
-            networkDelaySimulator = GetComponent<Client_NetworkDelaySimulator>();
-        }
-
-        if (networkDelaySimulator == null)
-        {
             Debug.LogWarning("[Client_InputSender] NetworkDelaySimulator is not assigned. Network delay is disabled.", this);
         }
 

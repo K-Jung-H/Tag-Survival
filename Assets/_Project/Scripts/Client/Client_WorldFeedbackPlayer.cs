@@ -6,8 +6,15 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 
     [SerializeField] private Transform feedbackRoot;
     [SerializeField] private AudioSource audioSourcePrefab;
+    [SerializeField] private Transform audioListenerTransform;
 
     private bool warnedMissingAudioSourcePrefab;
+
+    // - Role: Bind scene-level audio listener transform.
+    public void BindAudioListener(Transform listenerTransform)
+    {
+        audioListenerTransform = listenerTransform;
+    }
 
     // - Role: Play world-positioned feedback data.
     public void Play(
@@ -91,20 +98,14 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     }
 
     // - Role: Resolve audio source position.
-    private static Vector3 ResolveAudioPosition(Vector3 position, GameFeedbackSoundSpace soundSpace)
+    private Vector3 ResolveAudioPosition(Vector3 position, GameFeedbackSoundSpace soundSpace)
     {
-        if (soundSpace != GameFeedbackSoundSpace.World)
+        if (soundSpace != GameFeedbackSoundSpace.World || audioListenerTransform == null)
         {
             return position;
         }
 
-        AudioListener listener = Object.FindFirstObjectByType<AudioListener>();
-        if (listener == null)
-        {
-            return position;
-        }
-
-        position.z = listener.transform.position.z;
+        position.z = audioListenerTransform.position.z;
         return position;
     }
 
@@ -181,11 +182,11 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     }
 
     // - Role: Get last key time.
-    private static float GetLastKeyTime(AnimationCurve curve, float fallback)
+    private static float GetLastKeyTime(AnimationCurve curve, float defaultValue)
     {
         if (curve == null || curve.length == 0)
         {
-            return fallback;
+            return defaultValue;
         }
 
         return curve.keys[curve.length - 1].time;

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d93bc9a9535e114a89989ceb4f4ed44, type: 3}
   m_Name: Test Stage Bake Data
   m_EditorClassIdentifier: Assembly-CSharp::StageBakeData
-  stageId: Stage
+  stageId: Default
   stageOffsetPosition: {x: -85, y: -30}
   cellSize: 1
   uniformGridSize: 8
@@ -13034,3 +13034,11 @@ MonoBehaviour:
     colliderIndices: 08000000
   - coord: {x: 20, y: 7}
     colliderIndices: 08000000
+  spawnPoints:
+  - position: {x: 93.5, y: 9.5}
+  - position: {x: 130.5, y: 13.5}
+  - position: {x: 28.5, y: 18.5}
+  - position: {x: 152.5, y: 22.5}
+  - position: {x: 157.5, y: 40.5}
+  - position: {x: 112.5, y: 41.5}
+  - position: {x: 9.5, y: 52.5}

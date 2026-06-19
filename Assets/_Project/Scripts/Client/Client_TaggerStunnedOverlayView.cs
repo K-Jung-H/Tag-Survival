@@ -62,7 +62,6 @@ public sealed class Client_TaggerStunnedOverlayView : MonoBehaviour
 
     private void Awake()
     {
-        EnsureImage();
         currentRadius = hiddenRadius;
         ApplyAllProperties();
     }
@@ -84,7 +83,6 @@ public sealed class Client_TaggerStunnedOverlayView : MonoBehaviour
 
     private void OnValidate()
     {
-        EnsureImage();
         hiddenRadius = Mathf.Max(0f, hiddenRadius);
         stunnedRadius = Mathf.Max(0f, stunnedRadius);
         showDuration = Mathf.Max(0f, showDuration);
@@ -94,17 +92,8 @@ public sealed class Client_TaggerStunnedOverlayView : MonoBehaviour
         noiseStrength = Mathf.Max(0f, noiseStrength);
     }
 
-    private void EnsureImage()
-    {
-        if (overlayImage == null)
-        {
-            overlayImage = GetComponent<Image>();
-        }
-    }
-
     private void EnsureMaterial()
     {
-        EnsureImage();
         if (overlayImage == null || runtimeMaterial != null)
         {
             return;

@@ -20,8 +20,6 @@ public sealed class CharacterDefinition : ScriptableObject
     [SerializeField] private float overSpeedDecel = 18f;
     [SerializeField] private float wallMoveRate = GameSimulationConfig.PlayerWallMoveRate;
     [SerializeField] private float lateJumpTime = 0.08f;
-    [SerializeField] private Vector2 fallbackCollisionExtent = new Vector2(0.4f, 0.4f);
-    [SerializeField] private Vector2 fallbackCollisionOffset = Vector2.zero;
 
     public byte CharacterId => characterId;
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
@@ -49,13 +47,15 @@ public sealed class CharacterDefinition : ScriptableObject
         {
             if (playerViewPrefab == null)
             {
-                return fallbackCollisionExtent;
+                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab is not assigned. characterId={characterId}", this);
+                return Vector2.zero;
             }
 
             BoxCollider2D collider = playerViewPrefab.GetComponent<BoxCollider2D>();
             if (collider == null)
             {
-                return fallbackCollisionExtent;
+                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab must have BoxCollider2D on root. characterId={characterId}", this);
+                return Vector2.zero;
             }
 
             return new Vector2(
@@ -71,13 +71,15 @@ public sealed class CharacterDefinition : ScriptableObject
         {
             if (playerViewPrefab == null)
             {
-                return fallbackCollisionOffset;
+                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab is not assigned. characterId={characterId}", this);
+                return Vector2.zero;
             }
 
             BoxCollider2D collider = playerViewPrefab.GetComponent<BoxCollider2D>();
             if (collider == null)
             {
-                return fallbackCollisionOffset;
+                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab must have BoxCollider2D on root. characterId={characterId}", this);
+                return Vector2.zero;
             }
 
             return collider.offset;

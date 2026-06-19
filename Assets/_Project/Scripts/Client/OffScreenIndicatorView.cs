@@ -128,6 +128,7 @@ public class OffScreenIndicatorView : MonoBehaviour
             return;
         }
 
+        sourceTransform.gameObject.SetActive(false);
         sourceRenderer.enabled = false;
 
         SpriteRenderer indicator = Instantiate(sourceRenderer, transform);

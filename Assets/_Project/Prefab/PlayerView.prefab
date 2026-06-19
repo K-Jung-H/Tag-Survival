@@ -460,6 +460,8 @@ MonoBehaviour:
   skillIndicator: {fileID: 288531174134472013}
   audioView: {fileID: 8523412184749461972}
   nameplateAnchor: {fileID: 2434348113970387452}
+  renderVisibilityTargets:
+  - {fileID: 6907012357751949140}
   playerSize: {x: 0.8, y: 0.8}
   aimLineLength: 1.8
   aimLineWidth: 0.05
@@ -477,6 +479,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Client_CharacterAudioView
   feedbackCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
   oneShotAudioSource: {fileID: 1460619456321650957}
+  audioListenerTransform: {fileID: 0}
 --- !u!61 &3971605534301880689
 BoxCollider2D:
   m_ObjectHideFlags: 0

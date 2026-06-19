@@ -8,9 +8,6 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
     private const byte PortalObjectB = 1;
     private const byte PortalPlacementObject = byte.MaxValue;
     private const int DefaultMaxPortalCount = 2;
-    private const float DefaultTeleportCooldown = 2f;
-    private const float DefaultSpawnDuration = 0.2f;
-    private const float DefaultDestroyDuration = 0.2f;
 
     private readonly List<PortalEndpoint> portals = new();
     private readonly Dictionary<ulong, float> teleportCooldowns = new();
@@ -30,6 +27,11 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         : base(definition)
     {
         config = definition != null ? definition.GetConfig<PortalSkillConfig>() : null;
+        if (config == null)
+        {
+            Debug.LogError("[SkillStateMachine_Portal] PortalSkillConfig is not assigned.");
+        }
+
         EnsurePortalCapacity(DefaultMaxPortalCount);
     }
 
@@ -564,12 +566,10 @@ public sealed class SkillStateMachine_Portal : SkillStateMachine
         };
     }
 
-    private float PortalTeleportCooldown => config != null
-        ? config.PortalTeleportCooldown
-        : DefaultTeleportCooldown;
+    private float PortalTeleportCooldown => config != null ? config.PortalTeleportCooldown : 0f;
     private int PlacementSearchDistance => Mathf.Max(0, placementSearchDistance);
-    private float SpawnDuration => config != null ? config.SpawnDuration : DefaultSpawnDuration;
-    private float DestroyDuration => config != null ? config.DestroyDuration : DefaultDestroyDuration;
+    private float SpawnDuration => config != null ? config.SpawnDuration : 0f;
+    private float DestroyDuration => config != null ? config.DestroyDuration : 0f;
 
     // - Role: Get placement range in world units.
     private float PlacementRangeWorld()

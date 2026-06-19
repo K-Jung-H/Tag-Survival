@@ -15,20 +15,6 @@ public sealed class CoinView : MonoBehaviour
     private CoinGrade currentGrade;
     private bool hasCurrentGrade;
 
-    // - Role: Cache component references.
-    private void Awake()
-    {
-        if (animator == null)
-        {
-            animator = GetComponent<Animator>();
-        }
-
-        if (spriteRenderer == null)
-        {
-            spriteRenderer = GetComponent<SpriteRenderer>();
-        }
-    }
-
     // - Role: Apply snapshot.
     public void ApplySnapshot(ClientCoinSnapshotState snapshotState)
     {

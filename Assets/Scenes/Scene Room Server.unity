@@ -172,6 +172,8 @@ MonoBehaviour:
   gameModeIndex: 0
   defaultCharacterId: 0
   defaultSkillId: 1
+  gameStageCatalog: {fileID: 11400000, guid: 364a113d98a5a5b458f3d3d5b7c9f00c, type: 2}
+  gameModeCatalog: {fileID: 11400000, guid: dea94d45b7ae91148b5c0ef74df803ed, type: 2}
 --- !u!114 &1245596376
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -210,7 +212,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2023425796}
   - component: {fileID: 2023425795}
-  - component: {fileID: 2023425794}
   - component: {fileID: 2023425797}
   m_Layer: 0
   m_Name: Main Camera
@@ -219,14 +220,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &2023425794
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2023425793}
-  m_Enabled: 1
 --- !u!20 &2023425795
 Camera:
   m_ObjectHideFlags: 0

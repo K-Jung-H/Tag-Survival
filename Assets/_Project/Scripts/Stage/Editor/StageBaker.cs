@@ -15,6 +15,7 @@ public sealed class StageBakeRequest
 {
     public string stageId;
     public Grid grid;
+    public Tilemap spawnPosTilemap;
     public Transform backgroundRoot;
     public Transform environmentRoot;
     public Transform foregroundRoot;
@@ -37,6 +38,7 @@ public sealed class StageBakeReport
     public int bakedCellCount;
     public int colliderCount;
     public int spatialBucketCount;
+    public int spawnPointCount;
     public string renderPrefabPath;
     public readonly List<string> warnings = new();
     public readonly List<string> errors = new();
@@ -131,6 +133,7 @@ public static class StageBaker
 
         StageTileCellData[] cells = BuildCellData(winners);
         float cellSize = ResolveCellSize(request.grid);
+        StageSpawnPoint[] spawnPoints = BuildSpawnPoints(request, cellSize);
         StageColliderData[] colliders = BuildRectColliders(cells, cellSize, request.mergeRectColliders);
         StageSpatialBucketData[] spatialBuckets = request.generateSpatialIndex
             ? BuildSpatialBuckets(colliders, cellSize, request.uniformGridSize)
@@ -153,7 +156,8 @@ public static class StageBaker
             boundsData,
             cells,
             colliders,
-            spatialBuckets);
+            spatialBuckets,
+            spawnPoints);
 
         GameObject renderPrefab = BakeRenderPrefab(request, report);
         if (request.stageDefinition != null && renderPrefab != null)
@@ -168,6 +172,7 @@ public static class StageBaker
         report.bakedCellCount = cells.Length;
         report.colliderCount = colliders.Length;
         report.spatialBucketCount = spatialBuckets.Length;
+        report.spawnPointCount = spawnPoints.Length;
         return report;
     }
 
@@ -195,7 +200,8 @@ public static class StageBaker
         GameObject prefabRoot = new GameObject($"{ResolveStageName(request)}_StageRender");
         StageRenderBinding binding = prefabRoot.AddComponent<StageRenderBinding>();
 
-        Grid gridClone = CloneGrid(request.grid, prefabRoot.transform);
+        Grid gridClone = CloneGridSettings(request.grid, prefabRoot.transform);
+        CloneIncludedTilemaps(request.layers, gridClone.transform);
         Transform backgroundClone = CloneOrCreateRoot(request.backgroundRoot, prefabRoot.transform, "BackgroundRoot");
         Transform environmentClone = CloneOrCreateRoot(request.environmentRoot, prefabRoot.transform, "EnvironmentRoot");
         Transform foregroundClone = CloneOrCreateRoot(request.foregroundRoot, prefabRoot.transform, "ForegroundRoot");
@@ -214,27 +220,60 @@ public static class StageBaker
         return savedPrefab;
     }
 
-    // - Role: Clone the source Grid.
-    private static Grid CloneGrid(Grid sourceGrid, Transform parent)
+    // - Role: Clone the source Grid settings without copying all child objects.
+    private static Grid CloneGridSettings(Grid sourceGrid, Transform parent)
     {
-        GameObject clone = Object.Instantiate(sourceGrid.gameObject);
-        clone.name = "Grid";
-        clone.transform.SetParent(parent, true);
-        return clone.GetComponent<Grid>();
+        GameObject cloneObject = new GameObject("Grid");
+        Transform cloneTransform = cloneObject.transform;
+        Transform sourceTransform = sourceGrid.transform;
+        cloneTransform.position = sourceTransform.position;
+        cloneTransform.rotation = sourceTransform.rotation;
+        cloneTransform.localScale = sourceTransform.lossyScale;
+        cloneTransform.SetParent(parent, true);
+
+        Grid clone = cloneObject.AddComponent<Grid>();
+        clone.cellSize = sourceGrid.cellSize;
+        clone.cellGap = sourceGrid.cellGap;
+        clone.cellLayout = sourceGrid.cellLayout;
+        clone.cellSwizzle = sourceGrid.cellSwizzle;
+        return clone;
+    }
+
+    // - Role: Clone only included tilemaps into the render Grid.
+    private static void CloneIncludedTilemaps(IReadOnlyList<StageBakeLayerInput> layers, Transform gridParent)
+    {
+        if (layers == null || gridParent == null)
+        {
+            return;
+        }
+
+        HashSet<Tilemap> clonedTilemaps = new HashSet<Tilemap>();
+        for (int i = 0; i < layers.Count; i++)
+        {
+            StageBakeLayerInput layer = layers[i];
+            if (!IsLayerReady(layer) || !clonedTilemaps.Add(layer.tilemap))
+            {
+                continue;
+            }
+
+            GameObject tilemapClone = Object.Instantiate(layer.tilemap.gameObject);
+            tilemapClone.name = layer.tilemap.gameObject.name;
+            tilemapClone.transform.SetParent(gridParent, true);
+        }
     }
 
     // - Role: Clone a visual root or create an empty placeholder.
-    private static Transform CloneOrCreateRoot(Transform sourceRoot, Transform parent, string fallbackName)
+    private static Transform CloneOrCreateRoot(Transform sourceRoot, Transform parent, string rootName)
     {
         GameObject rootObject;
         if (sourceRoot != null)
         {
             rootObject = Object.Instantiate(sourceRoot.gameObject);
-            rootObject.name = fallbackName;
+            rootObject.name = rootName;
         }
         else
         {
-            rootObject = new GameObject(fallbackName);
+            rootObject = new GameObject(rootName);
         }
 
         rootObject.transform.SetParent(parent, true);
@@ -316,7 +355,7 @@ public static class StageBaker
 
         if (root.IsChildOf(grid.transform))
         {
-            report.warnings.Add($"{label} is a child of Grid. It can be duplicated because Grid is baked as a full prefab clone.");
+            report.warnings.Add($"{label} is a child of Grid. It is cloned separately into the stage render prefab.");
         }
     }
 
@@ -337,6 +376,15 @@ public static class StageBaker
         if (request.grid == null)
         {
             report.errors.Add("Grid is not assigned.");
+        }
+
+        if (request.spawnPosTilemap == null)
+        {
+            report.errors.Add("Spawn Pos Tilemap is not assigned.");
+        }
+        else if (!HasAnyTile(request.spawnPosTilemap, request.cellBounds))
+        {
+            report.errors.Add("Spawn Pos Tilemap has no spawn points inside Cell Bounds.");
         }
 
         if (request.cellBounds.width <= 0 || request.cellBounds.height <= 0)
@@ -413,6 +461,63 @@ public static class StageBaker
         return cells.ToArray();
     }
 
+    // - Role: Build spawn points from the dedicated tilemap.
+    private static StageSpawnPoint[] BuildSpawnPoints(StageBakeRequest request, float cellSize)
+    {
+        List<StageSpawnPoint> spawnPoints = new List<StageSpawnPoint>();
+        Tilemap tilemap = request.spawnPosTilemap;
+        RectInt sourceBounds = request.cellBounds;
+
+        if (tilemap == null)
+        {
+            return spawnPoints.ToArray();
+        }
+
+        for (int y = sourceBounds.yMin; y < sourceBounds.yMax; y++)
+        {
+            for (int x = sourceBounds.xMin; x < sourceBounds.xMax; x++)
+            {
+                Vector3Int tileCell = new Vector3Int(x, y, 0);
+                if (!tilemap.HasTile(tileCell))
+                {
+                    continue;
+                }
+
+                Vector2Int localCell = new Vector2Int(x - sourceBounds.xMin, y - sourceBounds.yMin);
+                spawnPoints.Add(new StageSpawnPoint
+                {
+                    position = new Vector2(
+                        (localCell.x + 0.5f) * cellSize,
+                        (localCell.y + 0.5f) * cellSize)
+                });
+            }
+        }
+
+        return spawnPoints.ToArray();
+    }
+
+    // - Role: Check if a tilemap has any tile inside bounds.
+    private static bool HasAnyTile(Tilemap tilemap, RectInt sourceBounds)
+    {
+        if (tilemap == null)
+        {
+            return false;
+        }
+
+        for (int y = sourceBounds.yMin; y < sourceBounds.yMax; y++)
+        {
+            for (int x = sourceBounds.xMin; x < sourceBounds.xMax; x++)
+            {
+                if (tilemap.HasTile(new Vector3Int(x, y, 0)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     // - Role: Build rect colliders.
     private static StageColliderData[] BuildRectColliders(
         StageTileCellData[] cells,
@@ -459,7 +564,8 @@ public static class StageBaker
     // - Role: Check if create collider should happen.
     private static bool ShouldCreateCollider(StageTileCellData cell)
     {
-        return cell.flags != StageTileFlags.None;
+        return (cell.flags & StageTileFlags.Solid) != 0
+            && (cell.flags & StageTileFlags.RenderOnly) == 0;
     }
 
     // - Role: Find merge width.

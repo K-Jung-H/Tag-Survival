@@ -19,6 +19,7 @@ public sealed class StageBakerWindow : EditorWindow
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private string stageId = "Stage";
     [SerializeField] private Grid grid;
+    [SerializeField] private Tilemap spawnPosTilemap;
     [SerializeField] private Transform backgroundRoot;
     [SerializeField] private Transform environmentRoot;
     [SerializeField] private Transform foregroundRoot;
@@ -69,6 +70,7 @@ public sealed class StageBakerWindow : EditorWindow
         stageDefinition = (StageDefinition)EditorGUILayout.ObjectField("Stage Definition", stageDefinition, typeof(StageDefinition), false);
         stageId = EditorGUILayout.TextField("Stage Id", stageId);
         grid = (Grid)EditorGUILayout.ObjectField("Grid", grid, typeof(Grid), true);
+        spawnPosTilemap = (Tilemap)EditorGUILayout.ObjectField("Spawn Pos Tilemap", spawnPosTilemap, typeof(Tilemap), true);
         EditorGUILayout.Space(8f);
     }
 
@@ -292,6 +294,7 @@ public sealed class StageBakerWindow : EditorWindow
         {
             stageId = stageId,
             grid = grid,
+            spawnPosTilemap = spawnPosTilemap,
             backgroundRoot = backgroundRoot,
             environmentRoot = environmentRoot,
             foregroundRoot = foregroundRoot,
@@ -334,6 +337,7 @@ public sealed class StageBakerWindow : EditorWindow
         Debug.Log(
             $"{label} complete. Baked cells: {report.bakedCellCount}, " +
             $"colliders: {report.colliderCount}, spatial buckets: {report.spatialBucketCount}, " +
+            $"spawn points: {report.spawnPointCount}, " +
             $"scanned cells: {report.scannedCellCount}{renderPrefabMessage}.");
     }
 }

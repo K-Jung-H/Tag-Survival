@@ -16,12 +16,14 @@ public class Server_GamePlay
     private readonly ServerSkillSystem skillSystem = new();
     private readonly ServerItemSystem itemSystem = new();
     private readonly ServerWorldCollisionSystem worldCollisionSystem = new();
+    private readonly Dictionary<ulong, int> spawnPointIndexByClientId = new();
     private IServerGameMode gameMode;
     private readonly ServerSnapshotBuilder snapshotBuilder = new();
     private readonly StageCollisionSystem collisionSystem;
     private readonly StageDefinition stageDefinition;
     private readonly CharacterCatalog characterCatalog;
     private readonly SkillCatalog skillCatalog;
+    private int nextSpawnSearchStartIndex;
 
     // - Role: Create server gameplay state.
     public Server_GamePlay(
@@ -29,7 +31,6 @@ public class Server_GamePlay
         CharacterCatalog characterCatalog,
         SkillCatalog skillCatalog,
         ItemEffectCatalog itemEffectCatalog,
-        int maxActiveItemCount,
         float itemSelectionTimeoutSeconds,
         GameModeType gameModeType,
         GameModeConfig gameModeConfig)
@@ -43,7 +44,7 @@ public class Server_GamePlay
         collisionSystem = new StageCollisionSystem(stageBakeData, PlayerObject.DefaultCollisionHalfExtent, GameSimulationConfig.CollisionSkinWidth);
         skillSystem.Bind(this);
         playerSystem.Bind(skillSystem, collisionSystem, stageDefinition);
-        itemSystem.Bind(this, itemEffectCatalog, maxActiveItemCount, itemSelectionTimeoutSeconds);
+        itemSystem.Bind(this, itemEffectCatalog, itemSelectionTimeoutSeconds);
         ConfigureGameMode(gameModeType, gameModeConfig);
     }
 
@@ -60,6 +61,7 @@ public class Server_GamePlay
     public float GameDurationSeconds => gameMode.GameDurationSeconds;
     public float GameElapsedSeconds => gameMode.GameElapsedSeconds;
     public float RemainingSeconds => gameMode.RemainingSeconds;
+    public bool IsSimulationStarted => gameMode.IsSimulationStarted;
     public bool IsGameStarted => gameMode.IsGameStarted;
     public bool IsGameEnded => gameMode.IsGameEnded;
     public int PendingGameEventCount => gameEventQueue.Count;
@@ -110,13 +112,18 @@ public class Server_GamePlay
             ? skillDefinition.SkillId
             : DefaultSkillId;
         Skill skill = skillSystem.Create(clientId, skillDefinition);
+        if (!TryAssignSpawnPosition(clientId, out Vector2 spawnPosition))
+        {
+            Debug.LogError($"[Server_GamePlay] Failed to add player. SpawnPoint is not available. clientId={clientId}");
+            return false;
+        }
 
         PlayerObject player = new PlayerObject(this, clientId);
         player.Initialize(
             characterDefinition,
             skill,
             resolvedSkillId,
-            collisionSystem.GetStageCenterPosition(),
+            spawnPosition,
             nickname);
         player = playerSystem.Register(player);
 
@@ -136,12 +143,56 @@ public class Server_GamePlay
         return true;
     }
 
+    // - Role: Start world simulation after intro readiness gate.
+    public bool BeginCountdown()
+    {
+        if (gameMode == null || players.Count <= 0)
+        {
+            return false;
+        }
+
+        if (gameMode.BeginCountdown(
+            players,
+            gameEventQueue,
+            Tick,
+            collisionSystem.GetStageCenterPosition()))
+        {
+            MarkGameStateChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    // - Role: Start game after stage readiness gate.
+    public bool StartGame(ulong starterClientId)
+    {
+        if (gameMode == null || players.Count <= 0)
+        {
+            return false;
+        }
+
+        if (gameMode.StartGame(
+            players,
+            starterClientId,
+            gameEventQueue,
+            Tick,
+            collisionSystem.GetStageCenterPosition()))
+        {
+            MarkGameStateChanged();
+            return true;
+        }
+
+        return false;
+    }
+
     // - Role: Remove player.
     public void RemovePlayer(ulong clientId)
     {
         bool hadPlayer = players.TryGetValue(clientId, out PlayerObject removedPlayer);
 
         itemSystem.CancelPlayerSelection(clientId);
+        ReleaseSpawnPoint(clientId);
         players.Remove(clientId);
         inputBuffer.RemovePlayer(clientId);
         playerSystem.Remove(clientId);
@@ -194,8 +245,21 @@ public class Server_GamePlay
             itemSystem.CancelAllSelections();
         }
 
-        playerSystem.ApplyQueuedInputs(inputBuffer);
-        itemSystem.Tick(deltaTime);
+        bool isGameEnded = gameMode.IsGameEnded;
+        if (!gameMode.IsSimulationStarted && !isGameEnded)
+        {
+            return;
+        }
+
+        if (gameMode.IsGameStarted || isGameEnded)
+        {
+            playerSystem.ApplyQueuedInputs(inputBuffer);
+        }
+
+        if (!isGameEnded)
+        {
+            itemSystem.Tick(deltaTime);
+        }
 
         int subSteps = Mathf.Max(1, GameSimulationConfig.MovementSubSteps);
         float stepDeltaTime = deltaTime / subSteps;
@@ -203,7 +267,10 @@ public class Server_GamePlay
         for (int i = 0; i < subSteps; i++)
         {
             playerSystem.Simulate(stepDeltaTime);
-            ResolveWorldCollisions();
+            if (!isGameEnded)
+            {
+                ResolveWorldCollisions();
+            }
         }
     }
 
@@ -329,20 +396,86 @@ public class Server_GamePlay
             return null;
         }
 
-        if (characterCatalog.TryGetById(characterId, out CharacterDefinition exactDefinition))
-        {
-            return exactDefinition;
-        }
-
         if (characterCatalog.TryGet(characterId, out CharacterDefinition definition))
         {
-            Debug.LogWarning(
-                $"[Server_GamePlay] CharacterDefinition for characterId {characterId} is not found. " +
-                $"Using fallback characterId {definition.CharacterId}.");
             return definition;
         }
 
         return null;
+    }
+
+    // - Role: Assign the least used spawn point.
+    private bool TryAssignSpawnPosition(ulong clientId, out Vector2 position)
+    {
+        position = default;
+
+        StageBakeData stageBakeData = stageDefinition != null ? stageDefinition.StageBakeData : null;
+        StageSpawnPoint[] spawnPoints = stageBakeData != null ? stageBakeData.SpawnPoints : null;
+        if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            return false;
+        }
+
+        int selectedIndex = FindLeastUsedSpawnPointIndex(spawnPoints.Length);
+        if (selectedIndex < 0 || selectedIndex >= spawnPoints.Length)
+        {
+            return false;
+        }
+
+        spawnPointIndexByClientId[clientId] = selectedIndex;
+        nextSpawnSearchStartIndex = (selectedIndex + 1) % spawnPoints.Length;
+        position = spawnPoints[selectedIndex].position;
+        return true;
+    }
+
+    // - Role: Find spawn point with the lowest active use count.
+    private int FindLeastUsedSpawnPointIndex(int spawnPointCount)
+    {
+        if (spawnPointCount <= 0)
+        {
+            return -1;
+        }
+
+        int selectedIndex = 0;
+        int selectedUseCount = int.MaxValue;
+
+        for (int i = 0; i < spawnPointCount; i++)
+        {
+            int index = (nextSpawnSearchStartIndex + i) % spawnPointCount;
+            int useCount = CountSpawnPointUsers(index);
+            if (useCount < selectedUseCount)
+            {
+                selectedUseCount = useCount;
+                selectedIndex = index;
+                if (useCount == 0)
+                {
+                    break;
+                }
+            }
+        }
+
+        return selectedIndex;
+    }
+
+    // - Role: Count active players using a spawn point.
+    private int CountSpawnPointUsers(int spawnPointIndex)
+    {
+        int count = 0;
+        foreach (var pair in spawnPointIndexByClientId)
+        {
+            if (pair.Value == spawnPointIndex && players.ContainsKey(pair.Key))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // - Role: Release assigned spawn point.
+    private void ReleaseSpawnPoint(ulong clientId)
+    {
+        spawnPointIndexByClientId.Remove(clientId);
     }
 
 }

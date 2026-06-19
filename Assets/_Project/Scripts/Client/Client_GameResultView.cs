@@ -7,14 +7,14 @@ public sealed class Client_GameResultView : MonoBehaviour
     [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private ClientCanvasPanelController canvasPanelController;
     [SerializeField] private TMP_Text resultText;
+    [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private Button rematchButton;
     [SerializeField] private Button exitButton;
-    [SerializeField] private float endPacketFallbackSeconds = 3f;
+    [SerializeField] private Color winMsgColor = Color.white;
+    [SerializeField] private Color loseMsgColor = Color.white;
 
     private bool hasShownResult;
-    private bool isWaitingEndPacket;
-    private float waitingEndStartedAt;
     private bool hasRequestedRematch;
     private bool hasReceivedRematchCommand;
     private float rematchWaitingStartedAt;
@@ -47,29 +47,6 @@ public sealed class Client_GameResultView : MonoBehaviour
             && syncManager.SyncMode != ClientSyncMode.LocalServer)
         {
             UpdateRematchWaitingStatus();
-        }
-
-        if (hasShownResult || syncManager == null)
-        {
-            return;
-        }
-
-        if (!syncManager.TryGetGameState(out ClientGameStateSnapshotState state) || !state.isGameEnded)
-        {
-            isWaitingEndPacket = false;
-            return;
-        }
-
-        if (!isWaitingEndPacket)
-        {
-            isWaitingEndPacket = true;
-            waitingEndStartedAt = Time.realtimeSinceStartup;
-            return;
-        }
-
-        if (Time.realtimeSinceStartup - waitingEndStartedAt >= Mathf.Max(0.1f, endPacketFallbackSeconds))
-        {
-            ShowResultFromState(state, "Result confirmed locally.");
         }
     }
 
@@ -165,11 +142,6 @@ public sealed class Client_GameResultView : MonoBehaviour
         GameFlowManager.Instance?.ExitStageToOnline();
     }
 
-    private void ShowResultFromState(ClientGameStateSnapshotState state, string status)
-    {
-        ShowResult(state.gameModeType, state.entries, state.entryCount, status);
-    }
-
     private void ShowResult(
         GameModeType gameModeType,
         GameStateEntryPacket[] entries,
@@ -183,15 +155,30 @@ public sealed class Client_GameResultView : MonoBehaviour
         SetButtonsInteractable(rematchInteractable: true, exitInteractable: true);
         SetStatus(status);
 
-        bool isWinner = IsLocalWinner(gameModeType, entries, entryCount);
+        bool isWinner = IsLocalWinner(gameModeType, entries, entryCount, out GameStateEntryPacket localEntry, out bool hasLocalEntry);
+        Color messageColor = isWinner ? winMsgColor : loseMsgColor;
         if (resultText != null)
         {
             resultText.text = isWinner ? "You Win!" : "You Lose...";
+            resultText.color = messageColor;
+        }
+
+        if (scoreText != null)
+        {
+            scoreText.text = FormatLocalScore(gameModeType, entries, entryCount, localEntry, hasLocalEntry);
+            scoreText.color = messageColor;
         }
     }
 
-    private bool IsLocalWinner(GameModeType gameModeType, GameStateEntryPacket[] entries, ushort entryCount)
+    private bool IsLocalWinner(
+        GameModeType gameModeType,
+        GameStateEntryPacket[] entries,
+        ushort entryCount,
+        out GameStateEntryPacket localEntry,
+        out bool hasLocalEntry)
     {
+        localEntry = default;
+        hasLocalEntry = false;
         if (syncManager == null || entries == null || entryCount <= 0)
         {
             return false;
@@ -211,10 +198,14 @@ public sealed class Client_GameResultView : MonoBehaviour
         ulong localClientId = syncManager.LocalClientId;
         for (int i = 0; i < count; i++)
         {
-            if (entries[i].clientId == localClientId && entries[i].scoreValue == winningScore)
+            if (entries[i].clientId != localClientId)
             {
-                return true;
+                continue;
             }
+
+            localEntry = entries[i];
+            hasLocalEntry = true;
+            return entries[i].scoreValue == winningScore;
         }
 
         return false;
@@ -225,6 +216,49 @@ public sealed class Client_GameResultView : MonoBehaviour
         return gameModeType == GameModeType.CoinCollect
             ? candidate > current
             : candidate < current;
+    }
+
+    private static string FormatLocalScore(
+        GameModeType gameModeType,
+        GameStateEntryPacket[] entries,
+        ushort entryCount,
+        GameStateEntryPacket localEntry,
+        bool hasLocalEntry)
+    {
+        if (!hasLocalEntry)
+        {
+            return "Grade: #--";
+        }
+
+        int rank = ResolveLocalRank(gameModeType, entries, entryCount, localEntry);
+        return rank > 0
+            ? $"Grade: #{rank}"
+            : "Grade: #--";
+    }
+
+    private static int ResolveLocalRank(
+        GameModeType gameModeType,
+        GameStateEntryPacket[] entries,
+        ushort entryCount,
+        GameStateEntryPacket localEntry)
+    {
+        if (entries == null || entryCount <= 0)
+        {
+            return -1;
+        }
+
+        int rank = 1;
+        int count = Mathf.Min(entryCount, entries.Length);
+        for (int i = 0; i < count; i++)
+        {
+            if (entries[i].clientId != localEntry.clientId
+                && IsBetterScore(gameModeType, entries[i].scoreValue, localEntry.scoreValue))
+            {
+                rank++;
+            }
+        }
+
+        return rank;
     }
 
     private void SetButtonsInteractable(bool rematchInteractable, bool exitInteractable)

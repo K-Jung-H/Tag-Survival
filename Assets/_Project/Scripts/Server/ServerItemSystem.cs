@@ -44,7 +44,6 @@ public sealed class ServerItemSystem
     private Server_GamePlay gamePlay;
     private StageCollisionSystem collisionSystem;
     private ItemEffectCatalog effectCatalog;
-    private int fallbackMaxActiveItemCount;
     private int minActiveItemCount;
     private int maxActiveItemCount;
     private float selectionTimeoutSeconds = DefaultSelectionTimeoutSeconds;
@@ -57,26 +56,22 @@ public sealed class ServerItemSystem
     public void Bind(
         Server_GamePlay gamePlay,
         ItemEffectCatalog effectCatalog,
-        int maxActiveItemCount,
         float selectionTimeoutSeconds)
     {
         this.gamePlay = gamePlay;
         this.effectCatalog = effectCatalog;
         collisionSystem = gamePlay != null ? gamePlay.CollisionSystem : null;
-        fallbackMaxActiveItemCount = Mathf.Clamp(maxActiveItemCount, 0, GameNetProtocol.MaxItems);
-        minActiveItemCount = fallbackMaxActiveItemCount;
-        this.maxActiveItemCount = fallbackMaxActiveItemCount;
         this.selectionTimeoutSeconds = Mathf.Max(0.1f, selectionTimeoutSeconds);
-        SetDefaultItemTypeWeights();
     }
 
     public void ConfigureSpawn(GameModeConfig config)
     {
         if (config == null)
         {
-            minActiveItemCount = fallbackMaxActiveItemCount;
-            maxActiveItemCount = fallbackMaxActiveItemCount;
-            SetDefaultItemTypeWeights();
+            minActiveItemCount = 0;
+            maxActiveItemCount = 0;
+            itemTypeWeights.Clear();
+            Debug.LogError("[ServerItemSystem] GameModeConfig is not assigned. Item spawning is disabled.");
             return;
         }
 
@@ -443,11 +438,10 @@ public sealed class ServerItemSystem
         }
 
         QueueItemAppliedEvent(player, pending.itemId, pending.position);
-        string effectName = selected.GetFallbackEffectLabel();
         Debug.Log(
             $"[ServerItemSystem] Item selected. playerId={player.playerId}, " +
             $"requestId={pending.requestId}, resultType={resultType}, selectedId={selected.id}, " +
-            $"itemType={selected.type}, effect={effectName}, duration={selected.duration}");
+            $"itemType={selected.type}, title={selected.title}, duration={selected.duration}");
         return true;
     }
 
@@ -648,13 +642,6 @@ public sealed class ServerItemSystem
     private bool HasItemTypeEffects(ItemType itemType)
     {
         return itemType != ItemType.None && effectCatalog != null && effectCatalog.HasEffects(itemType);
-    }
-
-    private void SetDefaultItemTypeWeights()
-    {
-        itemTypeWeights.Clear();
-        itemTypeWeights.Add(new ItemTypeWeightConfig { itemType = ItemType.Stats, weight = 1 });
-        itemTypeWeights.Add(new ItemTypeWeightConfig { itemType = ItemType.Skill, weight = 1 });
     }
 
     // - Role: Get random stage position.

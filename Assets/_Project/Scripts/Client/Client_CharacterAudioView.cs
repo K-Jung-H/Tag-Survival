@@ -4,10 +4,18 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
 {
     [SerializeField] private GameFeedbackCatalog feedbackCatalog;
     [SerializeField] private AudioSource oneShotAudioSource;
+    [SerializeField] private Transform audioListenerTransform;
 
     private LocomotionState previousLocomotionState;
     private bool hasSnapshot;
     private float runStepTimer;
+
+    // - Role: Bind scene-level audio listener transform.
+    public void BindAudioListener(Transform listenerTransform)
+    {
+        audioListenerTransform = listenerTransform;
+        UpdateWorldAudioPosition(oneShotAudioSource);
+    }
 
     // - Role: Apply character snapshot driven audio.
     public void ApplySnapshot(ClientSnapshotState snapshotState)
@@ -168,8 +176,7 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
             return;
         }
 
-        AudioListener listener = FindFirstObjectByType<AudioListener>();
-        if (listener == null)
+        if (audioListenerTransform == null)
         {
             return;
         }
@@ -178,6 +185,6 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
         audioSource.transform.position = new Vector3(
             ownerPosition.x,
             ownerPosition.y,
-            listener.transform.position.z);
+            audioListenerTransform.position.z);
     }
 }

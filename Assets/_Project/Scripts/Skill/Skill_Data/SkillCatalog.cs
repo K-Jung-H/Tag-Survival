@@ -4,7 +4,6 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Tag Survival/Skill/Skill Catalog")]
 public sealed class SkillCatalog : ScriptableObject
 {
-    [SerializeField] private SkillDefinition fallbackDefinition;
     [SerializeField] private SkillDefinition[] definitions = new SkillDefinition[0];
 
     private readonly Dictionary<byte, SkillDefinition> definitionsById = new();
@@ -27,13 +26,7 @@ public sealed class SkillCatalog : ScriptableObject
     // - Role: Try to get a skill definition.
     public bool TryGet(byte skillId, out SkillDefinition definition)
     {
-        if (TryGetById(skillId, out definition))
-        {
-            return true;
-        }
-
-        definition = fallbackDefinition;
-        return definition != null;
+        return TryGetById(skillId, out definition);
     }
 
     // - Role: Try to get by ID.

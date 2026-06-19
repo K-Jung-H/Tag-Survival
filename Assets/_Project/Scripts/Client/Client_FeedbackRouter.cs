@@ -132,7 +132,7 @@ public sealed class Client_FeedbackRouter : MonoBehaviour
     }
 
     // - Role: Route client-local feedback.
-    private void RouteClientFeedback(ClientFeedbackType feedbackType, ulong clientId, Vector2 fallbackPosition)
+    private void RouteClientFeedback(ClientFeedbackType feedbackType, ulong clientId, Vector2 eventPosition)
     {
         if (feedbackCatalog == null || !feedbackCatalog.TryGet(feedbackType, out ClientFeedbackProfile profile))
         {
@@ -140,9 +140,9 @@ public sealed class Client_FeedbackRouter : MonoBehaviour
             return;
         }
 
-        if (!TryResolveClientFeedbackPosition(profile, clientId, fallbackPosition, out Vector2 position, out Transform followTarget))
+        if (!TryResolveClientFeedbackPosition(profile, clientId, eventPosition, out Vector2 position, out Transform followTarget))
         {
-            position = fallbackPosition;
+            position = eventPosition;
         }
 
         worldFeedbackPlayer?.Play(profile.data, position, 0f, followTarget);
@@ -261,11 +261,11 @@ public sealed class Client_FeedbackRouter : MonoBehaviour
     private bool TryResolveClientFeedbackPosition(
         ClientFeedbackProfile profile,
         ulong clientId,
-        Vector2 fallbackPosition,
+        Vector2 eventPosition,
         out Vector2 position,
         out Transform followTarget)
     {
-        return TryResolvePosition(profile.spawnMode, clientId, clientId, fallbackPosition, out position, out followTarget);
+        return TryResolvePosition(profile.spawnMode, clientId, clientId, eventPosition, out position, out followTarget);
     }
 
     // - Role: Resolve feedback position by spawn mode.
@@ -273,11 +273,11 @@ public sealed class Client_FeedbackRouter : MonoBehaviour
         GameFeedbackSpawnMode spawnMode,
         ulong subjectClientId,
         ulong targetClientId,
-        Vector2 fallbackPosition,
+        Vector2 eventPosition,
         out Vector2 position,
         out Transform followTarget)
     {
-        position = fallbackPosition;
+        position = eventPosition;
         followTarget = null;
 
         ulong clientId = spawnMode switch

@@ -16,7 +16,6 @@ public sealed class ItemView : MonoBehaviour
     // - Role: Apply item type sprite.
     private void ApplyType(ItemType itemType)
     {
-        ResolveRenderer();
         if (spriteRenderer == null)
         {
             return;
@@ -28,14 +27,5 @@ public sealed class ItemView : MonoBehaviour
             ItemType.Skill => skillSprite,
             _ => null
         };
-    }
-
-    // - Role: Find sprite renderer.
-    private void ResolveRenderer()
-    {
-        if (spriteRenderer == null)
-        {
-            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
-        }
     }
 }

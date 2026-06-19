@@ -7,8 +7,9 @@ public sealed class ClientStageBuilder : MonoBehaviour
     [SerializeField] private StageDefinition stageDefinition;
     [SerializeField] private Camera mainCamera;
     [SerializeField] private Client_StageRenderer stageRenderer;
-    [SerializeField] private Client_CameraFollow cameraFollow;
+    [SerializeField] private Client_CameraController cameraController;
     [SerializeField] private OffScreenIndicatorView indicatorView;
+    [SerializeField] private Client_WorldView worldView;
 
     [Header("Client Components")]
     [SerializeField] private Client_SyncManager syncManager;
@@ -16,6 +17,8 @@ public sealed class ClientStageBuilder : MonoBehaviour
     [SerializeField] private LocalClient_InputBridge localInputBridge;
     [SerializeField] private Client_NetworkReceiverHub networkReceiverHub;
     [SerializeField] private Client_InputSender networkInputSender;
+    [SerializeField] private Client_StageReadyReporter stageReadyReporter;
+    [SerializeField] private Client_StageIntroDirector stageIntroDirector;
 
     public event Action<ClientStageBuilder> BuildCompleted;
     public event Action<ClientStageBuilder, string> BuildFailed;
@@ -52,6 +55,9 @@ public sealed class ClientStageBuilder : MonoBehaviour
         SetBehaviourEnabled(localInputBridge, true);
         SetBehaviourEnabled(networkReceiverHub, false);
         SetBehaviourEnabled(networkInputSender, false);
+        stageReadyReporter.ResetReadyState();
+        SetBehaviourEnabled(stageReadyReporter, true);
+        SetBehaviourEnabled(stageIntroDirector, true);
 
         IsBuilt = true;
         BuildCompleted?.Invoke(this);
@@ -77,6 +83,9 @@ public sealed class ClientStageBuilder : MonoBehaviour
         SetBehaviourEnabled(localInputBridge, false);
         SetBehaviourEnabled(networkReceiverHub, true);
         SetBehaviourEnabled(networkInputSender, true);
+        stageReadyReporter.ResetReadyState();
+        SetBehaviourEnabled(stageReadyReporter, true);
+        SetBehaviourEnabled(stageIntroDirector, true);
 
         IsBuilt = true;
         BuildCompleted?.Invoke(this);
@@ -177,9 +186,33 @@ public sealed class ClientStageBuilder : MonoBehaviour
             return false;
         }
 
-        if (cameraFollow == null)
+        if (cameraController == null)
         {
-            Fail("Client_CameraFollow is not assigned.");
+            Fail("Client_CameraController is not assigned.");
+            return false;
+        }
+
+        if (worldView == null)
+        {
+            Fail("Client_WorldView is not assigned.");
+            return false;
+        }
+
+        if (stageReadyReporter == null)
+        {
+            Fail("Client_StageReadyReporter is not assigned.");
+            return false;
+        }
+
+        if (stageIntroDirector == null)
+        {
+            Fail("Client_StageIntroDirector is not assigned.");
+            return false;
+        }
+
+        if (!stageIntroDirector.HasRequiredReferences(out string missingIntroReference))
+        {
+            Fail($"Client_StageIntroDirector missing reference: {missingIntroReference}.");
             return false;
         }
 
@@ -190,8 +223,11 @@ public sealed class ClientStageBuilder : MonoBehaviour
     private void ApplyStagePresentationReferences()
     {
         stageRenderer.Configure(stageDefinition, mainCamera);
-        cameraFollow.StageDefinition = stageDefinition;
+        cameraController.BindCamera(mainCamera);
+        cameraController.BindSyncManager(syncManager);
+        cameraController.StageDefinition = stageDefinition;
         indicatorView?.BindCamera(mainCamera);
+        worldView.BindAudioListener(mainCamera.transform);
     }
 
     private static void SetBehaviourEnabled(Behaviour behaviour, bool enabledValue)

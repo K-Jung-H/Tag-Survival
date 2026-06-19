@@ -18,6 +18,7 @@ public enum StageTileFlags
     OneWay = 1 << 1,
     Destructible = 1 << 2,
     Hazard = 1 << 3,
+    RenderOnly = 1 << 4,
 }
 
 // - Role: List baked collider shapes.

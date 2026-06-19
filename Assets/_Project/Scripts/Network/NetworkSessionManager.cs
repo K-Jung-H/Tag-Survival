@@ -25,6 +25,9 @@ public sealed class NetworkSessionManager : MonoBehaviour
 
     private static NetworkSessionManager instance;
 
+    [SerializeField] private NetworkManager networkManager;
+    [SerializeField] private UnityTransport unityTransport;
+
     private NetworkSessionRole role = NetworkSessionRole.None;
     private string joinCode = string.Empty;
     private string statusMessage = "Idle";
@@ -38,8 +41,8 @@ public sealed class NetworkSessionManager : MonoBehaviour
     public string JoinCode => joinCode;
     public string StatusMessage => statusMessage;
     public bool IsProcessing => isProcessing;
-    public bool IsSessionActive => NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
-    public ulong LocalClientId => NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 0;
+    public bool IsSessionActive => networkManager != null && networkManager.IsListening;
+    public ulong LocalClientId => networkManager != null ? networkManager.LocalClientId : 0;
 
     public static NetworkSessionManager Resolve()
     {
@@ -48,13 +51,7 @@ public sealed class NetworkSessionManager : MonoBehaviour
             return instance;
         }
 
-        NetworkSessionManager found = FindFirstObjectByType<NetworkSessionManager>();
-        if (found != null)
-        {
-            return found;
-        }
-
-        Debug.LogError("[NetworkSessionManager] NetworkSessionManager is not found. Place it in Scene Online.");
+        Debug.LogError("[NetworkSessionManager] NetworkSessionManager is not available. Place it in Scene Online before starting network flow.");
         return null;
     }
 
@@ -91,8 +88,8 @@ public sealed class NetworkSessionManager : MonoBehaviour
             joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             ApplyHostRelayData(allocation);
 
-            NetworkManager.Singleton.NetworkConfig.EnableSceneManagement = false;
-            bool started = NetworkManager.Singleton.StartHost();
+            networkManager.NetworkConfig.EnableSceneManagement = false;
+            bool started = networkManager.StartHost();
             if (!started)
             {
                 FailStart("StartHost Failed");
@@ -136,8 +133,8 @@ public sealed class NetworkSessionManager : MonoBehaviour
             joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             ApplyHostRelayData(allocation);
 
-            NetworkManager.Singleton.NetworkConfig.EnableSceneManagement = false;
-            bool started = NetworkManager.Singleton.StartServer();
+            networkManager.NetworkConfig.EnableSceneManagement = false;
+            bool started = networkManager.StartServer();
             if (!started)
             {
                 FailStart("StartServer Failed");
@@ -189,8 +186,8 @@ public sealed class NetworkSessionManager : MonoBehaviour
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
             ApplyClientRelayData(joinAllocation);
 
-            NetworkManager.Singleton.NetworkConfig.EnableSceneManagement = false;
-            bool started = NetworkManager.Singleton.StartClient();
+            networkManager.NetworkConfig.EnableSceneManagement = false;
+            bool started = networkManager.StartClient();
             if (!started)
             {
                 FailStart("StartClient Failed");
@@ -204,7 +201,7 @@ public sealed class NetworkSessionManager : MonoBehaviour
             }
 
             role = NetworkSessionRole.Guest;
-            statusMessage = $"Guest Connected: {NetworkManager.Singleton.LocalClientId}";
+            statusMessage = $"Guest Connected: {networkManager.LocalClientId}";
             Debug.Log($"[NetworkSessionManager] Guest connected. JoinCode: {joinCode}", this);
             return true;
         }
@@ -221,9 +218,9 @@ public sealed class NetworkSessionManager : MonoBehaviour
 
     public void StopSession()
     {
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        if (networkManager != null && networkManager.IsListening)
         {
-            NetworkManager.Singleton.Shutdown();
+            networkManager.Shutdown();
         }
 
         role = NetworkSessionRole.None;
@@ -244,16 +241,23 @@ public sealed class NetworkSessionManager : MonoBehaviour
             return false;
         }
 
-        if (NetworkManager.Singleton == null)
+        if (networkManager == null)
         {
             statusMessage = "NetworkManager Missing";
-            Debug.LogError("[NetworkSessionManager] NetworkManager.Singleton is null.", this);
+            Debug.LogError("[NetworkSessionManager] NetworkManager is not assigned.", this);
             return false;
         }
 
-        DontDestroyOnLoad(NetworkManager.Singleton.gameObject);
+        if (unityTransport == null)
+        {
+            statusMessage = "UnityTransport Missing";
+            Debug.LogError("[NetworkSessionManager] UnityTransport is not assigned.", this);
+            return false;
+        }
 
-        if (NetworkManager.Singleton.IsListening)
+        DontDestroyOnLoad(networkManager.gameObject);
+
+        if (networkManager.IsListening)
         {
             if (role == requestedRole)
             {
@@ -310,11 +314,10 @@ public sealed class NetworkSessionManager : MonoBehaviour
         }
     }
 
-    private static void ApplyHostRelayData(Allocation allocation)
+    private void ApplyHostRelayData(Allocation allocation)
     {
         var endpoint = allocation.ServerEndpoints.First(e => e.ConnectionType == RelayProtocol);
-        UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-        transport.SetHostRelayData(
+        unityTransport.SetHostRelayData(
             endpoint.Host,
             (ushort)endpoint.Port,
             allocation.AllocationIdBytes,
@@ -323,11 +326,10 @@ public sealed class NetworkSessionManager : MonoBehaviour
             RelayProtocol == "dtls");
     }
 
-    private static void ApplyClientRelayData(JoinAllocation allocation)
+    private void ApplyClientRelayData(JoinAllocation allocation)
     {
         var endpoint = allocation.ServerEndpoints.First(e => e.ConnectionType == RelayProtocol);
-        UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-        transport.SetClientRelayData(
+        unityTransport.SetClientRelayData(
             endpoint.Host,
             (ushort)endpoint.Port,
             allocation.AllocationIdBytes,
@@ -337,17 +339,17 @@ public sealed class NetworkSessionManager : MonoBehaviour
             RelayProtocol == "dtls");
     }
 
-    private static async Task<bool> WaitForLocalClientConnectedAsync()
+    private async Task<bool> WaitForLocalClientConnectedAsync()
     {
         float startedAt = Time.realtimeSinceStartup;
         while (Time.realtimeSinceStartup - startedAt < ClientConnectTimeoutSeconds)
         {
-            if (NetworkManager.Singleton == null)
+            if (networkManager == null)
             {
                 return false;
             }
 
-            if (NetworkManager.Singleton.IsClient && NetworkManager.Singleton.IsConnectedClient)
+            if (networkManager.IsClient && networkManager.IsConnectedClient)
             {
                 return true;
             }
@@ -362,9 +364,9 @@ public sealed class NetworkSessionManager : MonoBehaviour
     {
         statusMessage = message;
         Debug.LogError($"[NetworkSessionManager] {message}", this);
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        if (networkManager != null && networkManager.IsListening)
         {
-            NetworkManager.Singleton.Shutdown();
+            networkManager.Shutdown();
         }
 
         role = NetworkSessionRole.None;

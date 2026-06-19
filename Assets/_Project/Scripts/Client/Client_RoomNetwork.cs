@@ -150,8 +150,7 @@ public sealed class Client_RoomNetwork : MonoBehaviour
             return;
         }
 
-        FixedString64Bytes fixedNickname = new FixedString64Bytes(
-            string.IsNullOrWhiteSpace(nickname) ? "Player" : nickname.Trim());
+        FixedString64Bytes fixedNickname = new FixedString64Bytes(nickname);
         RoomJoinProfilePacket packet = new RoomJoinProfilePacket
         {
             protocolVersion = RoomNetProtocol.ProtocolVersion,

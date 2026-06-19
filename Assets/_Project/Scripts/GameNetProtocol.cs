@@ -2,7 +2,7 @@
 
 public static class GameNetProtocol
 {
-    public const ushort ProtocolVersion = 30;
+    public const ushort ProtocolVersion = 32;
 
     public const float ServerTickRate = 60f;
     public const float SnapshotSendRate = 60f;
@@ -11,6 +11,9 @@ public static class GameNetProtocol
     public const int InputPacketBufferSize = 64;
     public const int ClientJoinProfilePacketBufferSize = 128;
     public const int ClientStageSyncRequestPacketBufferSize = 16;
+    public const int ClientStageReadyPacketBufferSize = 16;
+    public const int ClientStageIntroReadyPacketBufferSize = 16;
+    public const int ServerStageFlowCommandPacketBufferSize = 64;
     public const int ItemSelectionPacketBufferSize = 256;
     public const int SnapshotPacketBufferSize = 12288;
     public const int GameStatePacketBufferSize = 1024;
@@ -29,6 +32,8 @@ public static class GameNetMessages
 {
     public const string ClientJoinProfile = "client_join_profile";
     public const string ClientStageSyncRequest = "client_stage_sync_request";
+    public const string ClientStageReady = "client_stage_ready";
+    public const string ClientStageIntroReady = "client_stage_intro_ready";
     public const string ClientInput = "client_input";
     public const string ClientItemSelectionChoice = "client_item_selection_choice";
     public const string ClientResultChoice = "client_result_choice";
@@ -40,6 +45,7 @@ public static class GameNetMessages
     public const string ServerItemSelectionOffer = "server_item_selection_offer";
     public const string ServerItemSelectionResult = "server_item_selection_result";
     public const string ServerRoster = "server_roster";
+    public const string ServerStageFlowCommand = "server_stage_flow_command";
 }
 
 [Flags]
@@ -155,4 +161,12 @@ public enum GameResultCommand : byte
     None = 0,
     RematchToRoom = 1,
     RoomClosed = 2
+}
+
+public enum StageFlowCommandType : byte
+{
+    None = 0,
+    IntroStart = 1,
+    CountdownStart = 2,
+    GameStart = 3
 }

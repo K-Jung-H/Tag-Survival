@@ -128,13 +128,13 @@ public class InputProvider_Client_Keyboard : InputProvider_Client_Base
     }
 
     // - Role: Normalize or default.
-    private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 fallback)
+    private static Vector2 NormalizeOrDefault(Vector2 value, Vector2 defaultValue)
     {
         if (value.sqrMagnitude > 0.0001f)
             return value.normalized;
 
-        if (fallback.sqrMagnitude > 0.0001f)
-            return fallback.normalized;
+        if (defaultValue.sqrMagnitude > 0.0001f)
+            return defaultValue.normalized;
 
         return Vector2.right;
     }

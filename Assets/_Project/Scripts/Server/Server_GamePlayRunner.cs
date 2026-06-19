@@ -1,5 +1,6 @@
 ﻿using Unity.Collections;
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -7,6 +8,14 @@ public enum ServerGamePlayRunMode
 {
     NetworkServer,
     LocalSimulation
+}
+
+public enum ServerStageFlowState
+{
+    WaitingForStageReady,
+    WaitingForIntroReady,
+    Countdown,
+    Playing
 }
 
 [DefaultExecutionOrder(0)]
@@ -22,6 +31,9 @@ public class Server_GamePlayRunner : MonoBehaviour
     [SerializeField] private float itemSelectionTimeoutSeconds = 10f;
     [SerializeField] private float gameStateSendInterval = 1f;
     [SerializeField] private float fullGameStateSendInterval = 30f;
+    [SerializeField] private float stageReadyTimeoutSeconds = 30f;
+    [SerializeField] private float introReadyTimeoutSeconds = 30f;
+    [SerializeField] private float countdownSeconds = 3f;
 
     private readonly float serverDeltaTime = 1f / GameNetProtocol.ServerTickRate;
     private readonly float snapshotSendInterval = 1f / GameNetProtocol.SnapshotSendRate;
@@ -32,6 +44,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     private FastBufferWriter gameStateWriter;
     private FastBufferWriter gameEndWriter;
     private FastBufferWriter resultCommandWriter;
+    private FastBufferWriter stageFlowCommandWriter;
     private FastBufferWriter gameEventWriter;
     private FastBufferWriter itemSelectionWriter;
     private FastBufferWriter rosterWriter;
@@ -39,16 +52,19 @@ public class Server_GamePlayRunner : MonoBehaviour
     private bool gameStateWriterCreated;
     private bool gameEndWriterCreated;
     private bool resultCommandWriterCreated;
+    private bool stageFlowCommandWriterCreated;
     private bool gameEventWriterCreated;
     private bool itemSelectionWriterCreated;
     private bool rosterWriterCreated;
-    private readonly System.Collections.Generic.List<PlayerSnapshotPacket> playerSnapshots = new();
-    private readonly System.Collections.Generic.List<SkillSnapshotPacket> skillSnapshots = new();
-    private readonly System.Collections.Generic.List<ItemSnapshotPacket> itemSnapshots = new();
-    private readonly System.Collections.Generic.List<CoinSnapshotPacket> coinSnapshots = new();
-    private readonly System.Collections.Generic.List<GameStateEntryPacket> gameStateEntries = new();
-    private readonly System.Collections.Generic.List<GameEventEntryPacket> gameEvents = new();
-    private readonly System.Collections.Generic.List<RosterEntryPacket> rosterEntries = new();
+    private readonly List<PlayerSnapshotPacket> playerSnapshots = new();
+    private readonly List<SkillSnapshotPacket> skillSnapshots = new();
+    private readonly List<ItemSnapshotPacket> itemSnapshots = new();
+    private readonly List<CoinSnapshotPacket> coinSnapshots = new();
+    private readonly List<GameStateEntryPacket> gameStateEntries = new();
+    private readonly List<GameEventEntryPacket> gameEvents = new();
+    private readonly List<RosterEntryPacket> rosterEntries = new();
+    private readonly HashSet<ulong> stageReadyClientIds = new();
+    private readonly HashSet<ulong> stageIntroReadyClientIds = new();
     private readonly GameStateEntryPacket[] gameStateEntryBuffer =
         new GameStateEntryPacket[GameNetProtocol.MaxPlayers];
     private readonly GameEventEntryPacket[] gameEventBuffer =
@@ -69,6 +85,10 @@ public class Server_GamePlayRunner : MonoBehaviour
     private uint lastSentGameStateVersion;
     private bool hasSentGameEnd;
     private bool hasSentResultCommand;
+    private ServerStageFlowState stageFlowState = ServerStageFlowState.WaitingForStageReady;
+    private float stageReadyGateStartedAt;
+    private float introReadyGateStartedAt;
+    private float countdownStartedAt;
     private ulong resultAuthorityClientId = ulong.MaxValue;
 
     public Server_GamePlay GamePlay => gamePlay;
@@ -79,6 +99,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     public event Action<GameEventEntryPacket> LocalGameEventReady;
     public event Action<ServerGameEndPacket> LocalGameEndReady;
     public event Action<ServerResultCommandPacket> LocalResultCommandReady;
+    public event Action<ServerStageFlowCommandPacket> LocalStageFlowCommandReady;
 
     public void ConfigureRunMode(ServerGamePlayRunMode mode)
     {
@@ -93,7 +114,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         }
 
         stageDefinition = definition;
-        RecreateGamePlay();
+        TryRecreateGamePlay();
     }
 
     public void ConfigureGameMode(GameModeType modeType)
@@ -105,7 +126,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     {
         gameModeType = modeType;
         gameModeConfig = IsMatchingGameModeConfig(modeConfig) ? modeConfig : null;
-        RecreateGamePlay();
+        TryRecreateGamePlay();
     }
 
     public void ConfigureLocalDirectClient(ulong clientId)
@@ -128,7 +149,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Set up needed links before start.
     private void Awake()
     {
-        RecreateGamePlay();
+        TryRecreateGamePlay();
 
         snapshotWriter = new FastBufferWriter(GameNetProtocol.SnapshotPacketBufferSize, Allocator.Persistent);
 
@@ -137,6 +158,8 @@ public class Server_GamePlayRunner : MonoBehaviour
         gameEndWriter = new FastBufferWriter(GameNetProtocol.GameEndPacketBufferSize, Allocator.Persistent);
 
         resultCommandWriter = new FastBufferWriter(GameNetProtocol.ResultCommandPacketBufferSize, Allocator.Persistent);
+
+        stageFlowCommandWriter = new FastBufferWriter(GameNetProtocol.ServerStageFlowCommandPacketBufferSize, Allocator.Persistent);
 
         gameEventWriter = new FastBufferWriter(GameNetProtocol.GameEventPacketBufferSize, Allocator.Persistent);
 
@@ -148,6 +171,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         gameStateWriterCreated = true;
         gameEndWriterCreated = true;
         resultCommandWriterCreated = true;
+        stageFlowCommandWriterCreated = true;
         gameEventWriterCreated = true;
         itemSelectionWriterCreated = true;
         rosterWriterCreated = true;
@@ -207,6 +231,12 @@ public class Server_GamePlayRunner : MonoBehaviour
             resultCommandWriterCreated = false;
         }
 
+        if (stageFlowCommandWriterCreated)
+        {
+            stageFlowCommandWriter.Dispose();
+            stageFlowCommandWriterCreated = false;
+        }
+
         if (gameEventWriterCreated)
         {
             gameEventWriter.Dispose();
@@ -231,6 +261,7 @@ public class Server_GamePlayRunner : MonoBehaviour
     {
         if (runMode == ServerGamePlayRunMode.LocalSimulation)
         {
+            TickStageStartGate();
             RunLocalSimulationTickLoop();
             return;
         }
@@ -240,6 +271,7 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (!CanRunServerLoop())
             return;
 
+        TickStageStartGate();
         RunServerTickLoop();
     }
 
@@ -258,6 +290,8 @@ public class Server_GamePlayRunner : MonoBehaviour
         if (!CanUseServerState())
             return;
 
+        stageReadyClientIds.Remove(clientId);
+        stageIntroReadyClientIds.Remove(clientId);
         gamePlay.RemovePlayer(clientId);
         SendSnapshotToAllClients();
         SendGameStateToAllClients(isFullSync: true);
@@ -287,6 +321,8 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientJoinProfile, OnClientJoinProfileReceived);
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientStageSyncRequest, OnClientStageSyncRequestReceived);
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientStageReady, OnClientStageReadyReceived);
+        NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientStageIntroReady, OnClientStageIntroReadyReceived);
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientInput, OnClientInputReceived);
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(GameNetMessages.ClientResultChoice, OnClientResultChoiceReceived);
         NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
@@ -311,6 +347,10 @@ public class Server_GamePlayRunner : MonoBehaviour
         NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientJoinProfile);
 
         NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientStageSyncRequest);
+
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientStageReady);
+
+        NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientStageIntroReady);
 
         NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(GameNetMessages.ClientInput);
 
@@ -361,6 +401,50 @@ public class Server_GamePlayRunner : MonoBehaviour
         SendGameStateToClient(senderClientId, isFullSync: true);
         SendRosterToClient(senderClientId);
         SendGameEventsToAllClients();
+        SendStageFlowCommandToClientIfNeeded(senderClientId);
+    }
+
+    private void OnClientStageReadyReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (!ClientStageReadyPacket.TryRead(ref reader, out _))
+            return;
+
+        MarkStageReady(senderClientId);
+    }
+
+    public void MarkStageReady(ulong clientId)
+    {
+        if (gamePlay == null || !gamePlay.Players.ContainsKey(clientId))
+        {
+            return;
+        }
+
+        stageReadyClientIds.Add(clientId);
+        SendStageFlowCommandToClientIfNeeded(clientId);
+    }
+
+    private void OnClientStageIntroReadyReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseServerState())
+            return;
+
+        if (!ClientStageIntroReadyPacket.TryRead(ref reader, out _))
+            return;
+
+        MarkStageIntroReady(senderClientId);
+    }
+
+    public void MarkStageIntroReady(ulong clientId)
+    {
+        if (gamePlay == null || !gamePlay.Players.ContainsKey(clientId))
+        {
+            return;
+        }
+
+        stageIntroReadyClientIds.Add(clientId);
     }
 
     private void OnClientResultChoiceReceived(ulong senderClientId, FastBufferReader reader)
@@ -434,6 +518,151 @@ public class Server_GamePlayRunner : MonoBehaviour
 
         gamePlay.ChooseItemCandidate(senderClientId, packet.requestId, packet.selectedId);
         SendItemSelectionMessages();
+    }
+
+    private void TickStageStartGate()
+    {
+        if (gamePlay == null || gamePlay.IsGameStarted || gamePlay.IsGameEnded || gamePlay.Players.Count <= 0)
+        {
+            return;
+        }
+
+        switch (stageFlowState)
+        {
+            case ServerStageFlowState.WaitingForStageReady:
+                TickStageReadyGate();
+                break;
+            case ServerStageFlowState.WaitingForIntroReady:
+                TickIntroReadyGate();
+                break;
+            case ServerStageFlowState.Countdown:
+                TickCountdown();
+                break;
+        }
+    }
+
+    private void TickStageReadyGate()
+    {
+        float now = Time.realtimeSinceStartup;
+        if (stageReadyGateStartedAt <= 0f)
+        {
+            stageReadyGateStartedAt = now;
+        }
+
+        float gateElapsed = now - stageReadyGateStartedAt;
+        bool isTimeout = gateElapsed >= Mathf.Max(0f, stageReadyTimeoutSeconds);
+        if (!isTimeout && !AreAllStagePlayersReady())
+        {
+            return;
+        }
+
+        BeginStageIntroFlow();
+    }
+
+    private bool AreAllStagePlayersReady()
+    {
+        foreach (ulong clientId in gamePlay.Players.Keys)
+        {
+            if (!stageReadyClientIds.Contains(clientId))
+            {
+                return false;
+            }
+        }
+
+        return gamePlay.Players.Count > 0;
+    }
+
+    private void BeginStageIntroFlow()
+    {
+        stageFlowState = ServerStageFlowState.WaitingForIntroReady;
+        introReadyGateStartedAt = Time.realtimeSinceStartup;
+        SendStageFlowCommandToAllClients(StageFlowCommandType.IntroStart);
+    }
+
+    private void TickIntroReadyGate()
+    {
+        float gateElapsed = Time.realtimeSinceStartup - introReadyGateStartedAt;
+        bool isTimeout = gateElapsed >= Mathf.Max(0f, introReadyTimeoutSeconds);
+        if (!isTimeout && !AreAllStagePlayersIntroReady())
+        {
+            return;
+        }
+
+        BeginCountdownFlow();
+    }
+
+    private bool AreAllStagePlayersIntroReady()
+    {
+        foreach (ulong clientId in gamePlay.Players.Keys)
+        {
+            if (!stageIntroReadyClientIds.Contains(clientId))
+            {
+                return false;
+            }
+        }
+
+        return gamePlay.Players.Count > 0;
+    }
+
+    private void BeginCountdownFlow()
+    {
+        if (gamePlay == null || !gamePlay.BeginCountdown())
+        {
+            return;
+        }
+
+        stageFlowState = ServerStageFlowState.Countdown;
+        countdownStartedAt = Time.realtimeSinceStartup;
+        SendStageFlowCommandToAllClients(StageFlowCommandType.CountdownStart);
+    }
+
+    private void TickCountdown()
+    {
+        float elapsed = Time.realtimeSinceStartup - countdownStartedAt;
+        if (elapsed < Mathf.Max(0f, countdownSeconds))
+        {
+            return;
+        }
+
+        StartGameFromStageGate();
+    }
+
+    private void StartGameFromStageGate()
+    {
+        if (gamePlay == null || gamePlay.IsGameStarted || gamePlay.Players.Count <= 0)
+        {
+            return;
+        }
+
+        ulong starterClientId = ResolveStageStarterClientId();
+        if (!gamePlay.StartGame(starterClientId))
+        {
+            return;
+        }
+
+        stageFlowState = ServerStageFlowState.Playing;
+        SendStageFlowCommandToAllClients(StageFlowCommandType.GameStart);
+        SendGameEventsToAllClients();
+        SendSnapshotToAllClients();
+        SendGameStateToAllClients(isFullSync: true);
+    }
+
+    private ulong ResolveStageStarterClientId()
+    {
+        foreach (ulong clientId in stageReadyClientIds)
+        {
+            if (gamePlay.Players.ContainsKey(clientId))
+            {
+                return clientId;
+            }
+        }
+
+        foreach (ulong clientId in gamePlay.Players.Keys)
+        {
+            return clientId;
+        }
+
+        return 0;
     }
 
     // - Role: Process server ticks and send updates.
@@ -901,6 +1130,116 @@ public class Server_GamePlayRunner : MonoBehaviour
         }
     }
 
+    private void SendStageFlowCommandToAllClients(StageFlowCommandType commandType)
+    {
+        ServerStageFlowCommandPacket packet = CreateStageFlowCommandPacket(commandType);
+
+        if (hasLocalDirectClient)
+        {
+            LocalStageFlowCommandReady?.Invoke(packet);
+        }
+
+        if (!CanUseServerState()
+            || NetworkManager.Singleton.CustomMessagingManager == null
+            || !stageFlowCommandWriterCreated)
+        {
+            return;
+        }
+
+        stageFlowCommandWriter.Truncate(0);
+        packet.Write(ref stageFlowCommandWriter);
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                GameNetMessages.ServerStageFlowCommand,
+                client.ClientId,
+                stageFlowCommandWriter,
+                NetworkDelivery.ReliableSequenced);
+        }
+    }
+
+    private void SendStageFlowCommandToClientIfNeeded(ulong clientId)
+    {
+        if (gamePlay == null)
+        {
+            return;
+        }
+
+        StageFlowCommandType commandType = ResolveCurrentStageFlowCommandType();
+        if (commandType == StageFlowCommandType.None)
+        {
+            return;
+        }
+
+        ServerStageFlowCommandPacket packet = CreateStageFlowCommandPacket(commandType);
+        if (IsLocalDirectClient(clientId))
+        {
+            LocalStageFlowCommandReady?.Invoke(packet);
+            return;
+        }
+
+        if (!CanUseServerState()
+            || NetworkManager.Singleton.CustomMessagingManager == null
+            || !stageFlowCommandWriterCreated
+            || !IsClientConnected(clientId))
+        {
+            return;
+        }
+
+        stageFlowCommandWriter.Truncate(0);
+        packet.Write(ref stageFlowCommandWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ServerStageFlowCommand,
+            clientId,
+            stageFlowCommandWriter,
+            NetworkDelivery.ReliableSequenced);
+    }
+
+    private StageFlowCommandType ResolveCurrentStageFlowCommandType()
+    {
+        if (gamePlay.IsGameStarted)
+        {
+            return StageFlowCommandType.GameStart;
+        }
+
+        return stageFlowState switch
+        {
+            ServerStageFlowState.WaitingForIntroReady => StageFlowCommandType.IntroStart,
+            ServerStageFlowState.Countdown => StageFlowCommandType.CountdownStart,
+            ServerStageFlowState.Playing => StageFlowCommandType.GameStart,
+            _ => StageFlowCommandType.None
+        };
+    }
+
+    private ServerStageFlowCommandPacket CreateStageFlowCommandPacket(StageFlowCommandType commandType)
+    {
+        float serverTime = NetworkManager.Singleton != null
+            ? (float)NetworkManager.Singleton.ServerTime.Time
+            : gamePlay.Tick / GameNetProtocol.ServerTickRate;
+
+        return new ServerStageFlowCommandPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion,
+            commandType = commandType,
+            serverTick = gamePlay.Tick,
+            serverTime = serverTime,
+            elapsedSeconds = ResolveStageFlowElapsedSeconds(commandType),
+            countdownSeconds = Mathf.Max(0f, countdownSeconds),
+            isGameStarted = gamePlay.IsGameStarted
+        };
+    }
+
+    private float ResolveStageFlowElapsedSeconds(StageFlowCommandType commandType)
+    {
+        float now = Time.realtimeSinceStartup;
+        return commandType switch
+        {
+            StageFlowCommandType.IntroStart => Mathf.Max(0f, now - introReadyGateStartedAt),
+            StageFlowCommandType.CountdownStart => Mathf.Max(0f, now - countdownStartedAt),
+            _ => 0f
+        };
+    }
+
     // - Role: Send game events to all clients.
     private void SendGameEventsToAllClients()
     {
@@ -1044,6 +1383,9 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Check if run server loop can happen.
     private bool CanRunServerLoop()
     {
+        if (gamePlay == null)
+            return false;
+
         if (NetworkManager.Singleton == null)
             return false;
 
@@ -1059,6 +1401,9 @@ public class Server_GamePlayRunner : MonoBehaviour
     // - Role: Check if use server state can happen.
     private bool CanUseServerState()
     {
+        if (gamePlay == null)
+            return false;
+
         if (NetworkManager.Singleton == null)
             return false;
 
@@ -1096,19 +1441,32 @@ public class Server_GamePlayRunner : MonoBehaviour
         return IsLocalDirectClient(clientId) || clientId == resultAuthorityClientId;
     }
 
-    private int GetInitialMaxActiveItemCount()
-    {
-        if (IsMatchingGameModeConfig(gameModeConfig))
-        {
-            return gameModeConfig.MaxActiveItems;
-        }
-
-        return GameNetProtocol.MaxItems;
-    }
-
     private bool IsMatchingGameModeConfig(GameModeConfig modeConfig)
     {
         return modeConfig != null && modeConfig.ModeType == gameModeType;
+    }
+
+    private bool CanCreateGamePlay()
+    {
+        return stageDefinition != null
+            && characterCatalog != null
+            && skillCatalog != null
+            && itemEffectCatalog != null
+            && gameModeConfig != null
+            && gameModeConfig.ModeType == gameModeType;
+    }
+
+    private bool TryRecreateGamePlay()
+    {
+        if (!CanCreateGamePlay())
+        {
+            gamePlay = null;
+            ResetStageFlowState();
+            return false;
+        }
+
+        RecreateGamePlay();
+        return true;
     }
 
     private void RecreateGamePlay()
@@ -1118,11 +1476,21 @@ public class Server_GamePlayRunner : MonoBehaviour
             characterCatalog,
             skillCatalog,
             itemEffectCatalog,
-            GetInitialMaxActiveItemCount(),
             itemSelectionTimeoutSeconds,
             gameModeType,
             gameModeConfig);
+        ResetStageFlowState();
+    }
+
+    private void ResetStageFlowState()
+    {
         hasSentGameEnd = false;
         hasSentResultCommand = false;
+        stageReadyClientIds.Clear();
+        stageIntroReadyClientIds.Clear();
+        stageFlowState = ServerStageFlowState.WaitingForStageReady;
+        stageReadyGateStartedAt = 0f;
+        introReadyGateStartedAt = 0f;
+        countdownStartedAt = 0f;
     }
 }

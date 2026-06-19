@@ -74,6 +74,112 @@ public struct ClientStageSyncRequestPacket
     }
 }
 
+public struct ClientStageReadyPacket
+{
+    public ushort protocolVersion;
+
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+    }
+
+    public static bool TryRead(ref FastBufferReader reader, out ClientStageReadyPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new ClientStageReadyPacket
+        {
+            protocolVersion = protocolVersion
+        };
+        return true;
+    }
+}
+
+public struct ClientStageIntroReadyPacket
+{
+    public ushort protocolVersion;
+
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+    }
+
+    public static bool TryRead(ref FastBufferReader reader, out ClientStageIntroReadyPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new ClientStageIntroReadyPacket
+        {
+            protocolVersion = protocolVersion
+        };
+        return true;
+    }
+}
+
+public struct ServerStageFlowCommandPacket
+{
+    public ushort protocolVersion;
+    public StageFlowCommandType commandType;
+    public uint serverTick;
+    public float serverTime;
+    public float elapsedSeconds;
+    public float countdownSeconds;
+    public bool isGameStarted;
+
+    public void Write(ref FastBufferWriter writer)
+    {
+        writer.WriteValueSafe(protocolVersion);
+        writer.WriteValueSafe((byte)commandType);
+        writer.WriteValueSafe(serverTick);
+        writer.WriteValueSafe(serverTime);
+        writer.WriteValueSafe(elapsedSeconds);
+        writer.WriteValueSafe(countdownSeconds);
+        writer.WriteValueSafe((byte)(isGameStarted ? 1 : 0));
+    }
+
+    public static bool TryRead(ref FastBufferReader reader, out ServerStageFlowCommandPacket packet)
+    {
+        packet = default;
+
+        reader.ReadValueSafe(out ushort protocolVersion);
+        reader.ReadValueSafe(out byte commandType);
+        reader.ReadValueSafe(out uint serverTick);
+        reader.ReadValueSafe(out float serverTime);
+        reader.ReadValueSafe(out float elapsedSeconds);
+        reader.ReadValueSafe(out float countdownSeconds);
+        reader.ReadValueSafe(out byte isGameStarted);
+
+        if (protocolVersion != GameNetProtocol.ProtocolVersion)
+        {
+            return false;
+        }
+
+        packet = new ServerStageFlowCommandPacket
+        {
+            protocolVersion = protocolVersion,
+            commandType = (StageFlowCommandType)commandType,
+            serverTick = serverTick,
+            serverTime = serverTime,
+            elapsedSeconds = elapsedSeconds,
+            countdownSeconds = countdownSeconds,
+            isGameStarted = isGameStarted != 0
+        };
+        return true;
+    }
+}
+
 public struct RosterEntryPacket
 {
     public ulong clientId;

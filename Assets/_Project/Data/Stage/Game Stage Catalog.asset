@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fa888939713ac1b45846d78a092e22cb, type: 3}
-  m_Name: New Game Stage Catalog
+  m_Name: Game Stage Catalog
   m_EditorClassIdentifier: Assembly-CSharp::GameStageCatalog
   entries:
   - isRandom: 1
@@ -19,9 +19,9 @@ MonoBehaviour:
     stageDefinition: {fileID: 0}
   - isRandom: 0
     thumbnail: {fileID: -1042382002, guid: 5fe5454ec8605de43809133b020d1b69, type: 3}
-    displayName: T
+    displayName: Forest
     stageDefinition: {fileID: 11400000, guid: d0db464f5d65150499205afc5dd5514a, type: 2}
   - isRandom: 0
     thumbnail: {fileID: -1306090582, guid: 5fe5454ec8605de43809133b020d1b69, type: 3}
-    displayName: X
+    displayName: Default
     stageDefinition: {fileID: 11400000, guid: e280c1ed45f119242908d58f59ccdb55, type: 2}

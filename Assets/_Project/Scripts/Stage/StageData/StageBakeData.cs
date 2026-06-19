@@ -11,6 +11,7 @@ public sealed class StageBakeData : ScriptableObject
     [SerializeField] private StageTileCellData[] cells = new StageTileCellData[0];
     [SerializeField] private StageColliderData[] colliders = new StageColliderData[0];
     [SerializeField] private StageSpatialBucketData[] spatialBuckets = new StageSpatialBucketData[0];
+    [SerializeField] private StageSpawnPoint[] spawnPoints = new StageSpawnPoint[0];
 
     public string StageId => stageId;
     public Vector2Int StageOffsetPosition => stageOffsetPosition;
@@ -20,6 +21,7 @@ public sealed class StageBakeData : ScriptableObject
     public StageTileCellData[] Cells => cells;
     public StageColliderData[] Colliders => colliders;
     public StageSpatialBucketData[] SpatialBuckets => spatialBuckets;
+    public StageSpawnPoint[] SpawnPoints => spawnPoints;
 
     // - Role: Set bake result.
     public void SetBakeResult(
@@ -30,7 +32,8 @@ public sealed class StageBakeData : ScriptableObject
         StageBoundsData newBounds,
         StageTileCellData[] newCells,
         StageColliderData[] newColliders,
-        StageSpatialBucketData[] newSpatialBuckets)
+        StageSpatialBucketData[] newSpatialBuckets,
+        StageSpawnPoint[] newSpawnPoints)
     {
         stageId = string.IsNullOrWhiteSpace(newStageId) ? name : newStageId;
         stageOffsetPosition = newStageOffsetPosition;
@@ -40,5 +43,6 @@ public sealed class StageBakeData : ScriptableObject
         cells = newCells ?? new StageTileCellData[0];
         colliders = newColliders ?? new StageColliderData[0];
         spatialBuckets = newSpatialBuckets ?? new StageSpatialBucketData[0];
+        spawnPoints = newSpawnPoints ?? new StageSpawnPoint[0];
     }
 }

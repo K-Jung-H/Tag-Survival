@@ -68,9 +68,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
     private FastBufferWriter itemSelectionChoiceWriter;
     private FastBufferWriter stageSyncRequestWriter;
+    private FastBufferWriter stageReadyWriter;
+    private FastBufferWriter stageIntroReadyWriter;
     private FastBufferWriter resultChoiceWriter;
     private bool itemSelectionChoiceWriterCreated;
     private bool stageSyncRequestWriterCreated;
+    private bool stageReadyWriterCreated;
+    private bool stageIntroReadyWriterCreated;
     private bool resultChoiceWriterCreated;
     private bool areHandlersRegistered;
     private uint delayedMessageSessionId;
@@ -88,9 +92,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
         itemSelectionChoiceWriter = new FastBufferWriter(GameNetProtocol.ItemSelectionPacketBufferSize, Allocator.Persistent);
         stageSyncRequestWriter = new FastBufferWriter(GameNetProtocol.ClientStageSyncRequestPacketBufferSize, Allocator.Persistent);
+        stageReadyWriter = new FastBufferWriter(GameNetProtocol.ClientStageReadyPacketBufferSize, Allocator.Persistent);
+        stageIntroReadyWriter = new FastBufferWriter(GameNetProtocol.ClientStageIntroReadyPacketBufferSize, Allocator.Persistent);
         resultChoiceWriter = new FastBufferWriter(GameNetProtocol.ResultChoicePacketBufferSize, Allocator.Persistent);
         itemSelectionChoiceWriterCreated = true;
         stageSyncRequestWriterCreated = true;
+        stageReadyWriterCreated = true;
+        stageIntroReadyWriterCreated = true;
         resultChoiceWriterCreated = true;
     }
 
@@ -100,6 +108,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         {
             syncManager.ItemSelectionChoiceRequested += OnItemSelectionChoiceRequested;
             syncManager.ResultChoiceRequested += OnResultChoiceRequested;
+            syncManager.StageReadyRequested += OnStageReadyRequested;
+            syncManager.StageIntroReadyRequested += OnStageIntroReadyRequested;
         }
     }
 
@@ -131,6 +141,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         {
             syncManager.ItemSelectionChoiceRequested -= OnItemSelectionChoiceRequested;
             syncManager.ResultChoiceRequested -= OnResultChoiceRequested;
+            syncManager.StageReadyRequested -= OnStageReadyRequested;
+            syncManager.StageIntroReadyRequested -= OnStageIntroReadyRequested;
         }
     }
 
@@ -155,6 +167,18 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         {
             stageSyncRequestWriter.Dispose();
             stageSyncRequestWriterCreated = false;
+        }
+
+        if (stageReadyWriterCreated)
+        {
+            stageReadyWriter.Dispose();
+            stageReadyWriterCreated = false;
+        }
+
+        if (stageIntroReadyWriterCreated)
+        {
+            stageIntroReadyWriter.Dispose();
+            stageIntroReadyWriterCreated = false;
         }
 
         if (resultChoiceWriterCreated)
@@ -211,6 +235,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerResultCommand, OnServerResultCommandReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerGameEvent, OnServerGameEventReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerRoster, OnServerRosterReceived);
+        messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerStageFlowCommand, OnServerStageFlowCommandReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerItemSelectionOffer, OnItemSelectionOfferReceived);
         messagingManager.RegisterNamedMessageHandler(GameNetMessages.ServerItemSelectionResult, OnItemSelectionResultReceived);
         areHandlersRegistered = true;
@@ -234,6 +259,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerResultCommand);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerGameEvent);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerRoster);
+        messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerStageFlowCommand);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerItemSelectionOffer);
         messagingManager.UnregisterNamedMessageHandler(GameNetMessages.ServerItemSelectionResult);
         areHandlersRegistered = false;
@@ -385,6 +411,19 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         }
     }
 
+    private void OnServerStageFlowCommandReceived(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!CanUseOnlineClientMessages())
+        {
+            return;
+        }
+
+        if (ServerStageFlowCommandPacket.TryRead(ref reader, out ServerStageFlowCommandPacket packet))
+        {
+            syncManager.ApplyStageFlowCommand(packet);
+        }
+    }
+
     private void OnItemSelectionOfferReceived(ulong senderClientId, FastBufferReader reader)
     {
         if (!CanUseOnlineClientMessages())
@@ -479,6 +518,48 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             GameNetMessages.ClientResultChoice,
             NetworkManager.ServerClientId,
             resultChoiceWriter,
+            NetworkDelivery.ReliableSequenced);
+    }
+
+    private void OnStageReadyRequested()
+    {
+        if (!CanUseOnlineClientMessages() || !stageReadyWriterCreated)
+        {
+            return;
+        }
+
+        ClientStageReadyPacket packet = new ClientStageReadyPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion
+        };
+
+        stageReadyWriter.Truncate(0);
+        packet.Write(ref stageReadyWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ClientStageReady,
+            NetworkManager.ServerClientId,
+            stageReadyWriter,
+            NetworkDelivery.ReliableSequenced);
+    }
+
+    private void OnStageIntroReadyRequested()
+    {
+        if (!CanUseOnlineClientMessages() || !stageIntroReadyWriterCreated)
+        {
+            return;
+        }
+
+        ClientStageIntroReadyPacket packet = new ClientStageIntroReadyPacket
+        {
+            protocolVersion = GameNetProtocol.ProtocolVersion
+        };
+
+        stageIntroReadyWriter.Truncate(0);
+        packet.Write(ref stageIntroReadyWriter);
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+            GameNetMessages.ClientStageIntroReady,
+            NetworkManager.ServerClientId,
+            stageIntroReadyWriter,
             NetworkDelivery.ReliableSequenced);
     }
 

@@ -24,7 +24,6 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Set up slot links.
     private void Awake()
     {
-        ResolveLinks();
         ResetAlpha();
     }
 
@@ -49,7 +48,6 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Set item data.
     public void SetData(ItemData itemData, UnityAction onClick)
     {
-        ResolveLinks();
         hasData = true;
         ResetAlpha();
 
@@ -60,7 +58,7 @@ public sealed class ItemSelectionSlot : MonoBehaviour
 
         if (titleText != null)
         {
-            titleText.text = string.IsNullOrWhiteSpace(itemData.title) ? FormatFallbackTitle(itemData) : itemData.title;
+            titleText.text = itemData.title;
         }
 
         if (descriptionText != null)
@@ -79,7 +77,6 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Clear slot data.
     public void SetMissing()
     {
-        ResolveLinks();
         hasData = false;
         ResetAlpha();
 
@@ -119,7 +116,6 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Reset alpha state.
     public void ResetAlpha()
     {
-        ResolveLinks();
         targetAlpha = selectedAlpha;
         isFadingAlpha = false;
         if (canvasGroup != null)
@@ -131,7 +127,6 @@ public sealed class ItemSelectionSlot : MonoBehaviour
     // - Role: Play selected alpha effect.
     public void PlaySelectionEffect(bool selected)
     {
-        ResolveLinks();
         if (selected)
         {
             targetAlpha = selectedAlpha;
@@ -146,55 +141,6 @@ public sealed class ItemSelectionSlot : MonoBehaviour
 
         targetAlpha = unselectedAlpha;
         isFadingAlpha = canvasGroup != null;
-    }
-
-    // - Role: Resolve child links.
-    private void ResolveLinks()
-    {
-        if (canvasGroup == null)
-        {
-            canvasGroup = GetComponent<CanvasGroup>();
-        }
-
-        if (button == null)
-        {
-            button = GetComponent<Button>();
-        }
-
-        if (button == null)
-        {
-            button = GetComponentInChildren<Button>(true);
-        }
-
-        if (iconImage == null && button != null)
-        {
-            Image[] images = button.GetComponentsInChildren<Image>(true);
-            for (int i = 0; i < images.Length; i++)
-            {
-                if (images[i] != button.targetGraphic)
-                {
-                    iconImage = images[i];
-                    break;
-                }
-            }
-        }
-
-        TextMeshProUGUI[] texts = GetComponentsInChildren<TextMeshProUGUI>(true);
-        if (titleText == null && texts.Length > 0)
-        {
-            titleText = texts[0];
-        }
-
-        if (descriptionText == null && texts.Length > 1)
-        {
-            descriptionText = texts[1];
-        }
-    }
-
-    // - Role: Format fallback title.
-    private static string FormatFallbackTitle(ItemData itemData)
-    {
-        return itemData.GetFallbackEffectLabel();
     }
 
     // - Role: Apply item icon.

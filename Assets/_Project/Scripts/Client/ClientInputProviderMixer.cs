@@ -8,7 +8,7 @@ public static class ClientInputProviderMixer
     public static ClientInputState Mix(IReadOnlyList<InputProvider_Client_Base> providers)
     {
         ClientInputState mixed = ClientInputState.Empty();
-        Vector2 fallbackAim = Vector2.zero;
+        Vector2 retainedAim = Vector2.zero;
 
         if (providers == null)
         {
@@ -31,9 +31,9 @@ public static class ClientInputProviderMixer
                 mixed.move = input.move;
             }
 
-            if (fallbackAim.sqrMagnitude <= AimEpsilonSqr && input.aim.sqrMagnitude > AimEpsilonSqr)
+            if (retainedAim.sqrMagnitude <= AimEpsilonSqr && input.aim.sqrMagnitude > AimEpsilonSqr)
             {
-                fallbackAim = input.aim;
+                retainedAim = input.aim;
             }
 
             if (IsAimInputActive(buttons) && input.aim.sqrMagnitude > AimEpsilonSqr)
@@ -47,7 +47,7 @@ public static class ClientInputProviderMixer
         mixed.move = Vector2.ClampMagnitude(mixed.move, 1f);
         if (mixed.aim.sqrMagnitude <= AimEpsilonSqr)
         {
-            mixed.aim = fallbackAim;
+            mixed.aim = retainedAim;
         }
 
         if (mixed.aim.sqrMagnitude > 1f)

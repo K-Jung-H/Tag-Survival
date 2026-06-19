@@ -11,6 +11,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     [SerializeField] private SpriteRenderer skillIndicator;
     [SerializeField] private Client_CharacterAudioView audioView;
     [SerializeField] private Transform nameplateAnchor;
+    [SerializeField] private Renderer[] renderVisibilityTargets;
     [SerializeField] private Vector2 playerSize = new Vector2(0.8f, 0.8f);
     [SerializeField] private float aimLineLength = 1.8f;
     [SerializeField] private float aimLineWidth = 0.05f;
@@ -27,10 +28,17 @@ public sealed class Client_CharacterView : MonoBehaviour
     private bool hasMissingClipWarning;
     private Color defaultBodyColor = Color.white;
     private RuntimeAnimatorController currentAnimatorController;
+    private float overrideAnimationUntil;
 
     public ICharacterStateMachine StateMachine => stateMachine;
     public CharacterAnimationData AnimationData => animationData;
     public Transform NameplateAnchor => nameplateAnchor != null ? nameplateAnchor : transform;
+
+    // - Role: Bind scene-level audio listener transform.
+    public void BindAudioListener(Transform listenerTransform)
+    {
+        audioView?.BindAudioListener(listenerTransform);
+    }
 
     // - Role: Play supplied feedback data on this character.
     public bool PlayFeedback(GameFeedbackData data)
@@ -44,44 +52,39 @@ public sealed class Client_CharacterView : MonoBehaviour
         return true;
     }
 
-    // - Role: Set up needed links before start.
-    private void Awake()
+    // - Role: Set character renderers visible without changing server logic state.
+    public void SetRenderVisible(bool visible)
     {
-        ResolveNameplateAnchor();
-    }
-
-    // - Role: Check editor values after they change.
-    private void OnValidate()
-    {
-        if (animator == null)
+        if (renderVisibilityTargets != null && renderVisibilityTargets.Length > 0)
         {
-            animator = GetComponentInChildren<Animator>(true);
-        }
-
-        if (body == null)
-        {
-            body = GetComponent<SpriteRenderer>();
-        }
-
-        if (audioView == null)
-        {
-            audioView = GetComponent<Client_CharacterAudioView>();
-        }
-
-        ResolveNameplateAnchor();
-    }
-
-    // - Role: Find nameplate anchor.
-    private void ResolveNameplateAnchor()
-    {
-        if (nameplateAnchor == null)
-        {
-            Transform foundAnchor = transform.Find("NameplateAnchor");
-            if (foundAnchor != null)
+            for (int i = 0; i < renderVisibilityTargets.Length; i++)
             {
-                nameplateAnchor = foundAnchor;
+                if (renderVisibilityTargets[i] != null)
+                {
+                    renderVisibilityTargets[i].enabled = visible;
+                }
             }
+
+            return;
         }
+
+        if (body != null)
+        {
+            body.enabled = visible;
+        }
+    }
+
+    // - Role: Play spawn animation and return its expected duration.
+    public float PlaySpawnAnimation()
+    {
+        AnimationClip clip = animationData != null ? animationData.BlinkExitClip : null;
+        if (clip == null)
+        {
+            Debug.LogError("[Client_CharacterView] BlinkExitClip is required for spawn animation.", this);
+            return 0f;
+        }
+
+        return PlayOneShotLocomotionClip(LocomotionState.BlinkExit, clip);
     }
 
     // - Role: Set the first state.
@@ -148,7 +151,11 @@ public sealed class Client_CharacterView : MonoBehaviour
         UpdateFacing(stateMachine.State);
         UpdateAimLine(snapshotState.aim, snapshotState.buttons);
         UpdateSkillIndicator();
-        PlayLocomotionClip(stateMachine.State.locomotionState);
+        if (Time.time >= overrideAnimationUntil)
+        {
+            PlayLocomotionClip(stateMachine.State.locomotionState, forceRestart: false);
+        }
+
         audioView?.ApplySnapshot(snapshotState);
     }
 
@@ -274,7 +281,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     }
 
     // - Role: Play locomotion clip.
-    private void PlayLocomotionClip(LocomotionState locomotionState)
+    private void PlayLocomotionClip(LocomotionState locomotionState, bool forceRestart)
     {
         if (animator == null || animationData == null)
         {
@@ -287,7 +294,7 @@ public sealed class Client_CharacterView : MonoBehaviour
             return;
         }
 
-        if (hasCurrentClipState && currentClipState == locomotionState)
+        if (!forceRestart && hasCurrentClipState && currentClipState == locomotionState)
         {
             return;
         }
@@ -329,6 +336,17 @@ public sealed class Client_CharacterView : MonoBehaviour
         {
             animationGraph.Play();
         }
+    }
+
+    private float PlayOneShotLocomotionClip(
+        LocomotionState locomotionState,
+        AnimationClip clip)
+    {
+        PlayLocomotionClip(locomotionState, forceRestart: true);
+        float duration = clip != null ? clip.length : 0f;
+        duration = Mathf.Max(0f, duration);
+        overrideAnimationUntil = Mathf.Max(overrideAnimationUntil, Time.time + duration);
+        return duration;
     }
 
     // - Role: Try to play animator state.

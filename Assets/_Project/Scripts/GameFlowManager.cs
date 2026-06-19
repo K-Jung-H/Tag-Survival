@@ -154,6 +154,7 @@ public sealed class GameFlowManager : MonoBehaviour
             await Task.Yield();
         }
 
+        AudioManager.Instance?.PlaySceneBgm(sceneName);
         isTransitioning = false;
         return true;
     }
@@ -472,6 +473,7 @@ public sealed class GameFlowManager : MonoBehaviour
             await Task.Yield();
         }
 
+        AudioManager.Instance?.PlaySceneBgm(sceneName);
         return SceneManager.GetSceneByName(sceneName);
     }
 

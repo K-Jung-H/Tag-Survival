@@ -484,6 +484,7 @@ GameObject:
   - component: {fileID: 181655771}
   - component: {fileID: 181655770}
   - component: {fileID: 181655769}
+  - component: {fileID: 181655772}
   m_Layer: 5
   m_Name: Button Right
   m_TagString: Untagged
@@ -605,6 +606,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 181655767}
   m_CullTransparentMesh: 1
+--- !u!114 &181655772
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 181655767}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 181655769}
+  overrideClickClip: {fileID: 0}
+  requireInteractable: 1
 --- !u!1 &195465005
 GameObject:
   m_ObjectHideFlags: 0
@@ -1008,6 +1024,7 @@ GameObject:
   - component: {fileID: 334186383}
   - component: {fileID: 334186382}
   - component: {fileID: 334186384}
+  - component: {fileID: 334186385}
   m_Layer: 5
   m_Name: Panel Player Select Ready
   m_TagString: Untagged
@@ -1129,6 +1146,21 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &334186385
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 334186380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 334186384}
+  overrideClickClip: {fileID: 0}
+  requireInteractable: 1
 --- !u!1 &395845474
 GameObject:
   m_ObjectHideFlags: 0
@@ -1141,6 +1173,7 @@ GameObject:
   - component: {fileID: 395845478}
   - component: {fileID: 395845477}
   - component: {fileID: 395845476}
+  - component: {fileID: 395845479}
   m_Layer: 5
   m_Name: Button Right
   m_TagString: Untagged
@@ -1262,6 +1295,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 395845474}
   m_CullTransparentMesh: 1
+--- !u!114 &395845479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 395845474}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 395845476}
+  overrideClickClip: {fileID: 8300000, guid: 0816e9fa1e512f9408a4321a13ce7acc, type: 3}
+  requireInteractable: 1
 --- !u!1001 &429021489
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1898,6 +1946,7 @@ GameObject:
   - component: {fileID: 692778333}
   - component: {fileID: 692778332}
   - component: {fileID: 692778331}
+  - component: {fileID: 692778334}
   m_Layer: 5
   m_Name: Button Left
   m_TagString: Untagged
@@ -2019,6 +2068,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 692778329}
   m_CullTransparentMesh: 1
+--- !u!114 &692778334
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 692778329}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 692778331}
+  overrideClickClip: {fileID: 0}
+  requireInteractable: 1
 --- !u!1 &743600904
 GameObject:
   m_ObjectHideFlags: 0
@@ -2357,6 +2421,7 @@ GameObject:
   - component: {fileID: 886268048}
   - component: {fileID: 886268047}
   - component: {fileID: 886268046}
+  - component: {fileID: 886268049}
   m_Layer: 5
   m_Name: Button Right
   m_TagString: Untagged
@@ -2478,6 +2543,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 886268044}
   m_CullTransparentMesh: 1
+--- !u!114 &886268049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 886268044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 886268046}
+  overrideClickClip: {fileID: 8300000, guid: 0816e9fa1e512f9408a4321a13ce7acc, type: 3}
+  requireInteractable: 1
 --- !u!1 &920720100
 GameObject:
   m_ObjectHideFlags: 0
@@ -2995,6 +3075,7 @@ GameObject:
   - component: {fileID: 1079827928}
   - component: {fileID: 1079827927}
   - component: {fileID: 1079827926}
+  - component: {fileID: 1079827929}
   m_Layer: 5
   m_Name: Button Left
   m_TagString: Untagged
@@ -3116,6 +3197,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1079827924}
   m_CullTransparentMesh: 1
+--- !u!114 &1079827929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1079827924}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 1079827926}
+  overrideClickClip: {fileID: 8300000, guid: 0816e9fa1e512f9408a4321a13ce7acc, type: 3}
+  requireInteractable: 1
 --- !u!1 &1103307017
 GameObject:
   m_ObjectHideFlags: 0
@@ -3204,6 +3300,7 @@ GameObject:
   - component: {fileID: 1122401613}
   - component: {fileID: 1122401612}
   - component: {fileID: 1122401611}
+  - component: {fileID: 1122401614}
   m_Layer: 5
   m_Name: Button Left
   m_TagString: Untagged
@@ -3325,6 +3422,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1122401609}
   m_CullTransparentMesh: 1
+--- !u!114 &1122401614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1122401609}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 1122401611}
+  overrideClickClip: {fileID: 8300000, guid: 0816e9fa1e512f9408a4321a13ce7acc, type: 3}
+  requireInteractable: 1
 --- !u!1 &1169047877
 GameObject:
   m_ObjectHideFlags: 0
@@ -4073,6 +4185,7 @@ GameObject:
   - component: {fileID: 1538217162}
   - component: {fileID: 1538217161}
   - component: {fileID: 1538217160}
+  - component: {fileID: 1538217163}
   m_Layer: 5
   m_Name: Button Left
   m_TagString: Untagged
@@ -4194,6 +4307,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1538217158}
   m_CullTransparentMesh: 1
+--- !u!114 &1538217163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1538217158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 1538217160}
+  overrideClickClip: {fileID: 0}
+  requireInteractable: 1
 --- !u!1 &1540037953
 GameObject:
   m_ObjectHideFlags: 0
@@ -4244,8 +4372,6 @@ MonoBehaviour:
   skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
   gameModeCatalog: {fileID: 11400000, guid: dea94d45b7ae91148b5c0ef74df803ed, type: 2}
   gameStageCatalog: {fileID: 11400000, guid: 364a113d98a5a5b458f3d3d5b7c9f00c, type: 2}
-  localPlayerSlotRoot: {fileID: 290965420}
-  remotePlayerSlotRoot: {fileID: 1544565233}
   roomInfo:
     roomCodeText: {fileID: 1628134765}
     stageImage: {fileID: 743600907}
@@ -5411,6 +5537,7 @@ GameObject:
   - component: {fileID: 1939112626}
   - component: {fileID: 1939112625}
   - component: {fileID: 1939112624}
+  - component: {fileID: 1939112627}
   m_Layer: 5
   m_Name: Button Right
   m_TagString: Untagged
@@ -5532,6 +5659,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1939112622}
   m_CullTransparentMesh: 1
+--- !u!114 &1939112627
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1939112622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b31806a5bf84ba09f3b2cc90872d6e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIButtonClickSound
+  selectable: {fileID: 1939112624}
+  overrideClickClip: {fileID: 0}
+  requireInteractable: 1
 --- !u!1 &2001668339
 GameObject:
   m_ObjectHideFlags: 0

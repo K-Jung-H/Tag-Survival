@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66f40ab85fa042f98dbb4e4456c3f4c5, type: 3}
+  m_Name: AudioCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::AudioCatalog
+  defaultButtonClickClip: {fileID: 8300000, guid: 064bfeb60b2297a45aa6cb1be7d6067a, type: 3}
+  sceneBgms:
+  - sceneName: Scene Start
+    bgmClip: {fileID: 8300000, guid: 033766cc31c97904bae4404b8a079544, type: 3}
+    fadeSeconds: 0
+  - sceneName: Scene ModeSelect
+    bgmClip: {fileID: 8300000, guid: 033766cc31c97904bae4404b8a079544, type: 3}
+    fadeSeconds: 0
+  - sceneName: Scene Online
+    bgmClip: {fileID: 8300000, guid: 033766cc31c97904bae4404b8a079544, type: 3}
+    fadeSeconds: 0
+  - sceneName: Scene Room Client
+    bgmClip: {fileID: 8300000, guid: 559c232a43caebe41870ce54786f604e, type: 3}
+    fadeSeconds: 0
+  - sceneName: Scene Stage Client
+    bgmClip: {fileID: 8300000, guid: 51a4f1157b7ff1449b5e5cf064d584c7, type: 3}
+    fadeSeconds: 0

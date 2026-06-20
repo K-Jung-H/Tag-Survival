@@ -48,7 +48,7 @@ public sealed class OnlineMenuController : MonoBehaviour
             return;
         }
 
-        manager.StartConnectMatchmakingServer(GetInputText(connectServerJoinCodeInput));
+        manager.StartConnectMatchmakingServer(GetInputText(connectServerJoinCodeInput), GetInputText(nicknameInput));
     }
 
     private GameFlowManager ResolveGameFlowManager()

@@ -35,6 +35,8 @@ public sealed class NetworkSessionManager : MonoBehaviour
     private bool isInitialized;
     private bool hasInitializationFailed;
     private Task initializeTask;
+    private bool allowIncomingClients;
+    private string incomingClientRejectReason = "Room Not Ready";
 
     public static NetworkSessionManager Instance => instance;
     public NetworkSessionRole Role => role;
@@ -89,7 +91,11 @@ public sealed class NetworkSessionManager : MonoBehaviour
             ApplyHostRelayData(allocation);
 
             networkManager.NetworkConfig.EnableSceneManagement = false;
+            networkManager.NetworkConfig.ConnectionApproval = true;
+            SetIncomingClientApproval(true, string.Empty);
+            RegisterConnectionApproval();
             bool started = networkManager.StartHost();
+            SetIncomingClientApproval(false, "Room Not Ready");
             if (!started)
             {
                 FailStart("StartHost Failed");
@@ -134,6 +140,9 @@ public sealed class NetworkSessionManager : MonoBehaviour
             ApplyHostRelayData(allocation);
 
             networkManager.NetworkConfig.EnableSceneManagement = false;
+            networkManager.NetworkConfig.ConnectionApproval = true;
+            SetIncomingClientApproval(false, "Room Not Ready");
+            RegisterConnectionApproval();
             bool started = networkManager.StartServer();
             if (!started)
             {
@@ -187,6 +196,7 @@ public sealed class NetworkSessionManager : MonoBehaviour
             ApplyClientRelayData(joinAllocation);
 
             networkManager.NetworkConfig.EnableSceneManagement = false;
+            networkManager.NetworkConfig.ConnectionApproval = true;
             bool started = networkManager.StartClient();
             if (!started)
             {
@@ -223,10 +233,20 @@ public sealed class NetworkSessionManager : MonoBehaviour
             networkManager.Shutdown();
         }
 
+        UnregisterConnectionApproval();
+        allowIncomingClients = false;
         role = NetworkSessionRole.None;
         joinCode = string.Empty;
         statusMessage = "Idle";
         isProcessing = false;
+    }
+
+    public void SetIncomingClientApproval(bool isAllowed, string rejectReason)
+    {
+        allowIncomingClients = isAllowed;
+        incomingClientRejectReason = string.IsNullOrWhiteSpace(rejectReason)
+            ? "Room Not Ready"
+            : rejectReason;
     }
 
     private async Task<bool> PrepareToStartAsync(NetworkSessionRole requestedRole)
@@ -354,6 +374,11 @@ public sealed class NetworkSessionManager : MonoBehaviour
                 return true;
             }
 
+            if (!networkManager.IsListening)
+            {
+                return false;
+            }
+
             await Task.Yield();
         }
 
@@ -370,5 +395,40 @@ public sealed class NetworkSessionManager : MonoBehaviour
         }
 
         role = NetworkSessionRole.None;
+    }
+
+    private void RegisterConnectionApproval()
+    {
+        if (networkManager == null)
+        {
+            return;
+        }
+
+        networkManager.ConnectionApprovalCallback -= OnConnectionApprovalRequested;
+        networkManager.ConnectionApprovalCallback += OnConnectionApprovalRequested;
+    }
+
+    private void UnregisterConnectionApproval()
+    {
+        if (networkManager == null)
+        {
+            return;
+        }
+
+        networkManager.ConnectionApprovalCallback -= OnConnectionApprovalRequested;
+    }
+
+    private void OnConnectionApprovalRequested(
+        NetworkManager.ConnectionApprovalRequest request,
+        NetworkManager.ConnectionApprovalResponse response)
+    {
+        bool canApprove = networkManager != null
+            && networkManager.IsServer
+            && allowIncomingClients;
+
+        response.Approved = canApprove;
+        response.CreatePlayerObject = false;
+        response.Pending = false;
+        response.Reason = canApprove ? string.Empty : incomingClientRejectReason;
     }
 }

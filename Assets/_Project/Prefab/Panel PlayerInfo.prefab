@@ -236,7 +236,7 @@ Animator:
   m_GameObject: {fileID: 4211159717346659554}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 8b196b573d40e354694537a32ae69922, type: 2}
+  m_Controller: {fileID: 9100000, guid: 2e72ff92741d9544a96f555cffaea395, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -458,6 +458,7 @@ MonoBehaviour:
   skillIconImage: {fileID: 8649425233002620794}
   readyIconObject: {fileID: 2001876970530554443}
   roomOwnerIconObject: {fileID: 4251129441383502043}
+  emptyRoomIdleClip: {fileID: 7400000, guid: 9859b6679c6c11b4b83edca73c98e46c, type: 2}
 --- !u!1 &8836778119886876509
 GameObject:
   m_ObjectHideFlags: 0

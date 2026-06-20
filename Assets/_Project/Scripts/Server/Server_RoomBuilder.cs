@@ -4,6 +4,7 @@ public sealed class Server_RoomBuilder : MonoBehaviour
 {
     [SerializeField] private Server_RoomManager roomManager;
     [SerializeField] private Server_RoomNetwork roomNetwork;
+    [SerializeField] private DedicatedServerRuntime dedicatedServerRuntime;
 
     public bool IsBuilt { get; private set; }
     public Server_RoomManager RoomManager => roomManager;
@@ -15,9 +16,20 @@ public sealed class Server_RoomBuilder : MonoBehaviour
             return false;
         }
 
+        if (dedicatedServerRuntime == null)
+        {
+            Debug.LogError("[Server_RoomBuilder] DedicatedServerRuntime is not assigned.", this);
+            return false;
+        }
+
+        if (!dedicatedServerRuntime.Build(request, roomManager))
+        {
+            return false;
+        }
+
         roomManager.StartRequested -= OnRoomStartRequested;
         roomManager.StartRequested += OnRoomStartRequested;
-        if (!roomNetwork.Build(roomManager))
+        if (!roomNetwork.Build(roomManager, dedicatedServerRuntime.RoomDirectory))
         {
             return false;
         }
@@ -34,6 +46,7 @@ public sealed class Server_RoomBuilder : MonoBehaviour
             return false;
         }
 
+        dedicatedServerRuntime?.SetDebugHudVisible(false);
         roomManager.RegisterPlayer(0, request.nickname);
         roomManager.StartRequested -= OnRoomStartRequested;
         roomManager.StartRequested += OnRoomStartRequested;

@@ -15,6 +15,7 @@ public sealed class Server_RoomNetwork : MonoBehaviour
     private bool startGameWriterCreated;
     private uint lastSentRoomSeq;
     private bool hasSentStartCommand;
+    private Server_RoomDirectory roomDirectory;
 
     private void Awake()
     {
@@ -52,6 +53,7 @@ public sealed class Server_RoomNetwork : MonoBehaviour
             return;
         }
 
+        UpdateIncomingClientApproval();
         snapshotTimer -= Time.deltaTime;
         if (snapshotTimer > 0f)
         {
@@ -64,7 +66,13 @@ public sealed class Server_RoomNetwork : MonoBehaviour
 
     public bool Build(Server_RoomManager manager)
     {
+        return Build(manager, null);
+    }
+
+    public bool Build(Server_RoomManager manager, Server_RoomDirectory directory)
+    {
         roomManager = manager;
+        roomDirectory = directory;
         if (roomManager == null)
         {
             Debug.LogError("[Server_RoomNetwork] Server_RoomManager is not assigned.", this);
@@ -83,6 +91,7 @@ public sealed class Server_RoomNetwork : MonoBehaviour
         roomManager.StartRequested -= OnRoomStartRequested;
         roomManager.StartRequested += OnRoomStartRequested;
         isBuilt = true;
+        UpdateIncomingClientApproval();
         SendSnapshot(force: true);
         return true;
     }
@@ -134,6 +143,7 @@ public sealed class Server_RoomNetwork : MonoBehaviour
         }
 
         NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        NetworkSessionManager.Instance?.SetIncomingClientApproval(false, "Room Not Ready");
     }
 
     private void OnJoinProfileReceived(ulong senderClientId, FastBufferReader reader)
@@ -143,7 +153,28 @@ public sealed class Server_RoomNetwork : MonoBehaviour
             return;
         }
 
-        roomManager.RegisterPlayer(senderClientId, packet.NicknameText);
+        if (roomDirectory != null)
+        {
+            if (!roomDirectory.TryAssignPlayerToRoom(senderClientId, packet.NicknameText, out string failReason))
+            {
+                Debug.LogWarning($"[Server_RoomNetwork] Room join rejected. clientId={senderClientId}, reason={failReason}", this);
+                NetworkManager.Singleton.DisconnectClient(senderClientId);
+                UpdateIncomingClientApproval();
+                return;
+            }
+        }
+        else
+        {
+            if (!TryRegisterPlayer(senderClientId, packet.NicknameText, out string failReason))
+            {
+                Debug.LogWarning($"[Server_RoomNetwork] Room join rejected. clientId={senderClientId}, reason={failReason}", this);
+                NetworkManager.Singleton.DisconnectClient(senderClientId);
+                UpdateIncomingClientApproval();
+                return;
+            }
+        }
+
+        UpdateIncomingClientApproval();
         SendSnapshot(force: true);
     }
 
@@ -166,6 +197,7 @@ public sealed class Server_RoomNetwork : MonoBehaviour
         }
 
         roomManager.TrySetReady(senderClientId, packet.isReady);
+        UpdateIncomingClientApproval();
         SendSnapshot(force: true);
     }
 
@@ -189,6 +221,7 @@ public sealed class Server_RoomNetwork : MonoBehaviour
         }
 
         roomManager.RemovePlayer(clientId);
+        UpdateIncomingClientApproval();
         SendSnapshot(force: true);
     }
 
@@ -245,8 +278,62 @@ public sealed class Server_RoomNetwork : MonoBehaviour
 
     private void OnRoomStartRequested(RoomSnapshotPacket snapshot)
     {
+        NetworkSessionManager.Instance?.SetIncomingClientApproval(false, "Room Starting");
         SendSnapshot(snapshot);
         SendStartCommand(snapshot);
+    }
+
+    private bool TryRegisterPlayer(ulong clientId, string nickname, out string failReason)
+    {
+        failReason = string.Empty;
+        if (roomManager == null)
+        {
+            failReason = "Room Missing";
+            return false;
+        }
+
+        if (!roomManager.ContainsPlayer(clientId) && roomManager.RoomState != RoomState.Waiting)
+        {
+            failReason = $"Room Not Lobby: {roomManager.RoomState}";
+            return false;
+        }
+
+        if (!roomManager.ContainsPlayer(clientId) && roomManager.PlayerCount >= roomManager.MaxPlayers)
+        {
+            failReason = "Room Full";
+            return false;
+        }
+
+        if (!roomManager.RegisterPlayer(clientId, nickname))
+        {
+            failReason = "Register Failed";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void UpdateIncomingClientApproval()
+    {
+        if (roomManager == null)
+        {
+            NetworkSessionManager.Instance?.SetIncomingClientApproval(false, "Room Missing");
+            return;
+        }
+
+        if (roomManager.RoomState != RoomState.Waiting)
+        {
+            NetworkSessionManager.Instance?.SetIncomingClientApproval(false, $"Room Not Lobby: {roomManager.RoomState}");
+            return;
+        }
+
+        if (roomManager.PlayerCount >= roomManager.MaxPlayers)
+        {
+            NetworkSessionManager.Instance?.SetIncomingClientApproval(false, "Room Full");
+            return;
+        }
+
+        NetworkSessionManager.Instance?.SetIncomingClientApproval(true, string.Empty);
     }
 
     private void SendStartCommand(RoomSnapshotPacket snapshot)

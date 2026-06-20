@@ -105,11 +105,16 @@ public sealed class GameFlowManager : MonoBehaviour
 
     public void StartConnectMatchmakingServer(string serverJoinCode)
     {
+        StartConnectMatchmakingServer(serverJoinCode, playerNickname);
+    }
+
+    public void StartConnectMatchmakingServer(string serverJoinCode, string nickname)
+    {
         currentRoomLaunchRequest = RoomLaunchRequest.Create(
             RoomLaunchMode.ConnectMatchmakingServer,
             serverJoinCode,
-            playerNickname);
-        Debug.Log("[GameFlowManager] Connect matchmaking server flow is not implemented yet.", this);
+            nickname);
+        _ = StartConnectMatchmakingServerAsync(currentRoomLaunchRequest);
     }
 
     public void StartStageFromRoom(RoomSnapshotPacket roomSnapshot)
@@ -270,6 +275,43 @@ public sealed class GameFlowManager : MonoBehaviour
         isTransitioning = false;
     }
 
+    private async Task StartConnectMatchmakingServerAsync(RoomLaunchRequest request)
+    {
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.joinCode))
+        {
+            Debug.LogWarning("[GameFlowManager] Server JoinCode is required.", this);
+            return;
+        }
+
+        isTransitioning = true;
+        NetworkSessionManager session = NetworkSessionManager.Resolve();
+        if (session == null)
+        {
+            isTransitioning = false;
+            return;
+        }
+
+        if (!await session.StartGuestSessionAsync(request.joinCode))
+        {
+            isTransitioning = false;
+            return;
+        }
+
+        currentRoomLaunchRequest = request;
+        Scene clientRoomScene = await LoadSceneInternalAsync(clientRoomSceneName, LoadSceneMode.Single);
+        if (TryFindUniqueBuilder(clientRoomScene, out clientRoomBuilder))
+        {
+            clientRoomBuilder.BuildOnlineGuestRoom(request);
+        }
+
+        isTransitioning = false;
+    }
+
     private async Task StartStageFromRoomAsync(RoomSnapshotPacket roomSnapshot)
     {
         if (isTransitioning)
@@ -302,6 +344,7 @@ public sealed class GameFlowManager : MonoBehaviour
                 await BuildHostedStageFromRoomAsync(resolvedRoomSnapshot, stageDefinition, gameModeType, gameModeConfig);
                 break;
             case RoomLaunchMode.JoinRoom:
+            case RoomLaunchMode.ConnectMatchmakingServer:
                 await BuildGuestStageFromRoomAsync(stageDefinition);
                 break;
             default:
@@ -326,6 +369,7 @@ public sealed class GameFlowManager : MonoBehaviour
                 await ReturnHostedRoomAsync();
                 break;
             case RoomLaunchMode.JoinRoom:
+            case RoomLaunchMode.ConnectMatchmakingServer:
                 await ReturnGuestRoomAsync();
                 break;
             case RoomLaunchMode.DedicatedServer:

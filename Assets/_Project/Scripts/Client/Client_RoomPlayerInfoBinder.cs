@@ -12,6 +12,7 @@ public sealed class Client_RoomPlayerInfoBinder : MonoBehaviour
     [SerializeField] private Image skillIconImage;
     [SerializeField] private GameObject readyIconObject;
     [SerializeField] private GameObject roomOwnerIconObject;
+    [SerializeField] private AnimationClip emptyRoomIdleClip;
 
     private AnimationClip currentRoomIdleClip;
     private PlayableGraph animationGraph;
@@ -96,13 +97,12 @@ public sealed class Client_RoomPlayerInfoBinder : MonoBehaviour
             skillIconImage.enabled = defaultSkillImageEnabled;
         }
 
-        currentRoomIdleClip = null;
         if (characterAnimator != null)
         {
             characterAnimator.runtimeAnimatorController = null;
         }
 
-        StopAnimationGraph();
+        PlayRoomIdle(emptyRoomIdleClip);
     }
 
     private void ApplyCharacterView(CharacterDefinition definition)

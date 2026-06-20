@@ -5,7 +5,7 @@ using UnityEngine;
 
 public sealed class Server_RoomManager : MonoBehaviour
 {
-    [SerializeField] private int maxPlayers = 4;
+    [SerializeField] private int maxPlayers = 10;
     [SerializeField] private int minPlayersToStart = 2;
     [SerializeField] private float countdownSeconds = 3f;
     [SerializeField] private ushort stageIndex;
@@ -29,6 +29,9 @@ public sealed class Server_RoomManager : MonoBehaviour
     public float CountdownRemainingSeconds => countdownRemainingSeconds;
     public int PlayerCount => players.Count;
     public ulong RoomOwnerClientId => hasRoomOwner ? roomOwnerClientId : ulong.MaxValue;
+    public ushort StageIndex => stageIndex;
+    public ushort GameModeIndex => gameModeIndex;
+    public IReadOnlyList<RoomPlayerStatePacket> Players => players;
     public event Action<RoomSnapshotPacket> StartRequested;
 
     private void Update()
@@ -69,6 +72,17 @@ public sealed class Server_RoomManager : MonoBehaviour
 
         MarkRoomChanged(cancelCountdown: true);
         return true;
+    }
+
+    public bool ContainsPlayer(ulong clientId)
+    {
+        return TryFindPlayerIndex(clientId, out _);
+    }
+
+    public void ConfigureMaxPlayers(int nextMaxPlayers)
+    {
+        maxPlayers = Mathf.Clamp(nextMaxPlayers, 1, RoomNetProtocol.MaxRoomPlayers);
+        MarkRoomChanged(cancelCountdown: players.Count > maxPlayers);
     }
 
     public void RemovePlayer(ulong clientId)

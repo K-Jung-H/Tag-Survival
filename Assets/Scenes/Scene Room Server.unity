@@ -131,6 +131,9 @@ GameObject:
   - component: {fileID: 1245596376}
   - component: {fileID: 1245596375}
   - component: {fileID: 1245596377}
+  - component: {fileID: 1245596378}
+  - component: {fileID: 1245596379}
+  - component: {fileID: 1245596380}
   m_Layer: 0
   m_Name: RoomSystem
   m_TagString: Untagged
@@ -165,7 +168,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f7d5842a01d4f438c315c0a44410341, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Server_RoomManager
-  maxPlayers: 4
+  maxPlayers: 10
   minPlayersToStart: 2
   countdownSeconds: 3
   stageIndex: 0
@@ -188,6 +191,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Server_RoomBuilder
   roomManager: {fileID: 1245596375}
   roomNetwork: {fileID: 1245596377}
+  dedicatedServerRuntime: {fileID: 1245596378}
 --- !u!114 &1245596377
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -202,6 +206,58 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Server_RoomNetwork
   roomManager: {fileID: 1245596375}
   snapshotSendIntervalSeconds: 0.5
+--- !u!114 &1245596378
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1245596373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c50f1279b58247eca9c43b5b40da8f71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DedicatedServerRuntime
+  roomDirectory: {fileID: 1245596379}
+  debugHudView: {fileID: 1245596380}
+  dedicatedPresentationObjects:
+  - {fileID: 2023425793}
+  maxPlayers: 10
+--- !u!114 &1245596379
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1245596373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e7390257ed44c148a6aa719cbda6d71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Server_RoomDirectory
+  singleRoom: {fileID: 1245596375}
+  singleRoomCode: Room-1
+--- !u!114 &1245596380
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1245596373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63a61b1df95041dcb82737f5b6210d91, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Server_RoomDebugHudView
+  roomDirectory: {fileID: 1245596379}
+  showHud: 0
+  refreshIntervalSeconds: 0.5
+  hudRect:
+    serializedVersion: 2
+    x: 12
+    y: 12
+    width: 680
+    height: 520
 --- !u!1 &2023425793
 GameObject:
   m_ObjectHideFlags: 0

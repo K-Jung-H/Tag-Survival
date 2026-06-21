@@ -566,6 +566,7 @@ public sealed class Client_SyncManager : MonoBehaviour
                 skillCooldownRemainingSeconds = packet.skillCooldownRemainingSeconds,
                 facingSign = packet.facingSign,
                 isTagger = packet.isTagger,
+                isStealthed = packet.isStealthed,
                 lastReceivedTime = Time.time
             };
         }

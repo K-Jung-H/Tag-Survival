@@ -141,6 +141,7 @@ public sealed class PlayerObject : IWorldObject
     public PlayerInteractionState interactionState;
     public bool isTagger;
     public float stunnedTimer;
+    public bool isStealthed;
     public float taggerAccumulatedTime;
     public uint coinCount;
     public bool isGrounded;
@@ -193,6 +194,7 @@ public sealed class PlayerObject : IWorldObject
         interactionState = PlayerInteractionState.None;
         isTagger = false;
         stunnedTimer = 0f;
+        isStealthed = false;
         taggerAccumulatedTime = 0f;
         coinCount = 0;
         isGrounded = false;
@@ -247,6 +249,7 @@ public sealed class PlayerObject : IWorldObject
             : DefaultCollisionOffset;
         collider = new WorldCollider(collisionOffset, collisionHalfExtent);
         interactionState = PlayerInteractionState.None;
+        isStealthed = false;
         SyncCharacterStateMachine();
     }
 

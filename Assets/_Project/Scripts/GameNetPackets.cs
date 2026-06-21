@@ -656,6 +656,7 @@ public struct PlayerSnapshotPacket
     public float skillCooldownRemainingSeconds;
     public sbyte facingSign;
     public bool isTagger;
+    public bool isStealthed;
 
     // - Role: Write this data to the writer.
     public void Write(ref FastBufferWriter writer)
@@ -675,6 +676,7 @@ public struct PlayerSnapshotPacket
         writer.WriteValueSafe(skillCooldownRemainingSeconds);
         writer.WriteValueSafe(facingSign);
         writer.WriteValueSafe((byte)(isTagger ? 1 : 0));
+        writer.WriteValueSafe((byte)(isStealthed ? 1 : 0));
     }
 
     // - Role: Try to read this data from the reader.
@@ -697,6 +699,7 @@ public struct PlayerSnapshotPacket
         reader.ReadValueSafe(out float skillCooldownRemainingSeconds);
         reader.ReadValueSafe(out sbyte facingSign);
         reader.ReadValueSafe(out byte isTagger);
+        reader.ReadValueSafe(out byte isStealthed);
 
         packet = new PlayerSnapshotPacket
         {
@@ -711,7 +714,8 @@ public struct PlayerSnapshotPacket
             skillCooldownDurationSeconds = skillCooldownDurationSeconds,
             skillCooldownRemainingSeconds = skillCooldownRemainingSeconds,
             facingSign = facingSign,
-            isTagger = isTagger != 0
+            isTagger = isTagger != 0,
+            isStealthed = isStealthed != 0
         };
 
         return true;
@@ -735,6 +739,7 @@ public struct ClientSnapshotState
     public float skillCooldownRemainingSeconds;
     public sbyte facingSign;
     public bool isTagger;
+    public bool isStealthed;
     public float lastReceivedTime;
 }
 

@@ -79,7 +79,8 @@ public enum SkillType : byte
     Portal = 2,
     Dash = 3,
     Recall = 4,
-    Blink = 5
+    Blink = 5,
+    Stealth = 6
 }
 
 public enum SkillObjectState : byte
@@ -108,7 +109,9 @@ public enum ServerFeedbackType : byte
     HookHit = 3,
     ItemCollected = 4,
     CoinCollected = 5,
-    PortalTeleport = 6
+    PortalTeleport = 6,
+    SpreadSmoke = 7,
+    SpreadCoin = 8
 }
 
 public enum ClientFeedbackType : byte

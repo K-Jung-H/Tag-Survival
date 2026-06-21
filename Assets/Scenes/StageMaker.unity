@@ -31888,13 +31888,21 @@ PrefabInstance:
       propertyPath: InitialModule.startSizeY.scalar
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 4795597329616433035, guid: 0d33ddd71d5489a4d8cbdfb520e1d2e6, type: 3}
+      propertyPath: InitialModule.startSpeed.scalar
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4795597329616433035, guid: 0d33ddd71d5489a4d8cbdfb520e1d2e6, type: 3}
+      propertyPath: InitialModule.startSpeed.minScalar
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 9176682322766125531, guid: 0d33ddd71d5489a4d8cbdfb520e1d2e6, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 0.66
       objectReference: {fileID: 0}
     - target: {fileID: 9176682322766125531, guid: 0d33ddd71d5489a4d8cbdfb520e1d2e6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -1.77
       objectReference: {fileID: 0}
     - target: {fileID: 9176682322766125531, guid: 0d33ddd71d5489a4d8cbdfb520e1d2e6, type: 3}
       propertyPath: m_LocalPosition.z

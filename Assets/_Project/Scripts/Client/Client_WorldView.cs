@@ -37,6 +37,7 @@ public class Client_WorldView : MonoBehaviour
     private readonly List<uint> removeCoinTargets = new();
     private readonly HashSet<byte> missingCharacterWarnings = new();
     private readonly HashSet<byte> missingSkillWarnings = new();
+    private readonly HashSet<byte> missingStealthConfigWarnings = new();
 
     public event Action<ClientWorldPlayerViewRef> PlayerViewCreated;
     public event Action<ulong> PlayerViewRemoved;
@@ -191,6 +192,7 @@ public class Client_WorldView : MonoBehaviour
             view.ApplySnapshot(
                 snapshotState,
                 isLocalPlayer,
+                ResolveLocalStealthAlpha(snapshotState),
                 Time.deltaTime,
                 localFollowSpeed,
                 remoteFollowSpeed,
@@ -203,6 +205,33 @@ public class Client_WorldView : MonoBehaviour
     private bool IsLocalPlayer(ulong clientId)
     {
         return syncManager != null && clientId == syncManager.LocalClientId;
+    }
+
+    // - Role: Resolve local stealth alpha from skill config.
+    private float ResolveLocalStealthAlpha(ClientSnapshotState snapshotState)
+    {
+        if (!snapshotState.isStealthed)
+        {
+            return 1f;
+        }
+
+        if (skillCatalog != null
+            && skillCatalog.TryGet(snapshotState.skillId, out SkillDefinition skillDefinition)
+            && skillDefinition != null
+            && skillDefinition.GetConfig<StealthSkillConfig>() is StealthSkillConfig stealthConfig)
+        {
+            return stealthConfig.LocalPlayerAlpha;
+        }
+
+        if (!missingStealthConfigWarnings.Contains(snapshotState.skillId))
+        {
+            Debug.LogError(
+                $"[Client_WorldView] Stealth snapshot requires StealthSkillConfig. skillId={snapshotState.skillId}",
+                this);
+            missingStealthConfigWarnings.Add(snapshotState.skillId);
+        }
+
+        return 1f;
     }
 
     // - Role: Try to get or create player view.

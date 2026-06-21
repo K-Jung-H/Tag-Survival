@@ -32,7 +32,8 @@ public sealed class ServerSnapshotBuilder
                 skillCooldownDurationSeconds = ResolveSkillCooldownDurationSeconds(player),
                 skillCooldownRemainingSeconds = ResolveSkillCooldownRemainingSeconds(player),
                 facingSign = renderState.facingSign,
-                isTagger = player.isTagger
+                isTagger = player.isTagger,
+                isStealthed = player.isStealthed
             });
         }
     }

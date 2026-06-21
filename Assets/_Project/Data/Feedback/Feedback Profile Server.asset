@@ -25,6 +25,18 @@ MonoBehaviour:
       spawnZ: 0
       lifetimeSeconds: 1
       followTarget: 0
+  - type: 8
+    spawnMode: 0
+    data:
+      visualPrefab: {fileID: 2402208118883137200, guid: 0d33ddd71d5489a4d8cbdfb520e1d2e6, type: 3}
+      sound:
+        clip: {fileID: 8300000, guid: 76827b774477f4a30816b9316be1c941, type: 3}
+        space: 1
+        volume: 3
+      useServerRotation: 0
+      spawnZ: -5
+      lifetimeSeconds: 0
+      followTarget: 0
   - type: 5
     spawnMode: 0
     data:
@@ -85,3 +97,15 @@ MonoBehaviour:
       spawnZ: 0
       lifetimeSeconds: 0
       followTarget: 1
+  - type: 7
+    spawnMode: 0
+    data:
+      visualPrefab: {fileID: 5820529502808920013, guid: 2cd10873c35e03342a0d1cb171ab5c75, type: 3}
+      sound:
+        clip: {fileID: 8300000, guid: 5b1f83bbc554f4367aed82ebf7279fac, type: 3}
+        space: 1
+        volume: 3
+      useServerRotation: 0
+      spawnZ: -1
+      lifetimeSeconds: 0
+      followTarget: 0

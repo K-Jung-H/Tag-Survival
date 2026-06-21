@@ -29,6 +29,10 @@ public sealed class Client_CharacterView : MonoBehaviour
     private Color defaultBodyColor = Color.white;
     private RuntimeAnimatorController currentAnimatorController;
     private float overrideAnimationUntil;
+    private bool isCurrentLocalPlayer;
+    private bool isCurrentStealthed;
+    private bool renderVisible = true;
+    private float localStealthAlpha = 1f;
 
     public ICharacterStateMachine StateMachine => stateMachine;
     public CharacterAnimationData AnimationData => animationData;
@@ -55,6 +59,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     // - Role: Set character renderers visible without changing server logic state.
     public void SetRenderVisible(bool visible)
     {
+        renderVisible = visible;
         if (renderVisibilityTargets != null && renderVisibilityTargets.Length > 0)
         {
             for (int i = 0; i < renderVisibilityTargets.Length; i++)
@@ -68,10 +73,7 @@ public sealed class Client_CharacterView : MonoBehaviour
             return;
         }
 
-        if (body != null)
-        {
-            body.enabled = visible;
-        }
+        ApplyStealthVisibility();
     }
 
     // - Role: Play spawn animation and return its expected duration.
@@ -126,6 +128,7 @@ public sealed class Client_CharacterView : MonoBehaviour
     public void ApplySnapshot(
         ClientSnapshotState snapshotState,
         bool isLocalPlayer,
+        float stealthLocalAlpha,
         float deltaTime,
         float localFollowSpeed,
         float remoteFollowSpeed,
@@ -151,6 +154,10 @@ public sealed class Client_CharacterView : MonoBehaviour
         UpdateFacing(stateMachine.State);
         UpdateAimLine(snapshotState.aim, snapshotState.buttons);
         UpdateSkillIndicator();
+        isCurrentLocalPlayer = isLocalPlayer;
+        isCurrentStealthed = snapshotState.isStealthed;
+        localStealthAlpha = Mathf.Clamp01(stealthLocalAlpha);
+        ApplyStealthVisibility();
         if (Time.time >= overrideAnimationUntil)
         {
             PlayLocomotionClip(stateMachine.State.locomotionState, forceRestart: false);
@@ -170,8 +177,57 @@ public sealed class Client_CharacterView : MonoBehaviour
     {
         if (body != null)
         {
-            body.color = isTagger ? taggerColor : defaultBodyColor;
+            Color nextColor = isTagger ? taggerColor : defaultBodyColor;
+            nextColor.a = ResolveBodyAlpha();
+            body.color = nextColor;
         }
+    }
+
+    // - Role: Apply stealth visibility policy.
+    private void ApplyStealthVisibility()
+    {
+        bool remoteStealthed = isCurrentStealthed && !isCurrentLocalPlayer;
+        bool visible = renderVisible && !remoteStealthed;
+
+        if (renderVisibilityTargets != null && renderVisibilityTargets.Length > 0)
+        {
+            for (int i = 0; i < renderVisibilityTargets.Length; i++)
+            {
+                if (renderVisibilityTargets[i] != null)
+                {
+                    renderVisibilityTargets[i].enabled = visible;
+                }
+            }
+        }
+
+        if (body != null)
+        {
+            body.enabled = visible;
+            Color color = body.color;
+            color.a = ResolveBodyAlpha();
+            body.color = color;
+        }
+
+        if (!visible)
+        {
+            if (aimLine != null)
+            {
+                aimLine.enabled = false;
+            }
+
+            if (skillIndicator != null)
+            {
+                skillIndicator.enabled = false;
+            }
+        }
+    }
+
+    // - Role: Resolve body alpha from stealth state.
+    private float ResolveBodyAlpha()
+    {
+        return isCurrentStealthed && isCurrentLocalPlayer
+            ? localStealthAlpha
+            : defaultBodyColor.a;
     }
 
     // - Role: Smooth the render position.

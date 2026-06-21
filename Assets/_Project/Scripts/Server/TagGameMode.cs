@@ -547,6 +547,14 @@ public sealed class CoinCollectGameMode : TagGameModeBase
         newTagger.coinCount = originalNewTaggerCoins > newLose
             ? originalNewTaggerCoins - newLose
             : 0;
+
+        eventQueue?.QueueFeedback(
+            serverTick,
+            ServerFeedbackType.SpreadCoin,
+            oldTagger.playerId,
+            newTagger.playerId,
+            changePosition,
+            0f);
     }
 
     // - Role: Convert ratio to coin count.

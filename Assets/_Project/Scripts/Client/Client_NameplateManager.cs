@@ -183,6 +183,12 @@ public sealed class Client_NameplateManager : MonoBehaviour
     // - Role: Update nameplate.
     private void UpdateNameplate(NameplateEntry entry)
     {
+        if (ShouldHideForStealth(entry.clientId))
+        {
+            entry.label.gameObject.SetActive(false);
+            return;
+        }
+
         Vector3 screenPosition = worldCamera.WorldToScreenPoint(entry.anchor.position);
         bool isBehindCamera = screenPosition.z <= 0f;
 
@@ -257,6 +263,19 @@ public sealed class Client_NameplateManager : MonoBehaviour
         }
 
         return defaultTextColor;
+    }
+
+    // - Role: Check if nameplate should hide for remote stealth.
+    private bool ShouldHideForStealth(ulong clientId)
+    {
+        if (syncManager != null && clientId == syncManager.LocalClientId)
+        {
+            return false;
+        }
+
+        return worldView != null
+            && worldView.TryGetPlayerSnapshot(clientId, out ClientSnapshotState snapshotState)
+            && snapshotState.isStealthed;
     }
 
     // - Role: Refresh all label text.

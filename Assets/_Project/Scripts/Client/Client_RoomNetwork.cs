@@ -1,3 +1,4 @@
+using System;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -17,6 +18,7 @@ public sealed class Client_RoomNetwork : MonoBehaviour
     private string pendingNickname;
     private float joinProfileRetryTimer;
     private int joinProfileSendAttempts;
+    private RoomPlayerStatePacket[] roomPlayerReadBuffer = Array.Empty<RoomPlayerStatePacket>();
 
     private void Awake()
     {
@@ -209,7 +211,7 @@ public sealed class Client_RoomNetwork : MonoBehaviour
 
     private void OnRoomSnapshotReceived(ulong senderClientId, FastBufferReader reader)
     {
-        if (!RoomSnapshotPacket.TryRead(ref reader, out RoomSnapshotPacket packet))
+        if (!RoomSnapshotPacket.TryRead(ref reader, out RoomSnapshotPacket packet, ref roomPlayerReadBuffer))
         {
             return;
         }

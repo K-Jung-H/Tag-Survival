@@ -4,12 +4,14 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Tag Survival/Character/Character Catalog")]
 public sealed class CharacterCatalog : ScriptableObject
 {
+    [SerializeField] private CharacterDefinition fallbackDefinition;
     [SerializeField] private CharacterDefinition[] definitions;
 
     private readonly Dictionary<byte, CharacterDefinition> definitionsById = new();
     private bool isCacheDirty = true;
 
     public int Count => definitions != null ? definitions.Length : 0;
+    public byte FallbackCharacterId => fallbackDefinition != null ? fallbackDefinition.CharacterId : (byte)0;
 
     // - Role: Turn on links when this object is enabled.
     private void OnEnable()
@@ -34,6 +36,30 @@ public sealed class CharacterCatalog : ScriptableObject
     {
         EnsureCache();
         return definitionsById.TryGetValue(characterId, out definition) && definition != null;
+    }
+
+    public bool TryGetFallback(out CharacterDefinition definition)
+    {
+        definition = fallbackDefinition;
+        return definition != null;
+    }
+
+    public bool TryResolveId(
+        byte requestedCharacterId,
+        out byte resolvedCharacterId,
+        out CharacterDefinition definition,
+        out bool usedFallback)
+    {
+        if (TryGetById(requestedCharacterId, out definition))
+        {
+            resolvedCharacterId = requestedCharacterId;
+            usedFallback = false;
+            return true;
+        }
+
+        resolvedCharacterId = FallbackCharacterId;
+        usedFallback = true;
+        return TryGetFallback(out definition);
     }
 
     // - Role: Try to get by index.

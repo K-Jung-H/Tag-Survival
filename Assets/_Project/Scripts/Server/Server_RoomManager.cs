@@ -10,12 +10,14 @@ public sealed class Server_RoomManager : MonoBehaviour
     [SerializeField] private float countdownSeconds = 3f;
     [SerializeField] private ushort stageIndex;
     [SerializeField] private ushort gameModeIndex;
-    [SerializeField] private byte defaultCharacterId;
-    [SerializeField] private byte defaultSkillId = 1;
     [SerializeField] private GameStageCatalog gameStageCatalog;
     [SerializeField] private GameModeCatalog gameModeCatalog;
+    [SerializeField] private CharacterCatalog characterCatalog;
+    [SerializeField] private SkillCatalog skillCatalog;
 
     private readonly List<RoomPlayerStatePacket> players = new();
+    private readonly RoomPlayerStatePacket[] snapshotPlayerBuffer =
+        new RoomPlayerStatePacket[RoomNetProtocol.MaxRoomPlayers];
     private uint roomSeq;
     private RoomState roomState = RoomState.Waiting;
     private float countdownRemainingSeconds;
@@ -56,12 +58,20 @@ public sealed class Server_RoomManager : MonoBehaviour
             return false;
         }
 
+        byte requestedInitialCharacterId = characterCatalog != null ? characterCatalog.FallbackCharacterId : (byte)0;
+        byte requestedInitialSkillId = skillCatalog != null ? skillCatalog.FallbackSkillId : (byte)0;
+        if (!TryResolveCharacterId(clientId, requestedInitialCharacterId, "RegisterPlayer", out byte initialCharacterId)
+            || !TryResolveSkillId(clientId, requestedInitialSkillId, "RegisterPlayer", out byte initialSkillId))
+        {
+            return false;
+        }
+
         players.Add(new RoomPlayerStatePacket
         {
             clientId = clientId,
             nickname = ToFixedString(nickname),
-            characterId = defaultCharacterId,
-            skillId = defaultSkillId,
+            characterId = initialCharacterId,
+            skillId = initialSkillId,
             isReady = false
         });
 
@@ -108,19 +118,25 @@ public sealed class Server_RoomManager : MonoBehaviour
             return false;
         }
 
+        if (!TryResolveCharacterId(clientId, characterId, "SelectionRequest", out byte resolvedCharacterId)
+            || !TryResolveSkillId(clientId, skillId, "SelectionRequest", out byte resolvedSkillId))
+        {
+            return false;
+        }
+
         RoomPlayerStatePacket player = players[index];
         if (player.isReady)
         {
             return false;
         }
 
-        if (player.characterId == characterId && player.skillId == skillId)
+        if (player.characterId == resolvedCharacterId && player.skillId == resolvedSkillId)
         {
             return true;
         }
 
-        player.characterId = characterId;
-        player.skillId = skillId;
+        player.characterId = resolvedCharacterId;
+        player.skillId = resolvedSkillId;
         players[index] = player;
         MarkRoomChanged(cancelCountdown: true);
         return true;
@@ -133,7 +149,19 @@ public sealed class Server_RoomManager : MonoBehaviour
             return false;
         }
 
+        bool selectionChanged = false;
+        if (isReady && !TryNormalizePlayerSelection(index, "ReadyRequest", out selectionChanged))
+        {
+            return false;
+        }
+
         RoomPlayerStatePacket player = players[index];
+        if (selectionChanged)
+        {
+            player = players[index];
+            MarkRoomChanged(cancelCountdown: true);
+        }
+
         if (player.isReady == isReady)
         {
             return true;
@@ -218,10 +246,15 @@ public sealed class Server_RoomManager : MonoBehaviour
             AssignRoomOwner(players[0].clientId);
         }
 
+        if (!TryNormalizeAllPlayerSelections("RematchState", out bool changedSelection) && players.Count > 0)
+        {
+            Debug.LogError("[Server_RoomManager] Failed to normalize rematch player selection.", this);
+        }
+
         roomState = RoomState.Waiting;
         countdownRemainingSeconds = 0f;
         hasRequestedStart = false;
-        MarkRoomChanged(cancelCountdown: false);
+        MarkRoomChanged(cancelCountdown: changedSelection);
     }
 
     private static bool TryFindPreviousPlayer(
@@ -248,6 +281,12 @@ public sealed class Server_RoomManager : MonoBehaviour
 
     public RoomSnapshotPacket CreateSnapshot()
     {
+        int playerCount = Mathf.Min(players.Count, RoomNetProtocol.MaxRoomPlayers);
+        for (int i = 0; i < playerCount; i++)
+        {
+            snapshotPlayerBuffer[i] = players[i];
+        }
+
         return new RoomSnapshotPacket
         {
             protocolVersion = RoomNetProtocol.ProtocolVersion,
@@ -257,12 +296,12 @@ public sealed class Server_RoomManager : MonoBehaviour
             roomOwnerClientId = RoomOwnerClientId,
             stageIndex = stageIndex,
             gameModeIndex = gameModeIndex,
-            playerCount = (ushort)Mathf.Min(players.Count, RoomNetProtocol.MaxRoomPlayers),
+            playerCount = (ushort)playerCount,
             countdownRemainingMs = (ushort)Mathf.Clamp(
                 Mathf.CeilToInt(countdownRemainingSeconds * 1000f),
                 0,
                 ushort.MaxValue),
-            players = players.ToArray()
+            players = snapshotPlayerBuffer
         };
     }
 
@@ -271,6 +310,17 @@ public sealed class Server_RoomManager : MonoBehaviour
         if (roomState != RoomState.Countdown)
         {
             return;
+        }
+
+        if (!TryNormalizeAllPlayerSelections("Countdown", out bool selectionChanged))
+        {
+            CancelCountdown();
+            return;
+        }
+
+        if (selectionChanged)
+        {
+            MarkRoomChanged(cancelCountdown: false);
         }
 
         if (!CanStartCountdown())
@@ -283,7 +333,12 @@ public sealed class Server_RoomManager : MonoBehaviour
         MarkRoomChanged(cancelCountdown: false);
         if (countdownRemainingSeconds <= 0f)
         {
-            ResolveFinalSelectionsForStart();
+            if (!ResolveFinalSelectionsForStart())
+            {
+                CancelCountdown();
+                return;
+            }
+
             roomState = RoomState.Starting;
             MarkRoomChanged(cancelCountdown: false);
             RequestStart();
@@ -295,6 +350,17 @@ public sealed class Server_RoomManager : MonoBehaviour
         if (roomState == RoomState.Starting)
         {
             return;
+        }
+
+        if (!TryNormalizeAllPlayerSelections("EvaluateCountdown", out bool selectionChanged))
+        {
+            CancelCountdown();
+            return;
+        }
+
+        if (selectionChanged)
+        {
+            MarkRoomChanged(cancelCountdown: false);
         }
 
         if (CanStartCountdown())
@@ -355,7 +421,7 @@ public sealed class Server_RoomManager : MonoBehaviour
         roomSeq++;
     }
 
-    private void ResolveFinalSelectionsForStart()
+    private bool ResolveFinalSelectionsForStart()
     {
         if (gameStageCatalog != null
             && gameStageCatalog.TryGetByIndex(stageIndex, out GameStageCatalogEntry stageEntry)
@@ -372,6 +438,19 @@ public sealed class Server_RoomManager : MonoBehaviour
         {
             gameModeIndex = resolvedGameModeIndex;
         }
+
+        if (!TryNormalizeAllPlayerSelections("Start", out bool selectionChanged))
+        {
+            Debug.LogError("[Server_RoomManager] Failed to normalize player selections before start.", this);
+            return false;
+        }
+
+        if (selectionChanged)
+        {
+            MarkRoomChanged(cancelCountdown: false);
+        }
+
+        return true;
     }
 
     private void RequestStart()
@@ -382,7 +461,7 @@ public sealed class Server_RoomManager : MonoBehaviour
         }
 
         hasRequestedStart = true;
-        StartRequested?.Invoke(CreateSnapshot());
+        StartRequested?.Invoke(CreateSnapshot().CopyWithStablePlayers());
     }
 
     private void AssignRoomOwner(ulong clientId)
@@ -421,5 +500,123 @@ public sealed class Server_RoomManager : MonoBehaviour
     private static FixedString64Bytes ToFixedString(string value)
     {
         return new FixedString64Bytes(string.IsNullOrWhiteSpace(value) ? "Player" : value.Trim());
+    }
+
+    private bool TryNormalizeAllPlayerSelections(string context, out bool changed)
+    {
+        changed = false;
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (!TryNormalizePlayerSelection(i, context, out bool playerChanged))
+            {
+                return false;
+            }
+
+            changed |= playerChanged;
+        }
+
+        return true;
+    }
+
+    private bool TryNormalizePlayerSelection(int index, string context, out bool changed)
+    {
+        changed = false;
+        if (index < 0 || index >= players.Count)
+        {
+            return false;
+        }
+
+        RoomPlayerStatePacket player = players[index];
+        if (!TryResolveCharacterId(player.clientId, player.characterId, context, out byte resolvedCharacterId)
+            || !TryResolveSkillId(player.clientId, player.skillId, context, out byte resolvedSkillId))
+        {
+            return false;
+        }
+
+        changed = player.characterId != resolvedCharacterId || player.skillId != resolvedSkillId;
+        if (!changed)
+        {
+            return true;
+        }
+
+        player.characterId = resolvedCharacterId;
+        player.skillId = resolvedSkillId;
+        players[index] = player;
+        return true;
+    }
+
+    private bool TryResolveCharacterId(
+        ulong clientId,
+        byte requestedCharacterId,
+        string context,
+        out byte resolvedCharacterId)
+    {
+        resolvedCharacterId = requestedCharacterId;
+        if (characterCatalog == null)
+        {
+            Debug.LogError($"[Server_RoomManager] CharacterCatalog is not assigned. context={context}, clientId={clientId}", this);
+            return false;
+        }
+
+        if (!characterCatalog.TryResolveId(
+                requestedCharacterId,
+                out resolvedCharacterId,
+                out _,
+                out bool usedFallback))
+        {
+            Debug.LogError(
+                $"[Server_RoomManager] Invalid fallback character. context={context}, clientId={clientId}, " +
+                $"received={requestedCharacterId}, fallback={characterCatalog.FallbackCharacterId}",
+                this);
+            return false;
+        }
+
+        if (usedFallback)
+        {
+            Debug.LogWarning(
+                $"[Server_RoomManager] Invalid characterId corrected. context={context}, clientId={clientId}, " +
+                $"received={requestedCharacterId}, fallback={resolvedCharacterId}",
+                this);
+        }
+
+        return true;
+    }
+
+    private bool TryResolveSkillId(
+        ulong clientId,
+        byte requestedSkillId,
+        string context,
+        out byte resolvedSkillId)
+    {
+        resolvedSkillId = requestedSkillId;
+        if (skillCatalog == null)
+        {
+            Debug.LogError($"[Server_RoomManager] SkillCatalog is not assigned. context={context}, clientId={clientId}", this);
+            return false;
+        }
+
+        if (!skillCatalog.TryResolvePlayableId(
+                requestedSkillId,
+                out resolvedSkillId,
+                out _,
+                out bool usedFallback,
+                out string invalidReason))
+        {
+            Debug.LogError(
+                $"[Server_RoomManager] Invalid fallback skill. context={context}, clientId={clientId}, " +
+                $"received={requestedSkillId}, fallback={skillCatalog.FallbackSkillId}, reason={invalidReason}",
+                this);
+            return false;
+        }
+
+        if (usedFallback)
+        {
+            Debug.LogWarning(
+                $"[Server_RoomManager] Invalid skillId corrected. context={context}, clientId={clientId}, " +
+                $"received={requestedSkillId}, fallback={resolvedSkillId}, reason={invalidReason}",
+                this);
+        }
+
+        return true;
     }
 }

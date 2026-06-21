@@ -173,10 +173,10 @@ MonoBehaviour:
   countdownSeconds: 3
   stageIndex: 0
   gameModeIndex: 0
-  defaultCharacterId: 0
-  defaultSkillId: 1
   gameStageCatalog: {fileID: 11400000, guid: 364a113d98a5a5b458f3d3d5b7c9f00c, type: 2}
   gameModeCatalog: {fileID: 11400000, guid: dea94d45b7ae91148b5c0ef74df803ed, type: 2}
+  characterCatalog: {fileID: 11400000, guid: c40b3e87543c25d4a94bb7ef28238f68, type: 2}
+  skillCatalog: {fileID: 11400000, guid: 5c49dd314e99a1b46ac41fb53c4497ea, type: 2}
 --- !u!114 &1245596376
 MonoBehaviour:
   m_ObjectHideFlags: 0

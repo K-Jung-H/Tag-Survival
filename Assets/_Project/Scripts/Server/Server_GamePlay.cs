@@ -3,8 +3,6 @@ using UnityEngine;
 
 public class Server_GamePlay
 {
-    private const byte DefaultCharacterId = 0;
-    private const byte DefaultSkillId = 1;
     private const float TagStunDurationSeconds = 5f;
 
     private readonly Dictionary<ulong, PlayerObject> players = new();
@@ -95,7 +93,13 @@ public class Server_GamePlay
     // - Role: Add player.
     public void AddPlayer(ulong clientId)
     {
-        AddPlayer(clientId, null, DefaultCharacterId, DefaultSkillId);
+        if (characterCatalog == null || skillCatalog == null)
+        {
+            Debug.LogError($"[Server_GamePlay] Failed to add player. Catalog is missing. clientId={clientId}");
+            return;
+        }
+
+        AddPlayer(clientId, null, characterCatalog.FallbackCharacterId, skillCatalog.FallbackSkillId);
     }
 
     // - Role: Add player.
@@ -106,12 +110,30 @@ public class Server_GamePlay
             return false;
         }
 
-        CharacterDefinition characterDefinition = ResolveCharacterDefinition(characterId);
-        SkillDefinition skillDefinition = ResolveSkillDefinition(skillId);
-        byte resolvedSkillId = skillDefinition != null
-            ? skillDefinition.SkillId
-            : DefaultSkillId;
-        Skill skill = skillSystem.Create(clientId, skillDefinition);
+        if (!TryResolveCharacterDefinition(
+                clientId,
+                characterId,
+                "AddPlayer",
+                out CharacterDefinition characterDefinition,
+                out _)
+            || !TryResolveSkillDefinition(
+                clientId,
+                skillId,
+                "AddPlayer",
+                out SkillDefinition skillDefinition,
+                out byte resolvedSkillId))
+        {
+            return false;
+        }
+
+        if (!TryCreateSkill(clientId, skillDefinition, out Skill skill)
+            && !TryCreateFallbackSkill(clientId, resolvedSkillId, out skill, out resolvedSkillId))
+        {
+            Debug.LogError(
+                $"[Server_GamePlay] Failed to add player. Skill creation failed. " +
+                $"clientId={clientId}, requestedSkillId={skillId}");
+            return false;
+        }
         if (!TryAssignSpawnPosition(clientId, out Vector2 spawnPosition))
         {
             Debug.LogError($"[Server_GamePlay] Failed to add player. SpawnPoint is not available. clientId={clientId}");
@@ -357,7 +379,7 @@ public class Server_GamePlay
     // - Role: Copy roster entries to.
     public void CopyRosterEntriesTo(List<RosterEntryPacket> target)
     {
-        snapshotBuilder.CopyRosterEntriesTo(players, target, DefaultCharacterId);
+        snapshotBuilder.CopyRosterEntriesTo(players, target);
     }
 
     // - Role: Find world collisions.
@@ -377,31 +399,126 @@ public class Server_GamePlay
         GameStateVersion++;
     }
 
-    // - Role: Find skill definition.
-    private SkillDefinition ResolveSkillDefinition(byte skillId)
+    // - Role: Try to create skill.
+    private bool TryCreateSkill(
+        ulong clientId,
+        SkillDefinition definition,
+        out Skill skill)
     {
-        if (skillCatalog != null && skillCatalog.TryGet(skillId, out SkillDefinition definition))
-        {
-            return definition;
-        }
-
-        return null;
+        skill = skillSystem.Create(clientId, definition);
+        return skill != null && skill.StateMachine != null;
     }
 
-    // - Role: Find character definition.
-    private CharacterDefinition ResolveCharacterDefinition(byte characterId)
+    // - Role: Try to create fallback skill.
+    private bool TryCreateFallbackSkill(
+        ulong clientId,
+        byte failedSkillId,
+        out Skill skill,
+        out byte resolvedSkillId)
     {
+        skill = null;
+        resolvedSkillId = failedSkillId;
+        if (skillCatalog == null || failedSkillId == skillCatalog.FallbackSkillId)
+        {
+            return false;
+        }
+
+        if (!skillCatalog.TryGetFallbackPlayable(out SkillDefinition fallbackDefinition, out string invalidReason))
+        {
+            Debug.LogError(
+                $"[Server_GamePlay] Fallback skill is invalid. clientId={clientId}, " +
+                $"fallback={skillCatalog.FallbackSkillId}, reason={invalidReason}");
+            return false;
+        }
+
+        Debug.LogWarning(
+            $"[Server_GamePlay] Skill creation failed. Using fallback skill. " +
+            $"clientId={clientId}, failedSkillId={failedSkillId}, fallback={fallbackDefinition.SkillId}");
+        skill = skillSystem.Create(clientId, fallbackDefinition);
+        if (skill == null || skill.StateMachine == null)
+        {
+            return false;
+        }
+
+        resolvedSkillId = fallbackDefinition.SkillId;
+        return true;
+    }
+
+    // - Role: Resolve character definition with server fallback.
+    private bool TryResolveCharacterDefinition(
+        ulong clientId,
+        byte requestedCharacterId,
+        string context,
+        out CharacterDefinition definition,
+        out byte resolvedCharacterId)
+    {
+        definition = null;
+        resolvedCharacterId = requestedCharacterId;
         if (characterCatalog == null)
         {
-            return null;
+            Debug.LogError($"[Server_GamePlay] CharacterCatalog is missing. context={context}, clientId={clientId}");
+            return false;
         }
 
-        if (characterCatalog.TryGet(characterId, out CharacterDefinition definition))
+        if (!characterCatalog.TryResolveId(
+                requestedCharacterId,
+                out resolvedCharacterId,
+                out definition,
+                out bool usedFallback))
         {
-            return definition;
+            Debug.LogError(
+                $"[Server_GamePlay] Invalid fallback character. context={context}, clientId={clientId}, " +
+                $"received={requestedCharacterId}, fallback={characterCatalog.FallbackCharacterId}");
+            return false;
         }
 
-        return null;
+        if (usedFallback)
+        {
+            Debug.LogWarning(
+                $"[Server_GamePlay] Invalid characterId corrected. context={context}, clientId={clientId}, " +
+                $"received={requestedCharacterId}, fallback={resolvedCharacterId}");
+        }
+
+        return true;
+    }
+
+    // - Role: Resolve skill definition with server fallback.
+    private bool TryResolveSkillDefinition(
+        ulong clientId,
+        byte requestedSkillId,
+        string context,
+        out SkillDefinition definition,
+        out byte resolvedSkillId)
+    {
+        definition = null;
+        resolvedSkillId = requestedSkillId;
+        if (skillCatalog == null)
+        {
+            Debug.LogError($"[Server_GamePlay] SkillCatalog is missing. context={context}, clientId={clientId}");
+            return false;
+        }
+
+        if (!skillCatalog.TryResolvePlayableId(
+                requestedSkillId,
+                out resolvedSkillId,
+                out definition,
+                out bool usedFallback,
+                out string invalidReason))
+        {
+            Debug.LogError(
+                $"[Server_GamePlay] Invalid fallback skill. context={context}, clientId={clientId}, " +
+                $"received={requestedSkillId}, fallback={skillCatalog.FallbackSkillId}, reason={invalidReason}");
+            return false;
+        }
+
+        if (usedFallback)
+        {
+            Debug.LogWarning(
+                $"[Server_GamePlay] Invalid skillId corrected. context={context}, clientId={clientId}, " +
+                $"received={requestedSkillId}, fallback={resolvedSkillId}, reason={invalidReason}");
+        }
+
+        return true;
     }
 
     // - Role: Assign the least used spawn point.

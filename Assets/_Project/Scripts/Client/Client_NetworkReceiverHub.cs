@@ -8,6 +8,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 {
     private struct QueuedServerSnapshot
     {
+        public uint sessionId;
         public float applyTime;
         public ServerSnapshotHeaderPacket header;
         public PlayerSnapshotPacket[] players;
@@ -65,6 +66,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     private readonly List<QueuedItemSelectionOffer> delayedItemSelectionOffers = new();
     private readonly List<QueuedItemSelectionResult> delayedItemSelectionResults = new();
     private readonly List<QueuedItemSelectionChoice> delayedItemSelectionChoices = new();
+    private readonly Dictionary<ulong, SkillObjectSnapshotPacket[]> reusableSkillObjectReadBuffers = new();
 
     private FastBufferWriter itemSelectionChoiceWriter;
     private FastBufferWriter stageSyncRequestWriter;
@@ -80,6 +82,14 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     private uint delayedMessageSessionId;
     private float stageSyncRequestTimer;
     private int stageSyncRequestAttempts;
+    private PlayerSnapshotPacket[] playerSnapshotReadBuffer = Array.Empty<PlayerSnapshotPacket>();
+    private SkillSnapshotPacket[] skillSnapshotReadBuffer = Array.Empty<SkillSnapshotPacket>();
+    private ItemSnapshotPacket[] itemSnapshotReadBuffer = Array.Empty<ItemSnapshotPacket>();
+    private CoinSnapshotPacket[] coinSnapshotReadBuffer = Array.Empty<CoinSnapshotPacket>();
+    private GameStateEntryPacket[] gameStateEntryReadBuffer = Array.Empty<GameStateEntryPacket>();
+    private GameStateEntryPacket[] gameEndEntryReadBuffer = Array.Empty<GameStateEntryPacket>();
+    private GameEventEntryPacket[] gameEventReadBuffer = Array.Empty<GameEventEntryPacket>();
+    private RosterEntryPacket[] rosterEntryReadBuffer = Array.Empty<RosterEntryPacket>();
 
     private void Awake()
     {
@@ -288,17 +298,27 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         {
             delayedSnapshots.Add(new QueuedServerSnapshot
             {
+                sessionId = delayedMessageSessionId,
                 applyTime = Time.realtimeSinceStartup + delaySeconds,
                 header = header,
-                players = players,
-                skills = skills,
-                items = items,
-                coins = coins
+                players = CopySnapshotBuffer(players, header.playerCount),
+                skills = CopySkillSnapshotBuffer(skills, header.skillCount),
+                items = CopySnapshotBuffer(items, header.itemCount),
+                coins = CopySnapshotBuffer(coins, header.coinCount)
             });
             return;
         }
 
-        syncManager.ApplyServerSnapshot(header, players, skills, items, coins);
+        syncManager.ApplyServerSnapshot(
+            header,
+            players,
+            header.playerCount,
+            skills,
+            header.skillCount,
+            items,
+            header.itemCount,
+            coins,
+            header.coinCount);
     }
 
     private void OnServerGameStateReceived(ulong senderClientId, FastBufferReader reader)
@@ -308,7 +328,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        if (!GameStateSnapshotPacket.TryRead(ref reader, out GameStateSnapshotPacket packet))
+        if (!GameStateSnapshotPacket.TryRead(ref reader, out GameStateSnapshotPacket packet, ref gameStateEntryReadBuffer))
         {
             return;
         }
@@ -319,7 +339,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             delayedGameStates.Add(new QueuedGameStateSnapshot
             {
                 applyTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = packet
+                packet = CopyGameStatePacket(packet)
             });
             return;
         }
@@ -334,7 +354,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        if (!GameEventBatchPacket.TryRead(ref reader, out GameEventBatchPacket packet))
+        if (!GameEventBatchPacket.TryRead(ref reader, out GameEventBatchPacket packet, ref gameEventReadBuffer))
         {
             return;
         }
@@ -366,7 +386,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        if (!ServerGameEndPacket.TryRead(ref reader, out ServerGameEndPacket packet))
+        if (!ServerGameEndPacket.TryRead(ref reader, out ServerGameEndPacket packet, ref gameEndEntryReadBuffer))
         {
             return;
         }
@@ -377,7 +397,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             delayedGameEnds.Add(new QueuedGameEnd
             {
                 applyTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = packet
+                packet = CopyGameEndPacket(packet)
             });
             return;
         }
@@ -405,7 +425,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        if (ServerRosterSnapshotPacket.TryRead(ref reader, out ServerRosterSnapshotPacket packet))
+        if (ServerRosterSnapshotPacket.TryRead(ref reader, out ServerRosterSnapshotPacket packet, ref rosterEntryReadBuffer))
         {
             syncManager.ApplyRoster(packet);
         }
@@ -563,7 +583,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             NetworkDelivery.ReliableSequenced);
     }
 
-    private static bool TryReadSnapshot(
+    private bool TryReadSnapshot(
         ref FastBufferReader reader,
         out ServerSnapshotHeaderPacket header,
         out PlayerSnapshotPacket[] players,
@@ -581,7 +601,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return false;
         }
 
-        players = new PlayerSnapshotPacket[header.playerCount];
+        playerSnapshotReadBuffer = EnsureSnapshotBuffer(playerSnapshotReadBuffer, header.playerCount);
+        players = playerSnapshotReadBuffer;
         for (int i = 0; i < header.playerCount; i++)
         {
             if (!PlayerSnapshotPacket.TryRead(ref reader, out players[i]))
@@ -590,16 +611,18 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             }
         }
 
-        skills = new SkillSnapshotPacket[header.skillCount];
+        skillSnapshotReadBuffer = EnsureSnapshotBuffer(skillSnapshotReadBuffer, header.skillCount);
+        skills = skillSnapshotReadBuffer;
         for (int i = 0; i < header.skillCount; i++)
         {
-            if (!SkillSnapshotPacket.TryRead(ref reader, out skills[i]))
+            if (!SkillSnapshotPacket.TryRead(ref reader, out skills[i], reusableSkillObjectReadBuffers))
             {
                 return false;
             }
         }
 
-        items = new ItemSnapshotPacket[header.itemCount];
+        itemSnapshotReadBuffer = EnsureSnapshotBuffer(itemSnapshotReadBuffer, header.itemCount);
+        items = itemSnapshotReadBuffer;
         for (int i = 0; i < header.itemCount; i++)
         {
             if (!ItemSnapshotPacket.TryRead(ref reader, out items[i]))
@@ -608,7 +631,8 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             }
         }
 
-        coins = new CoinSnapshotPacket[header.coinCount];
+        coinSnapshotReadBuffer = EnsureSnapshotBuffer(coinSnapshotReadBuffer, header.coinCount);
+        coins = coinSnapshotReadBuffer;
         for (int i = 0; i < header.coinCount; i++)
         {
             if (!CoinSnapshotPacket.TryRead(ref reader, out coins[i]))
@@ -618,6 +642,60 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         }
 
         return true;
+    }
+
+    private static T[] EnsureSnapshotBuffer<T>(T[] buffer, int count)
+    {
+        if (count <= 0)
+        {
+            return Array.Empty<T>();
+        }
+
+        return buffer != null && buffer.Length >= count ? buffer : new T[count];
+    }
+
+    private static T[] CopySnapshotBuffer<T>(T[] source, int count)
+    {
+        int safeCount = Mathf.Clamp(count, 0, source != null ? source.Length : 0);
+        if (safeCount <= 0)
+        {
+            return Array.Empty<T>();
+        }
+
+        T[] copy = new T[safeCount];
+        Array.Copy(source, copy, safeCount);
+        return copy;
+    }
+
+    private static SkillSnapshotPacket[] CopySkillSnapshotBuffer(SkillSnapshotPacket[] source, int count)
+    {
+        int safeCount = Mathf.Clamp(count, 0, source != null ? source.Length : 0);
+        if (safeCount <= 0)
+        {
+            return Array.Empty<SkillSnapshotPacket>();
+        }
+
+        SkillSnapshotPacket[] copy = new SkillSnapshotPacket[safeCount];
+        for (int i = 0; i < safeCount; i++)
+        {
+            SkillSnapshotPacket packet = source[i];
+            packet.skillObjects = CopySnapshotBuffer(packet.skillObjects, packet.skillObjectCount);
+            copy[i] = packet;
+        }
+
+        return copy;
+    }
+
+    private static GameStateSnapshotPacket CopyGameStatePacket(GameStateSnapshotPacket packet)
+    {
+        packet.entries = CopySnapshotBuffer(packet.entries, packet.entryCount);
+        return packet;
+    }
+
+    private static ServerGameEndPacket CopyGameEndPacket(ServerGameEndPacket packet)
+    {
+        packet.entries = CopySnapshotBuffer(packet.entries, packet.entryCount);
+        return packet;
     }
 
     private void FlushDelayedMessages()
@@ -647,6 +725,13 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         for (int i = 0; i < delayedSnapshots.Count; i++)
         {
             QueuedServerSnapshot snapshot = delayedSnapshots[i];
+            if (snapshot.sessionId != delayedMessageSessionId)
+            {
+                delayedSnapshots.RemoveAt(i);
+                i--;
+                continue;
+            }
+
             if (snapshot.applyTime > now)
             {
                 continue;
@@ -849,6 +934,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         }
 
         ClearDelayedMessages();
+        reusableSkillObjectReadBuffers.Clear();
         stageSyncRequestTimer = 0f;
         stageSyncRequestAttempts = 0;
     }

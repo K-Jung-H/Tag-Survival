@@ -4,12 +4,14 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Tag Survival/Skill/Skill Catalog")]
 public sealed class SkillCatalog : ScriptableObject
 {
+    [SerializeField] private SkillDefinition fallbackDefinition;
     [SerializeField] private SkillDefinition[] definitions = new SkillDefinition[0];
 
     private readonly Dictionary<byte, SkillDefinition> definitionsById = new();
     private bool isCacheDirty = true;
 
     public int Count => definitions != null ? definitions.Length : 0;
+    public byte FallbackSkillId => fallbackDefinition != null ? fallbackDefinition.SkillId : (byte)0;
 
     // - Role: Turn on links when this object is enabled.
     private void OnEnable()
@@ -34,6 +36,79 @@ public sealed class SkillCatalog : ScriptableObject
     {
         EnsureCache();
         return definitionsById.TryGetValue(skillId, out definition) && definition != null;
+    }
+
+    public bool TryGetPlayable(
+        byte skillId,
+        out SkillDefinition definition,
+        out string invalidReason)
+    {
+        TryGetById(skillId, out definition);
+        return IsPlayableDefinition(definition, out invalidReason);
+    }
+
+    public bool TryGetFallbackPlayable(
+        out SkillDefinition definition,
+        out string invalidReason)
+    {
+        definition = fallbackDefinition;
+        return IsPlayableDefinition(definition, out invalidReason);
+    }
+
+    public bool TryResolvePlayableId(
+        byte requestedSkillId,
+        out byte resolvedSkillId,
+        out SkillDefinition definition,
+        out bool usedFallback,
+        out string invalidReason)
+    {
+        if (TryGetPlayable(requestedSkillId, out definition, out invalidReason))
+        {
+            resolvedSkillId = requestedSkillId;
+            usedFallback = false;
+            return true;
+        }
+
+        resolvedSkillId = FallbackSkillId;
+        usedFallback = true;
+        string requestedInvalidReason = invalidReason;
+        bool fallbackSuccess = TryGetFallbackPlayable(out definition, out string fallbackInvalidReason);
+        if (!fallbackSuccess)
+        {
+            invalidReason = $"{requestedInvalidReason}; Fallback Invalid: {fallbackInvalidReason}";
+        }
+
+        return fallbackSuccess;
+    }
+
+    private static bool IsPlayableDefinition(SkillDefinition definition, out string invalidReason)
+    {
+        invalidReason = string.Empty;
+        if (definition == null)
+        {
+            invalidReason = "SkillDefinition Not Found";
+            return false;
+        }
+
+        if (definition.Config == null)
+        {
+            invalidReason = "SkillConfig Missing";
+            return false;
+        }
+
+        if (definition.Config.SkillType != definition.SkillType)
+        {
+            invalidReason = $"SkillConfig Type Mismatch: config={definition.Config.SkillType}, definition={definition.SkillType}";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.LogicKey))
+        {
+            invalidReason = "LogicKey Missing";
+            return false;
+        }
+
+        return true;
     }
 
     // - Role: Try to get by index.

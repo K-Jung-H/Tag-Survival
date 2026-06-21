@@ -203,6 +203,26 @@ public struct RoomSnapshotPacket
     public ushort countdownRemainingMs;
     public RoomPlayerStatePacket[] players;
 
+    public RoomSnapshotPacket CopyWithStablePlayers()
+    {
+        RoomSnapshotPacket copy = this;
+        int count = players != null
+            ? Mathf.Min(playerCount, players.Length, RoomNetProtocol.MaxRoomPlayers)
+            : 0;
+
+        copy.playerCount = (ushort)count;
+        if (count <= 0)
+        {
+            copy.players = System.Array.Empty<RoomPlayerStatePacket>();
+            return copy;
+        }
+
+        RoomPlayerStatePacket[] playerCopy = new RoomPlayerStatePacket[count];
+        System.Array.Copy(players, playerCopy, count);
+        copy.players = playerCopy;
+        return copy;
+    }
+
     public void Write(ref FastBufferWriter writer)
     {
         writer.WriteValueSafe(protocolVersion);
@@ -227,6 +247,15 @@ public struct RoomSnapshotPacket
 
     public static bool TryRead(ref FastBufferReader reader, out RoomSnapshotPacket packet)
     {
+        RoomPlayerStatePacket[] reusablePlayers = null;
+        return TryRead(ref reader, out packet, ref reusablePlayers);
+    }
+
+    public static bool TryRead(
+        ref FastBufferReader reader,
+        out RoomSnapshotPacket packet,
+        ref RoomPlayerStatePacket[] reusablePlayers)
+    {
         packet = default;
 
         reader.ReadValueSafe(out ushort protocolVersion);
@@ -249,7 +278,7 @@ public struct RoomSnapshotPacket
             return false;
         }
 
-        RoomPlayerStatePacket[] players = new RoomPlayerStatePacket[playerCount];
+        RoomPlayerStatePacket[] players = PacketReadBufferUtility.Ensure(ref reusablePlayers, playerCount);
         for (int i = 0; i < playerCount; i++)
         {
             if (!RoomPlayerStatePacket.TryRead(ref reader, out players[i]))

@@ -580,7 +580,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 250}
+  m_AnchoredPosition: {x: 0, y: 230}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &151920233
@@ -612,8 +612,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4293263229
+  m_fontColor: {r: 0.48867923, g: 1, b: 0.8997941, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1460,7 +1460,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Client_CameraFollow
   cameraComponent: {fileID: 519420031}
-  syncManager: {fileID: 0}
   lerpFactor: 5
   useIdleZoom: 1
   gameplayZoomSize: 7
@@ -1803,10 +1802,8 @@ MonoBehaviour:
   cameraController: {fileID: 519420033}
   countdownView: {fileID: 681813946}
   introZoomSize: 4
-  gameplayZoomSize: 7
   zoomSeconds: 0.35
   cameraMoveSeconds: 1
-  fallbackSpawnSeconds: 0.8
   postSpawnHoldSeconds: 0.15
   viewReadyTimeoutSeconds: 5
 --- !u!114 &681813946
@@ -5173,7 +5170,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -2025207524, guid: a37e8466236089c45b610370218b5353, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

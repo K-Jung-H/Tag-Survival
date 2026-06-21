@@ -39,6 +39,8 @@ public sealed class Client_SyncManager : MonoBehaviour
     private readonly List<GameStateEntryPacket> localGameStateEntries = new();
     private readonly List<RosterEntryPacket> localRosterEntries = new();
     private readonly List<GameEventEntryPacket> localGameEvents = new();
+    private readonly RosterEntryPacket[] localRosterEntryBuffer =
+        new RosterEntryPacket[GameNetProtocol.MaxPlayers];
 
     private bool hasAppliedSnapshot;
     private bool hasGameState;
@@ -190,6 +192,29 @@ public sealed class Client_SyncManager : MonoBehaviour
         IReadOnlyList<ItemSnapshotPacket> items,
         IReadOnlyList<CoinSnapshotPacket> coins)
     {
+        ApplyServerSnapshot(
+            header,
+            players,
+            players != null ? players.Count : 0,
+            skills,
+            skills != null ? skills.Count : 0,
+            items,
+            items != null ? items.Count : 0,
+            coins,
+            coins != null ? coins.Count : 0);
+    }
+
+    public void ApplyServerSnapshot(
+        ServerSnapshotHeaderPacket header,
+        IReadOnlyList<PlayerSnapshotPacket> players,
+        int playerCount,
+        IReadOnlyList<SkillSnapshotPacket> skills,
+        int skillCount,
+        IReadOnlyList<ItemSnapshotPacket> items,
+        int itemCount,
+        IReadOnlyList<CoinSnapshotPacket> coins,
+        int coinCount)
+    {
         if (!IsNewerSnapshot(header.snapshotSeq))
         {
             return;
@@ -199,10 +224,10 @@ public sealed class Client_SyncManager : MonoBehaviour
         lastServerTick = header.serverTick;
         hasAppliedSnapshot = true;
 
-        ApplyPlayerSnapshots(header, players);
-        ApplySkillSnapshots(header, skills);
-        ApplyItemSnapshots(items);
-        ApplyCoinSnapshots(coins);
+        ApplyPlayerSnapshots(header, players, playerCount);
+        ApplySkillSnapshots(header, skills, skillCount);
+        ApplyItemSnapshots(items, itemCount);
+        ApplyCoinSnapshots(coins, coinCount);
     }
 
     public void ApplyGameStateSnapshot(
@@ -473,12 +498,18 @@ public sealed class Client_SyncManager : MonoBehaviour
             localGameStateEntries.Count);
 
         gamePlay.CopyRosterEntriesTo(localRosterEntries);
+        int localRosterEntryCount = Mathf.Min(localRosterEntries.Count, localRosterEntryBuffer.Length);
+        for (int i = 0; i < localRosterEntryCount; i++)
+        {
+            localRosterEntryBuffer[i] = localRosterEntries[i];
+        }
+
         ApplyRoster(new ServerRosterSnapshotPacket
         {
             protocolVersion = GameNetProtocol.ProtocolVersion,
             rosterSeq = localRosterSeq++,
-            entryCount = (ushort)Mathf.Min(localRosterEntries.Count, ushort.MaxValue),
-            entries = localRosterEntries.ToArray()
+            entryCount = (ushort)localRosterEntryCount,
+            entries = localRosterEntryBuffer
         });
 
         gamePlay.CopyPendingGameEventsTo(localGameEvents);
@@ -507,10 +538,13 @@ public sealed class Client_SyncManager : MonoBehaviour
         }
     }
 
-    private void ApplyPlayerSnapshots(ServerSnapshotHeaderPacket header, IReadOnlyList<PlayerSnapshotPacket> players)
+    private void ApplyPlayerSnapshots(
+        ServerSnapshotHeaderPacket header,
+        IReadOnlyList<PlayerSnapshotPacket> players,
+        int playerCount)
     {
         receivedClientIds.Clear();
-        int count = players != null ? players.Count : 0;
+        int count = Mathf.Clamp(playerCount, 0, players != null ? players.Count : 0);
         for (int i = 0; i < count; i++)
         {
             PlayerSnapshotPacket packet = players[i];
@@ -539,10 +573,13 @@ public sealed class Client_SyncManager : MonoBehaviour
         RemoveMissingPlayers();
     }
 
-    private void ApplySkillSnapshots(ServerSnapshotHeaderPacket header, IReadOnlyList<SkillSnapshotPacket> skills)
+    private void ApplySkillSnapshots(
+        ServerSnapshotHeaderPacket header,
+        IReadOnlyList<SkillSnapshotPacket> skills,
+        int skillCount)
     {
         receivedSkillOwnerIds.Clear();
-        int count = skills != null ? skills.Count : 0;
+        int count = Mathf.Clamp(skillCount, 0, skills != null ? skills.Count : 0);
         for (int i = 0; i < count; i++)
         {
             SkillSnapshotPacket packet = skills[i];
@@ -561,6 +598,7 @@ public sealed class Client_SyncManager : MonoBehaviour
                 skillId = packet.skillId,
                 skillType = packet.skillType,
                 skillState = packet.skillState,
+                skillObjectCount = packet.skillObjectCount,
                 skillObjects = packet.skillObjects,
                 lastReceivedTime = Time.time
             };
@@ -569,10 +607,12 @@ public sealed class Client_SyncManager : MonoBehaviour
         RemoveMissingSkills();
     }
 
-    private void ApplyItemSnapshots(IReadOnlyList<ItemSnapshotPacket> items)
+    private void ApplyItemSnapshots(
+        IReadOnlyList<ItemSnapshotPacket> items,
+        int itemCount)
     {
         receivedItemIds.Clear();
-        int count = items != null ? items.Count : 0;
+        int count = Mathf.Clamp(itemCount, 0, items != null ? items.Count : 0);
         for (int i = 0; i < count; i++)
         {
             ItemSnapshotPacket packet = items[i];
@@ -592,10 +632,12 @@ public sealed class Client_SyncManager : MonoBehaviour
         RemoveMissingItems();
     }
 
-    private void ApplyCoinSnapshots(IReadOnlyList<CoinSnapshotPacket> coins)
+    private void ApplyCoinSnapshots(
+        IReadOnlyList<CoinSnapshotPacket> coins,
+        int coinCount)
     {
         receivedCoinIds.Clear();
-        int count = coins != null ? coins.Count : 0;
+        int count = Mathf.Clamp(coinCount, 0, coins != null ? coins.Count : 0);
         for (int i = 0; i < count; i++)
         {
             CoinSnapshotPacket packet = coins[i];

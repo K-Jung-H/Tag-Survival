@@ -18,6 +18,7 @@ public sealed class Client_RoomView : MonoBehaviour
     [SerializeField] private RoomSelectionBinding stageSelector;
     [SerializeField] private RoomSelectionBinding gameModeSelector;
     [SerializeField] private RoomReadyBinding ready;
+    [SerializeField] private RoomCountdownBinding countdown;
 
     private Client_RoomInputSender inputSender;
     private RoomLaunchRequest launchRequest;
@@ -217,6 +218,7 @@ public sealed class Client_RoomView : MonoBehaviour
         RenderPlayerSlots(snapshot);
         RenderSelectors(snapshot, isSelectionLocked);
         ready.Render(hasLocalPlayer, hasLocalPlayer && localPlayer.isReady, snapshot.roomState);
+        countdown.Render(snapshot);
     }
 
     private void RenderPlayerSlots(RoomSnapshotPacket snapshot)
@@ -509,6 +511,38 @@ public sealed class Client_RoomView : MonoBehaviour
             {
                 labelText.color = isReady ? readyColor : notReadyColor;
             }
+        }
+    }
+
+    [Serializable]
+    private struct RoomCountdownBinding
+    {
+        [SerializeField] private GameObject root;
+        [SerializeField] private TMP_Text countdownText;
+
+        public void Render(RoomSnapshotPacket snapshot)
+        {
+            bool isCountingDown = snapshot.protocolVersion == RoomNetProtocol.ProtocolVersion
+                && snapshot.roomState == RoomState.Countdown;
+
+            if (root != null)
+            {
+                root.SetActive(isCountingDown);
+            }
+
+            if (countdownText == null)
+            {
+                return;
+            }
+
+            countdownText.enabled = isCountingDown;
+            if (!isCountingDown)
+            {
+                return;
+            }
+
+            int remainingSeconds = Mathf.Max(1, Mathf.CeilToInt(snapshot.countdownRemainingMs / 1000f));
+            countdownText.text = remainingSeconds.ToString();
         }
     }
 

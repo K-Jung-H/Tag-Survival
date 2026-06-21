@@ -5,6 +5,8 @@ using CharacterRenderState = CharacterRuntimeState;
 
 public sealed class ServerSnapshotBuilder
 {
+    private readonly Dictionary<ulong, SkillObjectSnapshotPacket[]> skillObjectSnapshotBuffers = new();
+
     // - Role: Copy player snapshots to.
     public void CopyPlayerSnapshotsTo(
         IReadOnlyDictionary<ulong, PlayerObject> players,
@@ -51,8 +53,7 @@ public sealed class ServerSnapshotBuilder
     // - Role: Copy roster entries to.
     public void CopyRosterEntriesTo(
         IReadOnlyDictionary<ulong, PlayerObject> players,
-        List<RosterEntryPacket> target,
-        byte defaultCharacterId)
+        List<RosterEntryPacket> target)
     {
         target.Clear();
 
@@ -63,7 +64,7 @@ public sealed class ServerSnapshotBuilder
             nickname.CopyFromTruncated(player.nickname);
             byte characterId = player.characterStateMachine != null
                 ? player.characterStateMachine.State.characterId
-                : defaultCharacterId;
+                : player.characterId;
 
             target.Add(new RosterEntryPacket
             {
@@ -78,7 +79,7 @@ public sealed class ServerSnapshotBuilder
     }
 
     // - Role: Add skill snapshot.
-    private static void AddSkillSnapshot(List<SkillSnapshotPacket> target, Skill skill)
+    private void AddSkillSnapshot(List<SkillSnapshotPacket> target, Skill skill)
     {
         if (skill == null)
         {
@@ -100,10 +101,16 @@ public sealed class ServerSnapshotBuilder
             return;
         }
 
-        SkillObjectSnapshotPacket[] skillObjects = new SkillObjectSnapshotPacket[snapshotObjectCount];
+        int packetObjectCount = Mathf.Min(snapshotObjectCount, byte.MaxValue);
+        SkillObjectSnapshotPacket[] skillObjects = GetSkillObjectSnapshotBuffer(skill.OwnerId, packetObjectCount);
         int snapshotIndex = 0;
         for (int i = 0; i < objects.Count; i++)
         {
+            if (snapshotIndex >= packetObjectCount)
+            {
+                break;
+            }
+
             SkillObject skillObject = objects[i];
             if (skillObject == null || skillObject.objectState == SkillObjectState.None)
             {
@@ -127,9 +134,28 @@ public sealed class ServerSnapshotBuilder
             skillId = skill.SkillId,
             skillType = skill.SkillType,
             skillState = ResolveSkillSnapshotState(objects),
-            skillObjectCount = (byte)Mathf.Min(snapshotObjectCount, byte.MaxValue),
+            skillObjectCount = (byte)packetObjectCount,
             skillObjects = skillObjects
         });
+    }
+
+    // - Role: Get reusable skill object snapshot buffer.
+    private SkillObjectSnapshotPacket[] GetSkillObjectSnapshotBuffer(ulong ownerClientId, int objectCount)
+    {
+        if (objectCount <= 0)
+        {
+            return System.Array.Empty<SkillObjectSnapshotPacket>();
+        }
+
+        if (!skillObjectSnapshotBuffers.TryGetValue(ownerClientId, out SkillObjectSnapshotPacket[] buffer)
+            || buffer == null
+            || buffer.Length < objectCount)
+        {
+            buffer = new SkillObjectSnapshotPacket[objectCount];
+            skillObjectSnapshotBuffers[ownerClientId] = buffer;
+        }
+
+        return buffer;
     }
 
     // - Role: Find skill cooldown duration seconds.

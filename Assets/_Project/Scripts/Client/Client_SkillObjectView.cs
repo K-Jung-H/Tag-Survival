@@ -49,7 +49,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         SkillObjectSnapshotPacket[] snapshotObjects = snapshot.skillObjects;
         if (snapshotObjects != null)
         {
-            for (int i = 0; i < snapshotObjects.Length; i++)
+            int count = Mathf.Min(snapshot.skillObjectCount, snapshotObjects.Length);
+            for (int i = 0; i < count; i++)
             {
                 ApplySkillObject(snapshotObjects[i]);
             }

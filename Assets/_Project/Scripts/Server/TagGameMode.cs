@@ -460,9 +460,12 @@ public sealed class CoinCollectGameMode : TagGameModeBase
         float tagStunDurationSeconds)
         : base(tagStunDurationSeconds)
     {
-        this.config = config != null
-            ? config
-            : ScriptableObject.CreateInstance<CoinCollectGameModeConfig>();
+        this.config = config;
+        if (this.config == null)
+        {
+            Debug.LogError("[CoinCollectGameMode] CoinCollectGameModeConfig is not assigned.");
+        }
+
         coinSystem.Bind(gamePlay, this.config);
     }
 

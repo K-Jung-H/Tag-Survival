@@ -110,6 +110,6 @@ public sealed class Client_RoomSyncManager : MonoBehaviour
         }
 
         hasRequestedStart = true;
-        StartRequested?.Invoke(snapshot);
+        StartRequested?.Invoke(snapshot.CopyWithStablePlayers());
     }
 }

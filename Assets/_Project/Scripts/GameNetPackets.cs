@@ -4,6 +4,24 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
+internal static class PacketReadBufferUtility
+{
+    public static T[] Ensure<T>(ref T[] buffer, int count)
+    {
+        if (count <= 0)
+        {
+            return Array.Empty<T>();
+        }
+
+        if (buffer == null || buffer.Length < count)
+        {
+            buffer = new T[count];
+        }
+
+        return buffer;
+    }
+}
+
 public struct ClientJoinProfilePacket
 {
     public ushort protocolVersion;
@@ -247,6 +265,16 @@ public struct ServerRosterSnapshotPacket
     // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out ServerRosterSnapshotPacket packet)
     {
+        RosterEntryPacket[] reusableEntries = null;
+        return TryRead(ref reader, out packet, ref reusableEntries);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(
+        ref FastBufferReader reader,
+        out ServerRosterSnapshotPacket packet,
+        ref RosterEntryPacket[] reusableEntries)
+    {
         packet = default;
 
         reader.ReadValueSafe(out ushort protocolVersion);
@@ -258,7 +286,7 @@ public struct ServerRosterSnapshotPacket
             return false;
         }
 
-        RosterEntryPacket[] entries = new RosterEntryPacket[entryCount];
+        RosterEntryPacket[] entries = PacketReadBufferUtility.Ensure(ref reusableEntries, entryCount);
         for (int i = 0; i < entryCount; i++)
         {
             if (!RosterEntryPacket.TryRead(ref reader, out entries[i]))
@@ -785,6 +813,16 @@ public struct GameStateSnapshotPacket
     // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out GameStateSnapshotPacket packet)
     {
+        GameStateEntryPacket[] reusableEntries = null;
+        return TryRead(ref reader, out packet, ref reusableEntries);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(
+        ref FastBufferReader reader,
+        out GameStateSnapshotPacket packet,
+        ref GameStateEntryPacket[] reusableEntries)
+    {
         packet = default;
 
         reader.ReadValueSafe(out ushort protocolVersion);
@@ -803,7 +841,7 @@ public struct GameStateSnapshotPacket
             return false;
         }
 
-        GameStateEntryPacket[] entries = new GameStateEntryPacket[entryCount];
+        GameStateEntryPacket[] entries = PacketReadBufferUtility.Ensure(ref reusableEntries, entryCount);
         for (int i = 0; i < entryCount; i++)
         {
             if (!GameStateEntryPacket.TryRead(ref reader, out entries[i]))
@@ -862,6 +900,15 @@ public struct ServerGameEndPacket
 
     public static bool TryRead(ref FastBufferReader reader, out ServerGameEndPacket packet)
     {
+        GameStateEntryPacket[] reusableEntries = null;
+        return TryRead(ref reader, out packet, ref reusableEntries);
+    }
+
+    public static bool TryRead(
+        ref FastBufferReader reader,
+        out ServerGameEndPacket packet,
+        ref GameStateEntryPacket[] reusableEntries)
+    {
         packet = default;
 
         reader.ReadValueSafe(out ushort protocolVersion);
@@ -876,7 +923,7 @@ public struct ServerGameEndPacket
             return false;
         }
 
-        GameStateEntryPacket[] entries = new GameStateEntryPacket[entryCount];
+        GameStateEntryPacket[] entries = PacketReadBufferUtility.Ensure(ref reusableEntries, entryCount);
         for (int i = 0; i < entryCount; i++)
         {
             if (!GameStateEntryPacket.TryRead(ref reader, out entries[i]))
@@ -1061,6 +1108,16 @@ public struct GameEventBatchPacket
     // - Role: Try to read this data from the reader.
     public static bool TryRead(ref FastBufferReader reader, out GameEventBatchPacket packet)
     {
+        GameEventEntryPacket[] reusableEvents = null;
+        return TryRead(ref reader, out packet, ref reusableEvents);
+    }
+
+    // - Role: Try to read this data from the reader.
+    public static bool TryRead(
+        ref FastBufferReader reader,
+        out GameEventBatchPacket packet,
+        ref GameEventEntryPacket[] reusableEvents)
+    {
         packet = default;
 
         reader.ReadValueSafe(out ushort protocolVersion);
@@ -1076,7 +1133,7 @@ public struct GameEventBatchPacket
             return false;
         }
 
-        GameEventEntryPacket[] events = new GameEventEntryPacket[eventCount];
+        GameEventEntryPacket[] events = PacketReadBufferUtility.Ensure(ref reusableEvents, eventCount);
         for (int i = 0; i < eventCount; i++)
         {
             if (!GameEventEntryPacket.TryRead(ref reader, out events[i]))
@@ -1236,7 +1293,7 @@ public struct SkillSnapshotPacket
 
         if (!reusableSkillObjectBuffers.TryGetValue(ownerClientId, out SkillObjectSnapshotPacket[] buffer)
             || buffer == null
-            || buffer.Length != skillObjectCount)
+            || buffer.Length < skillObjectCount)
         {
             buffer = new SkillObjectSnapshotPacket[skillObjectCount];
             reusableSkillObjectBuffers[ownerClientId] = buffer;
@@ -1255,6 +1312,7 @@ public struct ClientSkillSnapshotState
     public byte skillId;
     public SkillType skillType;
     public SkillObjectState skillState;
+    public byte skillObjectCount;
     public SkillObjectSnapshotPacket[] skillObjects;
     public float lastReceivedTime;
 }

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9129f106b2cf9e143a0628d6de979ce6, type: 3}
   m_Name: CoinCollectGameModeConfig
   m_EditorClassIdentifier: Assembly-CSharp::CoinCollectGameModeConfig
-  gameDurationSeconds: 30
+  gameDurationSeconds: 300
   minActiveItems: 20
   maxActiveItems: 20
   itemTypeWeights:

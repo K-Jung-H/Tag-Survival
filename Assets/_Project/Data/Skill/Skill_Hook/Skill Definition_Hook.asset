@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Skill Definition_Hook
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
   skillId: 0
+  displayName: Hook
+  icon: {fileID: 21300000, guid: 4795f7a0b89bbbf4b93e6a6d9fa099cc, type: 3}
   logicKey: hook
   skillType: 1
   range: 12

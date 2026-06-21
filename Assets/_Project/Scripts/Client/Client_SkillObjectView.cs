@@ -6,7 +6,8 @@ using UnityEngine.Rendering.Universal;
 public sealed class Client_SkillObjectView : MonoBehaviour
 {
     private const byte HookObjectIndex = 0;
-    private const byte RopeObjectIndex = 1;
+    private const byte RopeNodeTemplateObjectIndex = 1;
+    private const byte RopeLinkTemplateObjectIndex = 2;
     private const byte PortalTemplateObjectIndex = 0;
     private const byte PortalLinkTemplateObjectIndex = 1;
     private const float PlayerMainColorSecondSlotHueOffset = 0.43f;
@@ -19,6 +20,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     private readonly Dictionary<int, DynamicSkillObjectRuntime> dynamicPortalLinksByPairIndex = new();
     private readonly HashSet<int> activePortalPairIndices = new();
     private readonly List<byte> activePortalObjectIds = new();
+    private readonly List<DynamicSkillObjectRuntime> dynamicRopeNodes = new();
+    private readonly List<DynamicSkillObjectRuntime> dynamicRopeLinks = new();
 
     private SkillDefinition definition;
     private ulong ownerClientId;
@@ -27,6 +30,9 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     private float[] baseVisualLengthX;
     private SkillRenderElementCache[][] renderElementCaches;
     private bool[] warnedMissingRenderElements;
+    private bool warnedMissingHookConfig;
+    private int activeRopeNodeCount;
+    private int activeRopeLinkCount;
 
     public byte SkillId => definition != null ? definition.SkillId : (byte)0;
     private SkillType EffectiveSkillType => skillType != SkillType.None ? skillType : definition != null ? definition.SkillType : SkillType.None;
@@ -37,6 +43,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         definition = newDefinition;
         ownerClientId = newOwnerClientId;
         ClearDynamicPortalObjects();
+        ClearDynamicRopeObjects();
         CacheInitialTransforms();
         HideAllObjects();
     }
@@ -45,6 +52,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     public void ApplySnapshot(ClientSkillSnapshotState snapshot, Transform ownerRoot)
     {
         activeObjectIds.Clear();
+        activeRopeNodeCount = 0;
+        activeRopeLinkCount = 0;
 
         SkillObjectSnapshotPacket[] snapshotObjects = snapshot.skillObjects;
         if (snapshotObjects != null)
@@ -194,50 +203,154 @@ public sealed class Client_SkillObjectView : MonoBehaviour
             return;
         }
 
-        if (!TryGetSkillObject(RopeObjectIndex, out SkillObjectEntry ropeEntry))
-        {
-            return;
-        }
-
         if (!activeObjectIds.Contains(HookObjectIndex))
         {
             return;
         }
 
         Transform hookTransform = hookEntry.anchor;
-        Transform ropeTransform = ropeEntry.anchor;
         Vector3 start = ownerRoot.position;
         Vector3 end = hookTransform.position;
+        ApplyHookRopeChain(start, end, snapshot.skillState);
+    }
+
+    // - Role: Apply hook rope as node/link chain.
+    private void ApplyHookRopeChain(Vector3 start, Vector3 end, SkillObjectState state)
+    {
         Vector3 delta = end - start;
         float length = delta.magnitude;
         if (length <= 0.0001f)
         {
-            HideRenderElements(RopeObjectIndex);
             return;
         }
 
-        if (!ropeTransform.gameObject.activeSelf)
+        bool hasNodeTemplate = TryGetSkillObject(RopeNodeTemplateObjectIndex, out _);
+        bool hasLinkTemplate = TryGetSkillObject(RopeLinkTemplateObjectIndex, out _);
+        if (!hasNodeTemplate && !hasLinkTemplate)
         {
-            ropeTransform.gameObject.SetActive(true);
+            return;
         }
 
-        float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
-        Quaternion ropeRotation = Quaternion.Euler(0f, 0f, angle + GetBaseRotationZ(RopeObjectIndex) + ropeEntry.rotationOffset);
+        HookSkillConfig hookConfig = ResolveHookConfig();
+        if (hookConfig == null)
+        {
+            return;
+        }
 
-        Vector3 scale = GetBaseLocalScale(RopeObjectIndex);
-        float baseVisualLength = GetBaseVisualLengthX(RopeObjectIndex);
-        scale.x *= baseVisualLength > 0.0001f
-            ? length / baseVisualLength
+        int linkCount = Mathf.Clamp(
+            Mathf.CeilToInt(length / hookConfig.RopeSegmentLength),
+            1,
+            hookConfig.MaxRopeSegmentCount);
+        float segmentLength = length / linkCount;
+        Vector3 direction = delta / length;
+        float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+
+        if (hasLinkTemplate)
+        {
+            for (int i = 0; i < linkCount; i++)
+            {
+                if (!TryGetRopeLinkRuntimeObject(i, out DynamicSkillObjectRuntime linkRuntime))
+                {
+                    continue;
+                }
+
+                Vector3 linkStart = start + direction * (segmentLength * i);
+                Vector3 linkEnd = start + direction * (segmentLength * (i + 1));
+                ApplyRopeLink(linkStart, linkEnd, angle, linkRuntime, state);
+                activeRopeLinkCount = i + 1;
+            }
+        }
+
+        if (hasNodeTemplate)
+        {
+            int nodeCount = Mathf.Max(0, linkCount - 1);
+            for (int i = 0; i < nodeCount; i++)
+            {
+                if (!TryGetRopeNodeRuntimeObject(i, out DynamicSkillObjectRuntime nodeRuntime))
+                {
+                    continue;
+                }
+
+                Vector3 nodePosition = start + direction * (segmentLength * (i + 1));
+                ApplyRopeNode(nodePosition, angle, nodeRuntime, state);
+                activeRopeNodeCount = i + 1;
+            }
+        }
+    }
+
+    // - Role: Apply one rope node.
+    private void ApplyRopeNode(
+        Vector3 position,
+        float angle,
+        DynamicSkillObjectRuntime nodeRuntime,
+        SkillObjectState state)
+    {
+        if (nodeRuntime == null || nodeRuntime.anchor == null)
+        {
+            return;
+        }
+
+        Transform nodeTransform = nodeRuntime.anchor;
+        if (!nodeTransform.gameObject.activeSelf)
+        {
+            nodeTransform.gameObject.SetActive(true);
+        }
+
+        nodeTransform.position = new Vector3(position.x, position.y, nodeTransform.position.z);
+        nodeTransform.rotation = Quaternion.Euler(
+            0f,
+            0f,
+            angle + nodeRuntime.baseRotationZ + nodeRuntime.rotationOffset);
+        nodeTransform.localScale = nodeRuntime.baseLocalScale == Vector3.zero
+            ? Vector3.one
+            : nodeRuntime.baseLocalScale;
+        ApplyRenderElements(
+            nodeRuntime.renderElements,
+            nodeRuntime.renderElementCaches,
+            state);
+    }
+
+    // - Role: Apply one rope link.
+    private void ApplyRopeLink(
+        Vector3 start,
+        Vector3 end,
+        float angle,
+        DynamicSkillObjectRuntime linkRuntime,
+        SkillObjectState state)
+    {
+        Vector3 delta = end - start;
+        float length = delta.magnitude;
+        if (length <= 0.0001f || linkRuntime == null || linkRuntime.anchor == null)
+        {
+            return;
+        }
+
+        Transform linkTransform = linkRuntime.anchor;
+        if (!linkTransform.gameObject.activeSelf)
+        {
+            linkTransform.gameObject.SetActive(true);
+        }
+
+        Vector3 scale = linkRuntime.baseLocalScale == Vector3.zero
+            ? Vector3.one
+            : linkRuntime.baseLocalScale;
+        scale.x *= linkRuntime.baseVisualLengthX > 0.0001f
+            ? length / linkRuntime.baseVisualLengthX
             : length;
 
-        ropeTransform.rotation = ropeRotation;
-        ropeTransform.localScale = scale;
-        ropeTransform.position = GetVisualCenterAlignedPosition(
-            ropeTransform,
-            GetFirstSpriteRenderer(RopeObjectIndex),
+        linkTransform.rotation = Quaternion.Euler(
+            0f,
+            0f,
+            angle + linkRuntime.baseRotationZ + linkRuntime.rotationOffset);
+        linkTransform.localScale = scale;
+        linkTransform.position = GetVisualCenterAlignedPosition(
+            linkTransform,
+            GetFirstSpriteRenderer(linkRuntime.renderElementCaches),
             (start + end) * 0.5f);
-        ApplyRenderElements(RopeObjectIndex, snapshot.skillState);
-        activeObjectIds.Add(RopeObjectIndex);
+        ApplyRenderElements(
+            linkRuntime.renderElements,
+            linkRuntime.renderElementCaches,
+            state);
     }
 
     // - Role: Apply portal links from active portal pairs.
@@ -331,6 +444,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
 
         HideAllDynamicPortalObjects();
+        HideAllDynamicRopeObjects();
     }
 
     // - Role: Hide inactive render objects.
@@ -352,6 +466,8 @@ public sealed class Client_SkillObjectView : MonoBehaviour
                 HideRenderElements((byte)i);
             }
         }
+
+        HideInactiveDynamicRopeObjects();
     }
 
     // - Role: Apply render elements.
@@ -811,6 +927,66 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         return CreateDynamicRuntimeObject(PortalLinkTemplateObjectIndex, $"Link_{pairIndex}", pairIndex + 1);
     }
 
+    // - Role: Try to get rope node runtime object.
+    private bool TryGetRopeNodeRuntimeObject(int index, out DynamicSkillObjectRuntime runtimeObject)
+    {
+        return TryGetDynamicRuntimeObject(
+            dynamicRopeNodes,
+            RopeNodeTemplateObjectIndex,
+            $"RopeNode_{index}",
+            0,
+            index,
+            out runtimeObject);
+    }
+
+    // - Role: Try to get rope link runtime object.
+    private bool TryGetRopeLinkRuntimeObject(int index, out DynamicSkillObjectRuntime runtimeObject)
+    {
+        return TryGetDynamicRuntimeObject(
+            dynamicRopeLinks,
+            RopeLinkTemplateObjectIndex,
+            $"RopeLink_{index}",
+            0,
+            index,
+            out runtimeObject);
+    }
+
+    // - Role: Try to get pooled dynamic runtime object.
+    private bool TryGetDynamicRuntimeObject(
+        List<DynamicSkillObjectRuntime> runtimeObjects,
+        byte templateIndex,
+        string suffix,
+        int colorSlot,
+        int index,
+        out DynamicSkillObjectRuntime runtimeObject)
+    {
+        runtimeObject = null;
+        if (runtimeObjects == null || index < 0)
+        {
+            return false;
+        }
+
+        while (runtimeObjects.Count <= index)
+        {
+            runtimeObjects.Add(null);
+        }
+
+        runtimeObject = runtimeObjects[index];
+        if (runtimeObject != null && runtimeObject.anchor != null)
+        {
+            return true;
+        }
+
+        runtimeObject = CreateDynamicRuntimeObject(templateIndex, suffix, colorSlot);
+        if (runtimeObject == null)
+        {
+            return false;
+        }
+
+        runtimeObjects[index] = runtimeObject;
+        return true;
+    }
+
     // - Role: Create dynamic skill object runtime from a template object.
     private DynamicSkillObjectRuntime CreateDynamicRuntimeObject(
         byte templateIndex,
@@ -936,7 +1112,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         {
             if (!activeObjectIds.Contains(pair.Key))
             {
-                HideDynamicPortalObject(pair.Value);
+                HideDynamicRuntimeObject(pair.Value);
             }
         }
     }
@@ -948,7 +1124,7 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         {
             if (!activePortalPairIndices.Contains(pair.Key))
             {
-                HideDynamicPortalObject(pair.Value);
+                HideDynamicRuntimeObject(pair.Value);
             }
         }
     }
@@ -958,17 +1134,17 @@ public sealed class Client_SkillObjectView : MonoBehaviour
     {
         foreach (var pair in dynamicPortalObjectsById)
         {
-            HideDynamicPortalObject(pair.Value);
+            HideDynamicRuntimeObject(pair.Value);
         }
 
         foreach (var pair in dynamicPortalLinksByPairIndex)
         {
-            HideDynamicPortalObject(pair.Value);
+            HideDynamicRuntimeObject(pair.Value);
         }
     }
 
-    // - Role: Hide one dynamic portal object.
-    private static void HideDynamicPortalObject(DynamicSkillObjectRuntime runtimeObject)
+    // - Role: Hide one dynamic runtime object.
+    private static void HideDynamicRuntimeObject(DynamicSkillObjectRuntime runtimeObject)
     {
         if (runtimeObject == null)
         {
@@ -979,6 +1155,51 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         if (runtimeObject.anchor != null)
         {
             runtimeObject.anchor.gameObject.SetActive(false);
+        }
+    }
+
+    // - Role: Hide inactive dynamic rope objects.
+    private void HideInactiveDynamicRopeObjects()
+    {
+        HideInactiveDynamicRuntimeObjects(dynamicRopeNodes, activeRopeNodeCount);
+        HideInactiveDynamicRuntimeObjects(dynamicRopeLinks, activeRopeLinkCount);
+    }
+
+    // - Role: Hide inactive dynamic runtime objects.
+    private static void HideInactiveDynamicRuntimeObjects(
+        List<DynamicSkillObjectRuntime> runtimeObjects,
+        int activeCount)
+    {
+        if (runtimeObjects == null)
+        {
+            return;
+        }
+
+        int startIndex = Mathf.Clamp(activeCount, 0, runtimeObjects.Count);
+        for (int i = startIndex; i < runtimeObjects.Count; i++)
+        {
+            HideDynamicRuntimeObject(runtimeObjects[i]);
+        }
+    }
+
+    // - Role: Hide all dynamic rope objects.
+    private void HideAllDynamicRopeObjects()
+    {
+        HideAllDynamicRuntimeObjects(dynamicRopeNodes);
+        HideAllDynamicRuntimeObjects(dynamicRopeLinks);
+    }
+
+    // - Role: Hide all dynamic runtime objects.
+    private static void HideAllDynamicRuntimeObjects(List<DynamicSkillObjectRuntime> runtimeObjects)
+    {
+        if (runtimeObjects == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < runtimeObjects.Count; i++)
+        {
+            HideDynamicRuntimeObject(runtimeObjects[i]);
         }
     }
 
@@ -1005,6 +1226,35 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         dynamicPortalLinksByPairIndex.Clear();
         activePortalPairIndices.Clear();
         activePortalObjectIds.Clear();
+    }
+
+    // - Role: Clear dynamic rope objects.
+    private void ClearDynamicRopeObjects()
+    {
+        DestroyDynamicRuntimeObjects(dynamicRopeNodes);
+        DestroyDynamicRuntimeObjects(dynamicRopeLinks);
+        dynamicRopeNodes.Clear();
+        dynamicRopeLinks.Clear();
+        activeRopeNodeCount = 0;
+        activeRopeLinkCount = 0;
+    }
+
+    // - Role: Destroy dynamic runtime objects.
+    private static void DestroyDynamicRuntimeObjects(List<DynamicSkillObjectRuntime> runtimeObjects)
+    {
+        if (runtimeObjects == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < runtimeObjects.Count; i++)
+        {
+            DynamicSkillObjectRuntime runtimeObject = runtimeObjects[i];
+            if (runtimeObject != null && runtimeObject.anchor != null)
+            {
+                Destroy(runtimeObject.anchor.gameObject);
+            }
+        }
     }
 
     // - Role: Get base rotation z.
@@ -1039,6 +1289,19 @@ public sealed class Client_SkillObjectView : MonoBehaviour
         }
 
         return baseVisualLengthX[skillObjectIndex];
+    }
+
+    // - Role: Resolve hook config.
+    private HookSkillConfig ResolveHookConfig()
+    {
+        HookSkillConfig hookConfig = definition != null ? definition.GetConfig<HookSkillConfig>() : null;
+        if (hookConfig == null && !warnedMissingHookConfig)
+        {
+            Debug.LogError("[Client_SkillObjectView] Hook SkillObjectView requires HookSkillConfig.", this);
+            warnedMissingHookConfig = true;
+        }
+
+        return hookConfig;
     }
 
     // - Role: Get render elements.

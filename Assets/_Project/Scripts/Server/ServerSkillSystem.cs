@@ -30,6 +30,17 @@ public sealed class ServerSkillSystem
         skill.StateMachine?.ConstrainOwner(player, deltaTime);
     }
 
+    // - Role: Find player movement override mode.
+    public MovementOverrideMode GetOwnerMovementOverride(PlayerObject player)
+    {
+        if (!TryGetSkill(player, out Skill skill) || skill.StateMachine == null)
+        {
+            return MovementOverrideMode.Normal;
+        }
+
+        return skill.StateMachine.GetOwnerMovementOverride(player);
+    }
+
     // - Role: Tick player skill.
     public void Tick(PlayerObject player, float deltaTime)
     {
@@ -52,6 +63,29 @@ public sealed class ServerSkillSystem
         {
             skill.StateMachine.SyncSkillObjects(skill);
         }
+    }
+
+    // - Role: Try to simulate player movement by skill.
+    public bool TrySimulateOwnerMovement(
+        PlayerObject player,
+        StageCollisionSystem collisionSystem,
+        StageDefinition stageDefinition,
+        float deltaTime,
+        out StageCollisionMoveResult moveResult)
+    {
+        moveResult = default;
+        if (!TryGetSkill(player, out Skill skill))
+        {
+            return false;
+        }
+
+        return skill.StateMachine != null
+            && skill.StateMachine.TrySimulateOwnerMovement(
+                player,
+                collisionSystem,
+                stageDefinition,
+                deltaTime,
+                out moveResult);
     }
 
     // - Role: Try to get player skill.

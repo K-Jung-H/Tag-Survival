@@ -6,10 +6,23 @@ public static class PlayerMovementController
     private const float JumpInputThreshold = 0.5f;
 
     // - Role: Apply velocity.
-    public static void ApplyVelocity(PlayerObject player, StageDefinition stageDefinition, float deltaTime)
+    public static void ApplyVelocity(
+        PlayerObject player,
+        StageDefinition stageDefinition,
+        float deltaTime,
+        bool suppressHorizontalVelocity = false)
     {
         float horizontalInput = GetHorizontalInput(player.input);
         float verticalInput = GetVerticalInput(player.input);
+        if (suppressHorizontalVelocity)
+        {
+            player.isOnWall = false;
+            player.wallDirX = 0;
+            player.wallSurface = StageSurfaceType.Normal;
+            ApplyJumpAndGravity(player, stageDefinition, deltaTime);
+            return;
+        }
+
         if (player.isOnWall && player.wallDirX != 0)
         {
             if (verticalInput > JumpInputThreshold
@@ -105,6 +118,17 @@ public static class PlayerMovementController
         return vertical;
     }
 
+    // - Role: Get current gravity acceleration.
+    private static float GetGravityAcceleration(PlayerObject player, StageDefinition stageDefinition)
+    {
+        float gravity = player.velocity.y > 0f
+            ? player.moveStats.jumpGravity
+            : player.moveStats.fallGravity;
+
+        StagePhysicsModifier airModifier = PlayerPhysicsModifierResolver.ResolveAir(stageDefinition);
+        return gravity * airModifier.GravityScale;
+    }
+
     // - Role: Apply jump and gravity.
     private static void ApplyJumpAndGravity(
         PlayerObject player,
@@ -129,14 +153,9 @@ public static class PlayerMovementController
 
         player.jumpQueued = false;
 
-        float gravity = player.velocity.y > 0f
-            ? player.moveStats.jumpGravity
-            : player.moveStats.fallGravity;
+        player.velocity.y += GetGravityAcceleration(player, stageDefinition) * deltaTime;
 
         StagePhysicsModifier airModifier = PlayerPhysicsModifierResolver.ResolveAir(stageDefinition);
-        gravity *= airModifier.GravityScale;
-        player.velocity.y += gravity * deltaTime;
-
         float maxFallSpeed = player.moveStats.maxFallSpeed * airModifier.MaxFallSpeedRate;
         player.velocity.y = Mathf.Max(player.velocity.y, -maxFallSpeed);
     }

@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Skill Definition_Portal
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
   skillId: 1
+  displayName: Portal
+  icon: {fileID: 21300000, guid: 94063952eb6464049bffceae643476eb, type: 3}
   logicKey: portal
   skillType: 2
   range: 2

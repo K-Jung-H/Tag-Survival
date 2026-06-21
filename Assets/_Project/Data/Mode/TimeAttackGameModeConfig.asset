@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9775c735816923542b3909ac01a5c460, type: 3}
   m_Name: TimeAttackGameModeConfig
   m_EditorClassIdentifier: Assembly-CSharp::TimeAttackGameModeConfig
-  gameDurationSeconds: 30
+  gameDurationSeconds: 300
   minActiveItems: 20
   maxActiveItems: 20
   itemTypeWeights:

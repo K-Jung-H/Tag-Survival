@@ -172,35 +172,41 @@ public sealed class ServerPlayerSystem
                 continue;
             }
 
-            PlayerMovementController.ApplyVelocity(player, stageDefinition, deltaTime);
-            skillSystem.Tick(player, deltaTime);
+            bool skillTicked = false;
+            MovementOverrideMode movementMode = skillSystem.GetOwnerMovementOverride(player);
+            if (movementMode == MovementOverrideMode.FullOverride)
+            {
+                skillSystem.Tick(player, deltaTime);
+                skillTicked = true;
+                movementMode = skillSystem.GetOwnerMovementOverride(player);
+                if (movementMode == MovementOverrideMode.FullOverride
+                    && skillSystem.TrySimulateOwnerMovement(
+                        player,
+                        collisionSystem,
+                        stageDefinition,
+                        deltaTime,
+                        out StageCollisionMoveResult skillMoveResult))
+                {
+                    ApplyCollisionStateAfterMovement(player, skillMoveResult, deltaTime, allowWallStick: false);
+                    UpdateRenderState(player);
+                    UpdateCharacterStateMachine(player);
+                    continue;
+                }
+            }
+
+            PlayerMovementController.ApplyVelocity(
+                player,
+                stageDefinition,
+                deltaTime,
+                movementMode == MovementOverrideMode.SuppressHorizontalOnly);
+            if (!skillTicked)
+            {
+                skillSystem.Tick(player, deltaTime);
+            }
+
             skillSystem.Constrain(player, deltaTime);
-
-            Vector2 collisionCenter = player.position + player.collisionOffset;
-            StageCollisionMoveResult moveResult = collisionSystem.MoveDetailed(
-                collisionCenter,
-                player.velocity * deltaTime,
-                player.collisionHalfExtent);
-
-            player.position = moveResult.position - player.collisionOffset;
-            player.isGrounded = moveResult.isGrounded;
-            if (moveResult.isGrounded)
-            {
-                player.groundSurface = moveResult.groundSurface;
-            }
-
-            if (moveResult.isGrounded && player.velocity.y < 0f)
-            {
-                player.velocity.y = 0f;
-                player.lateJumpTimer = player.moveStats.lateJumpTime;
-            }
-
-            if (moveResult.hitCeiling && player.velocity.y > 0f)
-            {
-                player.velocity.y = 0f;
-            }
-
-            PlayerMovementController.UpdateWallStick(player, stageDefinition, moveResult, deltaTime);
+            StageCollisionMoveResult moveResult = MovePlayerWithStageCollision(player, deltaTime);
+            ApplyCollisionStateAfterMovement(player, moveResult, deltaTime, allowWallStick: true);
             UpdateRenderState(player);
             UpdateCharacterStateMachine(player);
         }
@@ -359,5 +365,48 @@ public sealed class ServerPlayerSystem
 
         player.itemEffects.Tick(deltaTime);
         player.moveStats = player.itemEffects.ApplyMovementStats(player.baseMoveStats);
+    }
+
+    // - Role: Move player with stage collision.
+    private StageCollisionMoveResult MovePlayerWithStageCollision(PlayerObject player, float deltaTime)
+    {
+        Vector2 collisionCenter = player.position + player.collisionOffset;
+        StageCollisionMoveResult moveResult = collisionSystem.MoveDetailed(
+            collisionCenter,
+            player.velocity * deltaTime,
+            player.collisionHalfExtent);
+
+        player.position = moveResult.position - player.collisionOffset;
+        player.isGrounded = moveResult.isGrounded;
+        if (moveResult.isGrounded)
+        {
+            player.groundSurface = moveResult.groundSurface;
+        }
+
+        return moveResult;
+    }
+
+    // - Role: Apply collision side effects after movement.
+    private void ApplyCollisionStateAfterMovement(
+        PlayerObject player,
+        StageCollisionMoveResult moveResult,
+        float deltaTime,
+        bool allowWallStick)
+    {
+        if (player.isGrounded && player.velocity.y < 0f)
+        {
+            player.velocity.y = 0f;
+            player.lateJumpTimer = player.moveStats.lateJumpTime;
+        }
+
+        if (moveResult.hitCeiling && player.velocity.y > 0f)
+        {
+            player.velocity.y = 0f;
+        }
+
+        if (allowWallStick)
+        {
+            PlayerMovementController.UpdateWallStick(player, stageDefinition, moveResult, deltaTime);
+        }
     }
 }

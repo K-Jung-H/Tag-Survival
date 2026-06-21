@@ -16,7 +16,15 @@ MonoBehaviour:
   returnSpeedMultiplier: 3
   hookHitHalfExtent: 0.08
   returnCompleteDistance: 0.18
-  swingInputAcceleration: 18
+  swingGravity: 50
+  swingForwardAcceleration: 18
+  swingBrakeAcceleration: 24
+  swingMaxTangentSpeed: 18
+  swingIdleDampingPerSecond: 0.98
   swingDetachBoost: 15
-  swingDampingPerSecond: 0.85
   ropeTautTolerance: 0.03
+  pullReelUnlocked: 1
+  reelSpeed: 5
+  minRopeLength: 1.5
+  ropeSegmentLength: 2
+  maxRopeSegmentCount: 20

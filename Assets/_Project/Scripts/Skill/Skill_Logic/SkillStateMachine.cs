@@ -1,5 +1,12 @@
 ﻿using UnityEngine;
 
+public enum MovementOverrideMode
+{
+    Normal = 0,
+    SuppressHorizontalOnly = 1,
+    FullOverride = 2
+}
+
 public abstract class SkillStateMachine
 {
     protected readonly SkillDefinition definition;
@@ -14,6 +21,12 @@ public abstract class SkillStateMachine
     public SkillType SkillType => definition != null ? definition.SkillType : SkillType.None;
     public SkillObjectState State { get; protected set; }
     public float CooldownRemaining { get; protected set; }
+
+    // - Role: Find owner movement override mode.
+    public virtual MovementOverrideMode GetOwnerMovementOverride(PlayerObject player)
+    {
+        return MovementOverrideMode.Normal;
+    }
 
     // - Role: Get range for player.
     public float GetRange(PlayerObject player)
@@ -53,6 +66,18 @@ public abstract class SkillStateMachine
         PlayerObject player,
         float deltaTime,
         bool skillPressedThisTick);
+
+    // - Role: Try to simulate owner movement.
+    public virtual bool TrySimulateOwnerMovement(
+        PlayerObject player,
+        StageCollisionSystem collisionSystem,
+        StageDefinition stageDefinition,
+        float deltaTime,
+        out StageCollisionMoveResult moveResult)
+    {
+        moveResult = default;
+        return false;
+    }
 
     // - Role: Handle collision.
     public virtual void OnCollision(SkillObject self, IWorldObject other)

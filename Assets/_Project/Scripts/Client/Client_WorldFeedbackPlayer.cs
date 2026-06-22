@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
@@ -8,7 +9,18 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     [SerializeField] private AudioSource audioSourcePrefab;
     [SerializeField] private Transform audioListenerTransform;
 
+    private readonly List<AudioSource> activeAudioSources = new();
     private bool warnedMissingAudioSourcePrefab;
+
+    private void OnEnable()
+    {
+        AudioManager.StageSfxEnabledChanged += OnStageSfxEnabledChanged;
+    }
+
+    private void OnDisable()
+    {
+        AudioManager.StageSfxEnabledChanged -= OnStageSfxEnabledChanged;
+    }
 
     // - Role: Bind scene-level audio listener transform.
     public void BindAudioListener(Transform listenerTransform)
@@ -32,7 +44,7 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
             SpawnVisual(data, spawnPosition, spawnRotation, parent, followTarget);
         }
 
-        if (data.sound.clip != null)
+        if (data.sound.clip != null && AudioManager.CanPlayStageSfx)
         {
             SpawnAudio(data.sound, spawnPosition, parent, followTarget, data.followTarget, data.lifetimeSeconds);
         }
@@ -67,6 +79,11 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         bool followTargetEnabled,
         float lifetimeSeconds)
     {
+        if (!AudioManager.CanPlayStageSfx)
+        {
+            return;
+        }
+
         if (audioSourcePrefab == null)
         {
             if (!warnedMissingAudioSourcePrefab)
@@ -88,6 +105,7 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         audioSource.dopplerLevel = 0f;
         audioSource.volume *= sound.Volume;
         audioSource.gameObject.SetActive(true);
+        RegisterActiveAudioSource(audioSource);
         audioSource.Play();
 
         float clipLength = sound.clip.length / Mathf.Max(0.01f, Mathf.Abs(audioSource.pitch));
@@ -107,6 +125,49 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 
         position.z = audioListenerTransform.position.z;
         return position;
+    }
+
+    // - Role: Stop currently playing stage sound sources.
+    private void OnStageSfxEnabledChanged(bool enabled)
+    {
+        if (!enabled)
+        {
+            StopActiveAudioSources();
+        }
+    }
+
+    // - Role: Register spawned audio source for stage mute.
+    private void RegisterActiveAudioSource(AudioSource audioSource)
+    {
+        PruneActiveAudioSources();
+        activeAudioSources.Add(audioSource);
+    }
+
+    // - Role: Stop active audio sources.
+    private void StopActiveAudioSources()
+    {
+        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        {
+            AudioSource audioSource = activeAudioSources[i];
+            if (audioSource != null)
+            {
+                Destroy(audioSource.gameObject);
+            }
+        }
+
+        activeAudioSources.Clear();
+    }
+
+    // - Role: Remove destroyed audio sources.
+    private void PruneActiveAudioSources()
+    {
+        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        {
+            if (activeAudioSources[i] == null)
+            {
+                activeAudioSources.RemoveAt(i);
+            }
+        }
     }
 
     // - Role: Play particle systems.

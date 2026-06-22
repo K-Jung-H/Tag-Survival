@@ -7,7 +7,18 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
     [SerializeField] private AudioSource audioSourcePrefab;
 
     private readonly Dictionary<ScreenOverlayFeedbackType, Client_ScreenOverlayFeedbackPanel> panelsByType = new();
+    private readonly List<AudioSource> activeAudioSources = new();
     private bool warnedMissingAudioSourcePrefab;
+
+    private void OnEnable()
+    {
+        AudioManager.StageSfxEnabledChanged += OnStageSfxEnabledChanged;
+    }
+
+    private void OnDisable()
+    {
+        AudioManager.StageSfxEnabledChanged -= OnStageSfxEnabledChanged;
+    }
 
     // - Role: Set overlay active state.
     public void SetActive(
@@ -82,7 +93,7 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
     // - Role: Play overlay sound.
     private void PlaySound(GameFeedbackData data)
     {
-        if (data.sound.clip == null)
+        if (data.sound.clip == null || !AudioManager.CanPlayStageSfx)
         {
             return;
         }
@@ -107,10 +118,54 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
         audioSource.dopplerLevel = 0f;
         audioSource.volume *= data.sound.Volume;
         audioSource.gameObject.SetActive(true);
+        RegisterActiveAudioSource(audioSource);
         audioSource.Play();
 
         float clipLength = data.sound.clip.length / Mathf.Max(0.01f, Mathf.Abs(audioSource.pitch));
         float lifetime = data.lifetimeSeconds > 0f ? data.lifetimeSeconds : clipLength + 0.1f;
         Destroy(audioSource.gameObject, lifetime);
+    }
+
+    // - Role: Stop currently playing stage sound sources.
+    private void OnStageSfxEnabledChanged(bool enabled)
+    {
+        if (!enabled)
+        {
+            StopActiveAudioSources();
+        }
+    }
+
+    // - Role: Register spawned audio source for stage mute.
+    private void RegisterActiveAudioSource(AudioSource audioSource)
+    {
+        PruneActiveAudioSources();
+        activeAudioSources.Add(audioSource);
+    }
+
+    // - Role: Stop active audio sources.
+    private void StopActiveAudioSources()
+    {
+        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        {
+            AudioSource audioSource = activeAudioSources[i];
+            if (audioSource != null)
+            {
+                Destroy(audioSource.gameObject);
+            }
+        }
+
+        activeAudioSources.Clear();
+    }
+
+    // - Role: Remove destroyed audio sources.
+    private void PruneActiveAudioSources()
+    {
+        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        {
+            if (activeAudioSources[i] == null)
+            {
+                activeAudioSources.RemoveAt(i);
+            }
+        }
     }
 }

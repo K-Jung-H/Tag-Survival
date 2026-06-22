@@ -10,12 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2b6741d6a5187484f9cb8a80e847847a, type: 3}
-  m_Name: Forest Definition
+  m_Name: Forest Stage Definition
   m_EditorClassIdentifier: Assembly-CSharp::StageDefinition
-  stageBakeData: {fileID: 11400000, guid: 256b4ae9902ac2a43aa7ad6438f7349d, type: 2}
-  stageRenderPrefab: {fileID: 4768190994418013215, guid: a5cf9d22e43236e4f982cc4b498a1870, type: 3}
+  stageBakeData: {fileID: 11400000, guid: 8026dd1bb541ce04aa887d147049fe20, type: 2}
+  stageRenderPrefab: {fileID: 8193370344049795653, guid: d66d939692947584f90fafb4a344d7c8, type: 3}
   physicsModifiers:
   - surfacePhysicType: 1
+    moveSpeedRate: 1
+    moveAccelRate: 1
+    moveDecelRate: 1
+    overSpeedDecelRate: 1
+    jumpStartSpeedRate: 1
+    gravityScale: 1
+    maxFallSpeedRate: 1
+    wallUpMoveRate: 1
+    wallDownMoveRate: 1
+    wallIdleSlideAcceleration: 0
+    wallMaxSlideSpeed: 0
+  - surfacePhysicType: 3
     moveSpeedRate: 1
     moveAccelRate: 1
     moveDecelRate: 1

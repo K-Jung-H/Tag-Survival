@@ -35,6 +35,9 @@ public static class SkillModifierParameterKeys
     public const string Cooldown = "cooldown";
     public const string Range = "range";
     public const string MaxPortalCount = "maxPortalCount";
+    public const string PullReelUnlocked = "pullReelUnlocked";
+    public const string Duration = "duration";
+    public const string StealthMoveSpeedBonus = "stealthMoveSpeedBonus";
 }
 
 public readonly struct ItemModifier

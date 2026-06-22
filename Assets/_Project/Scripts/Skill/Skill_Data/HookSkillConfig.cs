@@ -14,7 +14,6 @@ public sealed class HookSkillConfig : SkillConfig
     [SerializeField] private float swingIdleDampingPerSecond = 0.98f;
     [SerializeField] private float swingDetachBoost = 15f;
     [SerializeField] private float ropeTautTolerance = 0.03f;
-    [SerializeField] private bool pullReelUnlocked = true;
     [SerializeField] private float reelSpeed = 5f;
     [SerializeField] private float minRopeLength = 1.5f;
     [Header("Render")]
@@ -33,7 +32,6 @@ public sealed class HookSkillConfig : SkillConfig
     public float SwingIdleDampingPerSecond => Mathf.Clamp01(swingIdleDampingPerSecond);
     public float SwingDetachBoost => Mathf.Max(0f, swingDetachBoost);
     public float RopeTautTolerance => Mathf.Max(0f, ropeTautTolerance);
-    public bool PullReelUnlocked => pullReelUnlocked;
     public float ReelSpeed => Mathf.Max(0f, reelSpeed);
     public float MinRopeLength => Mathf.Max(0.0001f, minRopeLength);
     public float RopeSegmentLength => Mathf.Max(0.0001f, ropeSegmentLength);

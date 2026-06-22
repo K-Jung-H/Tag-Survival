@@ -11,6 +11,8 @@ public sealed class GameSettingsPanelController : MonoBehaviour
     [SerializeField] private SettingsToggleSpriteView bgmToggleView;
     [SerializeField] private Toggle sfxToggle;
     [SerializeField] private SettingsToggleSpriteView sfxToggleView;
+    [SerializeField] private Toggle stageSfxToggle;
+    [SerializeField] private SettingsToggleSpriteView stageSfxToggleView;
 
     public bool IsOpen => panelRoot != null && panelRoot.activeSelf;
 
@@ -71,6 +73,12 @@ public sealed class GameSettingsPanelController : MonoBehaviour
         Refresh();
     }
 
+    public void ClickStageSfxToggle()
+    {
+        AudioManager.Instance?.ToggleStageSfxEnabled();
+        Refresh();
+    }
+
     public void SetBgmEnabled(bool enabled)
     {
         AudioManager.Instance?.SetBgmEnabled(enabled);
@@ -83,14 +91,20 @@ public sealed class GameSettingsPanelController : MonoBehaviour
         Refresh();
     }
 
+    public void SetStageSfxEnabled(bool enabled)
+    {
+        AudioManager.Instance?.SetStageSfxEnabled(enabled);
+        Refresh();
+    }
+
     public void ClickBack()
     {
         GameFlowManager.Instance?.GoBack();
     }
 
-    public void ClickExitCurrentFlow()
+    public void ClickHome()
     {
-        GameFlowManager.Instance?.ExitCurrentFlow();
+        GameFlowManager.Instance?.ReturnToStart();
     }
 
     public void Refresh()
@@ -100,11 +114,13 @@ public sealed class GameSettingsPanelController : MonoBehaviour
         {
             SyncToggle(bgmToggle, bgmToggleView, false);
             SyncToggle(sfxToggle, sfxToggleView, false);
+            SyncToggle(stageSfxToggle, stageSfxToggleView, false);
             return;
         }
 
         SyncToggle(bgmToggle, bgmToggleView, audioManager.IsBgmEnabled);
         SyncToggle(sfxToggle, sfxToggleView, audioManager.IsSfxEnabled);
+        SyncToggle(stageSfxToggle, stageSfxToggleView, audioManager.IsStageSfxEnabled);
     }
 
     private static void SyncToggle(Toggle targetToggle, SettingsToggleSpriteView spriteView, bool isEnabled)

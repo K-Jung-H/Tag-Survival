@@ -451,6 +451,8 @@ public sealed class TimeAttackGameMode : TagGameModeBase
 
 public sealed class CoinCollectGameMode : TagGameModeBase
 {
+    private const uint InitialTaggerCoinCount = 5;
+
     private readonly CoinCollectGameModeConfig config;
     private readonly ServerCoinSystem coinSystem = new();
 
@@ -524,6 +526,29 @@ public sealed class CoinCollectGameMode : TagGameModeBase
     {
         coinSystem.Tick(deltaTime);
         return false;
+    }
+
+    // - Role: Give starting tagger initial coin score.
+    protected override void OnGameStarted(
+        Dictionary<ulong, PlayerObject> players,
+        ServerGameEventQueue eventQueue,
+        uint serverTick,
+        Vector2 eventPosition)
+    {
+        if (players == null)
+        {
+            return;
+        }
+
+        foreach (var pair in players)
+        {
+            PlayerObject player = pair.Value;
+            if (player != null && player.isTagger)
+            {
+                player.coinCount = InitialTaggerCoinCount;
+                return;
+            }
+        }
     }
 
     // - Role: Apply coin change when tagger changes.

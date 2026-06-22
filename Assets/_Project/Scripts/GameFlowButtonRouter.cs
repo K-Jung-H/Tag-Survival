@@ -50,7 +50,7 @@ public sealed class GameFlowButtonRouter : MonoBehaviour
         manager.GoBack();
     }
 
-    public void ExitCurrentFlow()
+    public void ReturnToStart()
     {
         GameFlowManager manager = GameFlowManager.Instance;
         if (manager == null)
@@ -59,7 +59,7 @@ public sealed class GameFlowButtonRouter : MonoBehaviour
             return;
         }
 
-        manager.ExitCurrentFlow();
+        manager.ReturnToStart();
     }
 
     public void OpenSettingsPanel()

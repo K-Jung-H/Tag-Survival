@@ -54,7 +54,7 @@ public sealed class SkillStateMachine_Stealth : SkillStateMachine
             return;
         }
 
-        stealthTimer = config.DurationSeconds;
+        stealthTimer = ResolveDurationSeconds(player);
         State = SkillObjectState.Active;
         player.isStealthed = true;
         StartCooldown(player);
@@ -99,5 +99,15 @@ public sealed class SkillStateMachine_Stealth : SkillStateMachine
 
         Debug.LogError("[SkillStateMachine_Stealth] StealthSkillConfig is required.");
         warnedMissingConfig = true;
+    }
+
+    // - Role: Resolve stealth duration with item modifiers.
+    private float ResolveDurationSeconds(PlayerObject player)
+    {
+        float baseDuration = config != null ? config.DurationSeconds : 0f;
+        float duration = player != null && player.itemEffects != null
+            ? player.itemEffects.EvaluateSkillFloat(baseDuration, player.skill, SkillModifierParameterKeys.Duration)
+            : baseDuration;
+        return Mathf.Max(0.0001f, duration);
     }
 }

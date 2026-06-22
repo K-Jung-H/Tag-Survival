@@ -365,6 +365,13 @@ public sealed class ServerPlayerSystem
 
         player.itemEffects.Tick(deltaTime);
         player.moveStats = player.itemEffects.ApplyMovementStats(player.baseMoveStats);
+        if (player.isStealthed)
+        {
+            player.moveStats = player.itemEffects.ApplySkillMoveSpeedBonus(
+                player.moveStats,
+                player.skill,
+                SkillModifierParameterKeys.StealthMoveSpeedBonus);
+        }
     }
 
     // - Role: Move player with stage collision.

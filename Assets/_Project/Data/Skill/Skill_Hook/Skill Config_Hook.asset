@@ -23,7 +23,6 @@ MonoBehaviour:
   swingIdleDampingPerSecond: 0.98
   swingDetachBoost: 15
   ropeTautTolerance: 0.03
-  pullReelUnlocked: 1
   reelSpeed: 5
   minRopeLength: 1.5
   ropeSegmentLength: 2

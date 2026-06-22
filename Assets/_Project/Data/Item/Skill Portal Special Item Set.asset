@@ -19,11 +19,24 @@ MonoBehaviour:
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 0}
+        sprite: {fileID: 21300000, guid: 9eaa6d95a1d94ed41866b52732c3f08b, type: 3}
         animationClip: {fileID: 0}
-      title: Portal Max
-      description: 'Portal Max[+]'
+      title: Skill Ability
+      description: 'Max Portal[+]'
     modifiers:
     - parameterKey: maxPortalCount
       operation: 0
       value: 1
+  - entry:
+      id: 401
+      duration: 0
+      icon:
+        viewType: 0
+        sprite: {fileID: 21300000, guid: 9008780582d3efe4fb4acfc2a510a77d, type: 3}
+        animationClip: {fileID: 0}
+      title: Skill Ability
+      description: 'Portal Max[++]'
+    modifiers:
+    - parameterKey: maxPortalCount
+      operation: 0
+      value: 2

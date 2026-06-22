@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class Client_CharacterAudioView : MonoBehaviour
@@ -6,9 +7,20 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
     [SerializeField] private AudioSource oneShotAudioSource;
     [SerializeField] private Transform audioListenerTransform;
 
+    private readonly List<AudioSource> activeAudioSources = new();
     private LocomotionState previousLocomotionState;
     private bool hasSnapshot;
     private float runStepTimer;
+
+    private void OnEnable()
+    {
+        AudioManager.StageSfxEnabledChanged += OnStageSfxEnabledChanged;
+    }
+
+    private void OnDisable()
+    {
+        AudioManager.StageSfxEnabledChanged -= OnStageSfxEnabledChanged;
+    }
 
     // - Role: Bind scene-level audio listener transform.
     public void BindAudioListener(Transform listenerTransform)
@@ -97,6 +109,12 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
             return;
         }
 
+        if (!AudioManager.CanPlayStageSfx)
+        {
+            runStepTimer = 0f;
+            return;
+        }
+
         runStepTimer -= deltaTime;
         if (runStepTimer > 0f)
         {
@@ -123,7 +141,7 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
     // - Role: Play cloned one-shot sound data and return its interval.
     private float PlayOneShot(GameFeedbackData data)
     {
-        if (oneShotAudioSource == null || data.sound.clip == null)
+        if (oneShotAudioSource == null || data.sound.clip == null || !AudioManager.CanPlayStageSfx)
         {
             return 0f;
         }
@@ -135,6 +153,7 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
         ApplySoundSettings(audioSource, data.sound);
         audioSource.loop = false;
         audioSource.clip = data.sound.clip;
+        RegisterActiveAudioSource(audioSource);
         audioSource.Play();
 
         float lifetime = ResolveSoundLifetime(data.sound.clip, audioSource, data.lifetimeSeconds);
@@ -186,5 +205,49 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
             ownerPosition.x,
             ownerPosition.y,
             audioListenerTransform.position.z);
+    }
+
+    // - Role: Stop currently playing stage sound sources.
+    private void OnStageSfxEnabledChanged(bool enabled)
+    {
+        if (!enabled)
+        {
+            runStepTimer = 0f;
+            StopActiveAudioSources();
+        }
+    }
+
+    // - Role: Register spawned audio source for stage mute.
+    private void RegisterActiveAudioSource(AudioSource audioSource)
+    {
+        PruneActiveAudioSources();
+        activeAudioSources.Add(audioSource);
+    }
+
+    // - Role: Stop active audio sources.
+    private void StopActiveAudioSources()
+    {
+        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        {
+            AudioSource audioSource = activeAudioSources[i];
+            if (audioSource != null)
+            {
+                Destroy(audioSource.gameObject);
+            }
+        }
+
+        activeAudioSources.Clear();
+    }
+
+    // - Role: Remove destroyed audio sources.
+    private void PruneActiveAudioSources()
+    {
+        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        {
+            if (activeAudioSources[i] == null)
+            {
+                activeAudioSources.RemoveAt(i);
+            }
+        }
     }
 }

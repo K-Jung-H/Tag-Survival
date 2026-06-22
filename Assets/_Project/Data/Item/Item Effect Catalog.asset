@@ -19,3 +19,5 @@ MonoBehaviour:
   skillSpecialItemSets:
   - {fileID: 11400000, guid: e4409efae63b13245b9847f8b3a171cb, type: 2}
   - {fileID: 11400000, guid: 8a6963c2008d3c742b26979100b61545, type: 2}
+  - {fileID: 11400000, guid: 7519c937180c9404e9b5a42738ac06ed, type: 2}
+  - {fileID: 11400000, guid: 9c1d364044246654db6e16e996df8671, type: 2}

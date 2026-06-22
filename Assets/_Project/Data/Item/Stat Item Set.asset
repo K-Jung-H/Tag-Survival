@@ -17,77 +17,77 @@ MonoBehaviour:
       id: 100
       duration: 0
       icon:
-        viewType: 1
-        sprite: {fileID: 0}
+        viewType: 0
+        sprite: {fileID: 21300000, guid: 61d01e8616313344b978a6518fd86ed6, type: 3}
         animationClip: {fileID: 0}
-      title: Speed
+      title: Stat
       description: ' Speed [+]'
     modifiers:
     - statEffect: 1
       operation: 0
-      value: 1
+      value: 0.5
   - entry:
       id: 101
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 0}
+        sprite: {fileID: 21300000, guid: 2d996a9f7524c354585e081fdf1c9ada, type: 3}
         animationClip: {fileID: 0}
-      title: Speed
+      title: Stat
       description: ' Speed [++]'
     modifiers:
     - statEffect: 1
       operation: 0
-      value: 2
+      value: 1
   - entry:
       id: 102
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 0}
+        sprite: {fileID: 21300000, guid: bf7bb96fa1c415b4fb03ff227c934adc, type: 3}
         animationClip: {fileID: 0}
-      title: Speed
+      title: Stat
       description: ' Speed [+++]'
     modifiers:
     - statEffect: 1
       operation: 0
-      value: 3
+      value: 1.5
   - entry:
       id: 103
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 0}
+        sprite: {fileID: 21300000, guid: b2834b9a4be626e4d8a56e1cde70b1b1, type: 3}
         animationClip: {fileID: 0}
-      title: Jump
+      title: Stat
       description: ' Jump [+]'
     modifiers:
     - statEffect: 2
       operation: 0
-      value: 1
+      value: 0.5
   - entry:
       id: 104
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 0}
+        sprite: {fileID: 21300000, guid: b4c9f99162deca84ebc6c689c9df3de9, type: 3}
         animationClip: {fileID: 0}
-      title: Jump
+      title: Stat
       description: ' Jump [++]'
     modifiers:
     - statEffect: 2
       operation: 0
-      value: 2
+      value: 1
   - entry:
       id: 105
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 0}
+        sprite: {fileID: 21300000, guid: 62ea3073b49e56940bfa46b63af57760, type: 3}
         animationClip: {fileID: 0}
-      title: Jump
+      title: Stat
       description: ' Jump [+++]'
     modifiers:
     - statEffect: 2
       operation: 0
-      value: 3
+      value: 1.5

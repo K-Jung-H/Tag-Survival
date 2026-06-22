@@ -71,6 +71,33 @@ public sealed class PlayerItemEffects
             baseStats.lateJumpTime);
     }
 
+    // - Role: Apply conditional skill movement speed bonus.
+    public CharacterMovementStats ApplySkillMoveSpeedBonus(
+        CharacterMovementStats baseStats,
+        Skill skill,
+        string parameterKey)
+    {
+        float speedBonus = EvaluateSkillFloat(0f, skill, parameterKey);
+        if (Mathf.Approximately(speedBonus, 0f))
+        {
+            return baseStats;
+        }
+
+        return CharacterMovementStats.Create(
+            Mathf.Max(0f, baseStats.moveSpeed + speedBonus),
+            baseStats.jumpHeight,
+            baseStats.jumpRiseTime,
+            baseStats.fallTime,
+            baseStats.maxFallSpeed,
+            baseStats.moveAccel,
+            baseStats.moveDecel,
+            baseStats.airAccel,
+            baseStats.airDecel,
+            baseStats.overSpeedDecel,
+            baseStats.wallMoveRate,
+            baseStats.lateJumpTime);
+    }
+
     // - Role: Evaluate one skill float parameter.
     public float EvaluateSkillFloat(
         float baseValue,

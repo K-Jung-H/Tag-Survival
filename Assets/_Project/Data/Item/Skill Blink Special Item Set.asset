@@ -10,59 +10,46 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e4c1aab328dfd8f43b459c232ef65cbe, type: 3}
-  m_Name: Skill Hook Special Item Set
+  m_Name: Skill Blink Special Item Set
   m_EditorClassIdentifier: Assembly-CSharp::SkillSpecialItemSet
-  skillDefinition: {fileID: 11400000, guid: 4e860c3baace658458e8e72070b8a568, type: 2}
+  skillDefinition: {fileID: 11400000, guid: b15b8e869a8bbf746bfd31a8345fb92a, type: 2}
   items:
   - entry:
-      id: 300
+      id: 500
       duration: 0
       icon:
-        viewType: 1
-        sprite: {fileID: 21300000, guid: 31ce55c2474361d4fab07984f18f9145, type: 3}
+        viewType: 0
+        sprite: {fileID: 21300000, guid: a592e52011d988e46b3a2c82e1ac05ba, type: 3}
         animationClip: {fileID: 0}
       title: Skill Ability
-      description: 'Hook Max Range[+]'
+      description: 'Blink Range [+]'
     modifiers:
     - parameterKey: range
       operation: 0
       value: 1
   - entry:
-      id: 301
+      id: 501
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 21300000, guid: 87b0be14180e9be4681e14b64915d462, type: 3}
+        sprite: {fileID: 21300000, guid: e340efa915ac807489393b116994f002, type: 3}
         animationClip: {fileID: 0}
       title: Skill Ability
-      description: 'Hook Max Range[++]'
+      description: 'Blink Range [++]'
     modifiers:
     - parameterKey: range
       operation: 0
       value: 2
   - entry:
-      id: 302
+      id: 502
       duration: 0
       icon:
         viewType: 0
-        sprite: {fileID: 21300000, guid: b0851162516b6244f9ab7679cdb66512, type: 3}
+        sprite: {fileID: 21300000, guid: 213d37f2675510c44ad06fb526cd48f5, type: 3}
         animationClip: {fileID: 0}
       title: Skill Ability
-      description: 'Hook Max Range[+++]'
+      description: 'Blink Range [+++]'
     modifiers:
     - parameterKey: range
       operation: 0
       value: 3
-  - entry:
-      id: 303
-      duration: 0
-      icon:
-        viewType: 0
-        sprite: {fileID: 21300000, guid: ecfc905a2597f014695bcc25207a2010, type: 3}
-        animationClip: {fileID: 0}
-      title: Skill Ability
-      description: Unlock Reel & Pull
-    modifiers:
-    - parameterKey: pullReelUnlocked
-      operation: 2
-      value: 1

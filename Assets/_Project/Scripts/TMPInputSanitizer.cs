@@ -5,7 +5,7 @@ using UnityEngine;
 public enum TMPInputSanitizerMode
 {
     JoinCode = 0,
-    NickName = 1
+    EnglishNumberSymbol = 1
 }
 
 public sealed class TMPInputSanitizer : MonoBehaviour
@@ -104,8 +104,8 @@ public sealed class TMPInputSanitizer : MonoBehaviour
         {
             case TMPInputSanitizerMode.JoinCode:
                 return TrySanitizeJoinCodeChar(value, out sanitized);
-            case TMPInputSanitizerMode.NickName:
-                return TrySanitizeNicknameChar(value, out sanitized);
+            case TMPInputSanitizerMode.EnglishNumberSymbol:
+                return TrySanitizeEnglishNumberSymbolChar(value, out sanitized);
             default:
                 return false;
         }
@@ -117,7 +117,7 @@ public sealed class TMPInputSanitizer : MonoBehaviour
         return sanitized <= 127 && char.IsLetterOrDigit(sanitized);
     }
 
-    private static bool TrySanitizeNicknameChar(char value, out char sanitized)
+    private static bool TrySanitizeEnglishNumberSymbolChar(char value, out char sanitized)
     {
         sanitized = value;
         return sanitized >= 32 && sanitized <= 126;

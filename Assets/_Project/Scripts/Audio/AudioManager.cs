@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -7,6 +8,7 @@ public sealed class AudioManager : MonoBehaviour
 {
     private const string BgmEnabledPrefsKey = "Audio.BgmEnabled";
     private const string SfxEnabledPrefsKey = "Audio.SfxEnabled";
+    private const string StageSfxEnabledPrefsKey = "Audio.StageSfxEnabled";
 
     [SerializeField] private AudioCatalog catalog;
     [SerializeField] private AudioSource bgmSource;
@@ -15,13 +17,17 @@ public sealed class AudioManager : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float uiSfxVolume = 1f;
     [SerializeField] private bool bgmEnabled = true;
     [SerializeField] private bool sfxEnabled = true;
+    [SerializeField] private bool stageSfxEnabled = true;
 
     private static AudioManager instance;
     private Coroutine bgmRoutine;
 
     public static AudioManager Instance => instance;
+    public static bool CanPlayStageSfx => instance == null || instance.stageSfxEnabled;
+    public static event Action<bool> StageSfxEnabledChanged;
     public bool IsBgmEnabled => bgmEnabled;
     public bool IsSfxEnabled => sfxEnabled;
+    public bool IsStageSfxEnabled => stageSfxEnabled;
 
     private void Awake()
     {
@@ -129,6 +135,19 @@ public sealed class AudioManager : MonoBehaviour
         ApplyAudioSettings();
     }
 
+    public void SetStageSfxEnabled(bool enabled)
+    {
+        if (stageSfxEnabled == enabled)
+        {
+            return;
+        }
+
+        stageSfxEnabled = enabled;
+        PlayerPrefs.SetInt(StageSfxEnabledPrefsKey, stageSfxEnabled ? 1 : 0);
+        PlayerPrefs.Save();
+        StageSfxEnabledChanged?.Invoke(stageSfxEnabled);
+    }
+
     public void ToggleBgmEnabled()
     {
         SetBgmEnabled(!bgmEnabled);
@@ -137,6 +156,11 @@ public sealed class AudioManager : MonoBehaviour
     public void ToggleSfxEnabled()
     {
         SetSfxEnabled(!sfxEnabled);
+    }
+
+    public void ToggleStageSfxEnabled()
+    {
+        SetStageSfxEnabled(!stageSfxEnabled);
     }
 
     private IEnumerator ChangeBgmRoutine(AudioClip nextClip, float fadeSeconds)
@@ -196,6 +220,7 @@ public sealed class AudioManager : MonoBehaviour
     {
         bgmEnabled = PlayerPrefs.GetInt(BgmEnabledPrefsKey, bgmEnabled ? 1 : 0) != 0;
         sfxEnabled = PlayerPrefs.GetInt(SfxEnabledPrefsKey, sfxEnabled ? 1 : 0) != 0;
+        stageSfxEnabled = PlayerPrefs.GetInt(StageSfxEnabledPrefsKey, stageSfxEnabled ? 1 : 0) != 0;
     }
 
     private void ApplyAudioSettings()

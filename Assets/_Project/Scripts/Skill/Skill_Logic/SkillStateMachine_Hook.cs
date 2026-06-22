@@ -22,7 +22,6 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
     private const float DefaultSwingIdleDampingPerSecond = 0.98f;
     private const float DefaultSwingDetachBoost = 15f;
     private const float DefaultRopeTautTolerance = 0.03f;
-    private const bool DefaultPullReelUnlocked = true;
     private const float DefaultReelSpeed = 5f;
     private const float DefaultMinRopeLength = 1.5f;
     private const float MovementInputThreshold = 0.0001f;
@@ -318,7 +317,7 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
     // - Role: Apply pull and reel input.
     private void ApplyPullReel(PlayerObject player, float deltaTime)
     {
-        if (!PullReelUnlocked || CurrentRange <= 0f || ropeLength <= 0f)
+        if (!IsPullReelUnlocked(player) || CurrentRange <= 0f || ropeLength <= 0f)
         {
             return;
         }
@@ -339,6 +338,16 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
         {
             ropeLength = Mathf.Min(maxLength, ropeLength + ReelSpeed * deltaTime);
         }
+    }
+
+    // - Role: Check pull and reel item unlock.
+    private bool IsPullReelUnlocked(PlayerObject player)
+    {
+        const float baseValue = 0f;
+        float evaluatedValue = player != null && player.itemEffects != null
+            ? player.itemEffects.EvaluateSkillFloat(baseValue, player.skill, SkillModifierParameterKeys.PullReelUnlocked)
+            : baseValue;
+        return evaluatedValue > 0.5f;
     }
 
     // - Role: Apply swing input.
@@ -701,7 +710,6 @@ public sealed class SkillStateMachine_Hook : SkillStateMachine
         : DefaultSwingIdleDampingPerSecond;
     private float SwingDetachBoost => config != null ? config.SwingDetachBoost : DefaultSwingDetachBoost;
     private float RopeTautTolerance => config != null ? config.RopeTautTolerance : DefaultRopeTautTolerance;
-    private bool PullReelUnlocked => config != null ? config.PullReelUnlocked : DefaultPullReelUnlocked;
     private float ReelSpeed => config != null ? config.ReelSpeed : DefaultReelSpeed;
     private float MinRopeLength => config != null ? config.MinRopeLength : DefaultMinRopeLength;
 }

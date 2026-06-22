@@ -2481,7 +2481,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 350192514}
         m_TargetAssemblyTypeName: GameSettingsPanelController, Assembly-CSharp
-        m_MethodName: ClickExitCurrentFlow
+        m_MethodName: ClickHome
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -6565,7 +6565,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -949757489, guid: a37e8466236089c45b610370218b5353, type: 3}
+  m_Sprite: {fileID: -4918882636384273743, guid: 1ec7f46fedc02e54da21bf083cdb433f, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6613,7 +6613,7 @@ MonoBehaviour:
     m_FadeDuration: 0.1
   m_SpriteState:
     m_HighlightedSprite: {fileID: 0}
-    m_PressedSprite: {fileID: 1878393918, guid: a37e8466236089c45b610370218b5353, type: 3}
+    m_PressedSprite: {fileID: 523308153709950989, guid: 1ec7f46fedc02e54da21bf083cdb433f, type: 3}
     m_SelectedSprite: {fileID: 0}
     m_DisabledSprite: {fileID: 0}
   m_AnimationTriggers:
@@ -6627,9 +6627,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
+      - m_Target: {fileID: 350192514}
         m_TargetAssemblyTypeName: GameSettingsPanelController, Assembly-CSharp
-        m_MethodName: Toggle
+        m_MethodName: ClickBack
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

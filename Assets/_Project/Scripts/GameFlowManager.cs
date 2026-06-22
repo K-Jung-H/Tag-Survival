@@ -54,7 +54,7 @@ public sealed class GameFlowManager : MonoBehaviour
 
     public void LoadStartScene()
     {
-        _ = LoadSceneAsync(startSceneName);
+        ReturnToStart();
     }
 
     public void LoadModeSelectScene()
@@ -117,14 +117,14 @@ public sealed class GameFlowManager : MonoBehaviour
         _ = GoBackAsync(activeSceneName);
     }
 
-    public void ExitCurrentFlow()
+    public void ReturnToStart()
     {
         if (isTransitioning)
         {
             return;
         }
 
-        _ = ExitCurrentFlowAsync(SceneManager.GetActiveScene().name);
+        _ = ReturnToStartAsync(SceneManager.GetActiveScene().name);
     }
 
     public void StartDedicatedServerRoom()
@@ -483,7 +483,7 @@ public sealed class GameFlowManager : MonoBehaviour
         isTransitioning = false;
     }
 
-    private async Task ExitCurrentFlowAsync(string activeSceneName)
+    private async Task ReturnToStartAsync(string activeSceneName)
     {
         isTransitioning = true;
 
@@ -495,30 +495,26 @@ public sealed class GameFlowManager : MonoBehaviour
             }
 
             NetworkSessionManager.Instance?.StopSession();
-            await LoadSceneInternalAsync(onlineSceneName, LoadSceneMode.Single);
             ClearRoomFlowState();
         }
         else if (IsRoomScene(activeSceneName))
         {
-            await ExitRoomToOnlineAsync();
+            StopSessionAndClearRoomFlow();
         }
-        else if (IsSameScene(activeSceneName, onlineSceneName))
+        else if (IsSameScene(activeSceneName, onlineSceneName)
+            || IsSameScene(activeSceneName, modeSelectSceneName))
         {
-            await LoadSceneInternalAsync(modeSelectSceneName, LoadSceneMode.Single);
-        }
-        else if (IsSameScene(activeSceneName, modeSelectSceneName))
-        {
-            await LoadSceneInternalAsync(startSceneName, LoadSceneMode.Single);
+            StopSessionAndClearRoomFlow();
         }
 
+        await LoadSceneInternalAsync(startSceneName, LoadSceneMode.Single);
         isTransitioning = false;
     }
 
     private async Task ExitRoomToOnlineAsync()
     {
-        NetworkSessionManager.Instance?.StopSession();
+        StopSessionAndClearRoomFlow();
         await LoadSceneInternalAsync(onlineSceneName, LoadSceneMode.Single);
-        ClearRoomFlowState();
     }
 
     private async Task ReturnHostedRoomAsync()
@@ -726,6 +722,12 @@ public sealed class GameFlowManager : MonoBehaviour
         serverStageBuilder = null;
         clientStageBuilder = null;
         lastStartedRoomSnapshot = default;
+    }
+
+    private void StopSessionAndClearRoomFlow()
+    {
+        NetworkSessionManager.Instance?.StopSession();
+        ClearRoomFlowState();
     }
 
     private static GameSessionPlayerProfile ResolveRoomPlayerProfile(

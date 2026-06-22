@@ -37,4 +37,40 @@ public sealed class GameFlowButtonRouter : MonoBehaviour
 
         manager.LoadOnlineScene();
     }
+
+    public void GoBack()
+    {
+        GameFlowManager manager = GameFlowManager.Instance;
+        if (manager == null)
+        {
+            Debug.LogError("[GameFlowButtonRouter] GameFlowManager is not available.", this);
+            return;
+        }
+
+        manager.GoBack();
+    }
+
+    public void ExitCurrentFlow()
+    {
+        GameFlowManager manager = GameFlowManager.Instance;
+        if (manager == null)
+        {
+            Debug.LogError("[GameFlowButtonRouter] GameFlowManager is not available.", this);
+            return;
+        }
+
+        manager.ExitCurrentFlow();
+    }
+
+    public void OpenSettingsPanel()
+    {
+        GameFlowManager manager = GameFlowManager.Instance;
+        if (manager == null)
+        {
+            Debug.LogError("[GameFlowButtonRouter] GameFlowManager is not available.", this);
+            return;
+        }
+
+        manager.OpenSettingsPanel();
+    }
 }

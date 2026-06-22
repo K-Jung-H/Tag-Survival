@@ -28,6 +28,7 @@ public sealed class GameFlowManager : MonoBehaviour
     private ServerStageBuilder serverStageBuilder;
     private ClientStageBuilder clientStageBuilder;
     private RoomSnapshotPacket lastStartedRoomSnapshot;
+    private GameSettingsPanelController activeSettingsPanel;
 
     public static GameFlowManager Instance => instance;
     public string StartSceneName => startSceneName;
@@ -43,7 +44,7 @@ public sealed class GameFlowManager : MonoBehaviour
     {
         if (instance != null && instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
 
@@ -64,6 +65,66 @@ public sealed class GameFlowManager : MonoBehaviour
     public void LoadOnlineScene()
     {
         _ = LoadSceneAsync(onlineSceneName);
+    }
+
+    public void RegisterSettingsPanel(GameSettingsPanelController settingsPanel)
+    {
+        if (settingsPanel != null)
+        {
+            activeSettingsPanel = settingsPanel;
+        }
+    }
+
+    public void UnregisterSettingsPanel(GameSettingsPanelController settingsPanel)
+    {
+        if (activeSettingsPanel == settingsPanel)
+        {
+            activeSettingsPanel = null;
+        }
+    }
+
+    public void OpenSettingsPanel()
+    {
+        if (activeSettingsPanel == null)
+        {
+            Debug.LogWarning("[GameFlowManager] Active settings panel is not registered.", this);
+            return;
+        }
+
+        activeSettingsPanel.Open();
+    }
+
+    public void GoBack()
+    {
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        if (activeSettingsPanel != null && activeSettingsPanel.IsOpen)
+        {
+            activeSettingsPanel.Close();
+            return;
+        }
+
+        string activeSceneName = SceneManager.GetActiveScene().name;
+        if (IsStageScene(activeSceneName))
+        {
+            OpenSettingsPanel();
+            return;
+        }
+
+        _ = GoBackAsync(activeSceneName);
+    }
+
+    public void ExitCurrentFlow()
+    {
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        _ = ExitCurrentFlowAsync(SceneManager.GetActiveScene().name);
     }
 
     public void StartDedicatedServerRoom()
@@ -398,7 +459,66 @@ public sealed class GameFlowManager : MonoBehaviour
 
         NetworkSessionManager.Instance?.StopSession();
         await LoadSceneInternalAsync(onlineSceneName, LoadSceneMode.Single);
+        ClearRoomFlowState();
         isTransitioning = false;
+    }
+
+    private async Task GoBackAsync(string activeSceneName)
+    {
+        isTransitioning = true;
+
+        if (IsSameScene(activeSceneName, onlineSceneName))
+        {
+            await LoadSceneInternalAsync(modeSelectSceneName, LoadSceneMode.Single);
+        }
+        else if (IsSameScene(activeSceneName, modeSelectSceneName))
+        {
+            await LoadSceneInternalAsync(startSceneName, LoadSceneMode.Single);
+        }
+        else if (IsRoomScene(activeSceneName))
+        {
+            await ExitRoomToOnlineAsync();
+        }
+
+        isTransitioning = false;
+    }
+
+    private async Task ExitCurrentFlowAsync(string activeSceneName)
+    {
+        isTransitioning = true;
+
+        if (IsStageScene(activeSceneName))
+        {
+            if (currentRoomLaunchRequest.mode == RoomLaunchMode.HostRoom)
+            {
+                await Task.Delay(250);
+            }
+
+            NetworkSessionManager.Instance?.StopSession();
+            await LoadSceneInternalAsync(onlineSceneName, LoadSceneMode.Single);
+            ClearRoomFlowState();
+        }
+        else if (IsRoomScene(activeSceneName))
+        {
+            await ExitRoomToOnlineAsync();
+        }
+        else if (IsSameScene(activeSceneName, onlineSceneName))
+        {
+            await LoadSceneInternalAsync(modeSelectSceneName, LoadSceneMode.Single);
+        }
+        else if (IsSameScene(activeSceneName, modeSelectSceneName))
+        {
+            await LoadSceneInternalAsync(startSceneName, LoadSceneMode.Single);
+        }
+
+        isTransitioning = false;
+    }
+
+    private async Task ExitRoomToOnlineAsync()
+    {
+        NetworkSessionManager.Instance?.StopSession();
+        await LoadSceneInternalAsync(onlineSceneName, LoadSceneMode.Single);
+        ClearRoomFlowState();
     }
 
     private async Task ReturnHostedRoomAsync()
@@ -598,6 +718,16 @@ public sealed class GameFlowManager : MonoBehaviour
         return roomSnapshot;
     }
 
+    private void ClearRoomFlowState()
+    {
+        currentRoomLaunchRequest = default;
+        serverRoomBuilder = null;
+        clientRoomBuilder = null;
+        serverStageBuilder = null;
+        clientStageBuilder = null;
+        lastStartedRoomSnapshot = default;
+    }
+
     private static GameSessionPlayerProfile ResolveRoomPlayerProfile(
         RoomSnapshotPacket roomSnapshot,
         ulong clientId,
@@ -663,5 +793,22 @@ public sealed class GameFlowManager : MonoBehaviour
 
         builder = foundBuilder;
         return true;
+    }
+
+    private bool IsStageScene(string sceneName)
+    {
+        return IsSameScene(sceneName, clientStageSceneName)
+            || IsSameScene(sceneName, serverStageSceneName);
+    }
+
+    private bool IsRoomScene(string sceneName)
+    {
+        return IsSameScene(sceneName, clientRoomSceneName)
+            || IsSameScene(sceneName, serverRoomSceneName);
+    }
+
+    private static bool IsSameScene(string left, string right)
+    {
+        return string.Equals(left, right, System.StringComparison.Ordinal);
     }
 }

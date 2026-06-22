@@ -5,16 +5,23 @@ using UnityEngine.SceneManagement;
 [DefaultExecutionOrder(-100)]
 public sealed class AudioManager : MonoBehaviour
 {
+    private const string BgmEnabledPrefsKey = "Audio.BgmEnabled";
+    private const string SfxEnabledPrefsKey = "Audio.SfxEnabled";
+
     [SerializeField] private AudioCatalog catalog;
     [SerializeField] private AudioSource bgmSource;
     [SerializeField] private AudioSource uiSfxSource;
     [SerializeField, Range(0f, 1f)] private float bgmVolume = 1f;
     [SerializeField, Range(0f, 1f)] private float uiSfxVolume = 1f;
+    [SerializeField] private bool bgmEnabled = true;
+    [SerializeField] private bool sfxEnabled = true;
 
     private static AudioManager instance;
     private Coroutine bgmRoutine;
 
     public static AudioManager Instance => instance;
+    public bool IsBgmEnabled => bgmEnabled;
+    public bool IsSfxEnabled => sfxEnabled;
 
     private void Awake()
     {
@@ -26,6 +33,9 @@ public sealed class AudioManager : MonoBehaviour
 
         instance = this;
         DontDestroyOnLoad(gameObject);
+        LoadSavedSettings();
+        ApplyAudioSettings();
+
         if (bgmSource != null)
         {
             bgmSource.loop = true;
@@ -85,12 +95,48 @@ public sealed class AudioManager : MonoBehaviour
 
     public void PlayUiSfx(AudioClip clip)
     {
-        if (uiSfxSource == null || clip == null)
+        if (!sfxEnabled || uiSfxSource == null || clip == null)
         {
             return;
         }
 
         uiSfxSource.PlayOneShot(clip, uiSfxVolume);
+    }
+
+    public void SetBgmEnabled(bool enabled)
+    {
+        if (bgmEnabled == enabled)
+        {
+            return;
+        }
+
+        bgmEnabled = enabled;
+        PlayerPrefs.SetInt(BgmEnabledPrefsKey, bgmEnabled ? 1 : 0);
+        PlayerPrefs.Save();
+        ApplyAudioSettings();
+    }
+
+    public void SetSfxEnabled(bool enabled)
+    {
+        if (sfxEnabled == enabled)
+        {
+            return;
+        }
+
+        sfxEnabled = enabled;
+        PlayerPrefs.SetInt(SfxEnabledPrefsKey, sfxEnabled ? 1 : 0);
+        PlayerPrefs.Save();
+        ApplyAudioSettings();
+    }
+
+    public void ToggleBgmEnabled()
+    {
+        SetBgmEnabled(!bgmEnabled);
+    }
+
+    public void ToggleSfxEnabled()
+    {
+        SetSfxEnabled(!sfxEnabled);
     }
 
     private IEnumerator ChangeBgmRoutine(AudioClip nextClip, float fadeSeconds)
@@ -144,5 +190,26 @@ public sealed class AudioManager : MonoBehaviour
 
         StopCoroutine(bgmRoutine);
         bgmRoutine = null;
+    }
+
+    private void LoadSavedSettings()
+    {
+        bgmEnabled = PlayerPrefs.GetInt(BgmEnabledPrefsKey, bgmEnabled ? 1 : 0) != 0;
+        sfxEnabled = PlayerPrefs.GetInt(SfxEnabledPrefsKey, sfxEnabled ? 1 : 0) != 0;
+    }
+
+    private void ApplyAudioSettings()
+    {
+        if (bgmSource != null)
+        {
+            bgmSource.mute = !bgmEnabled;
+            bgmSource.volume = bgmVolume;
+        }
+
+        if (uiSfxSource != null)
+        {
+            uiSfxSource.mute = !sfxEnabled;
+            uiSfxSource.volume = uiSfxVolume;
+        }
     }
 }

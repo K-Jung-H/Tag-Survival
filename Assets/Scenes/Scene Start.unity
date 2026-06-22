@@ -1768,6 +1768,8 @@ MonoBehaviour:
   uiSfxSource: {fileID: 403319976}
   bgmVolume: 0.251
   uiSfxVolume: 1
+  bgmEnabled: 1
+  sfxEnabled: 1
 --- !u!4 &333935995
 Transform:
   m_ObjectHideFlags: 0
@@ -1796,6 +1798,7 @@ GameObject:
   - component: {fileID: 397837250}
   - component: {fileID: 397837249}
   - component: {fileID: 397837251}
+  - component: {fileID: 397837252}
   m_Layer: 0
   m_Name: GameSystem
   m_TagString: Untagged
@@ -1852,6 +1855,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b72f9c7070374edc8e7d3a5ed26020dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameFlowButtonRouter
+--- !u!114 &397837252
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 397837248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 731ee4c7d6fd4f96a3fefb5cd3edce35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameFlowBackInputHandler
+  handleEscapeKey: 1
 --- !u!1 &403319975
 GameObject:
   m_ObjectHideFlags: 0

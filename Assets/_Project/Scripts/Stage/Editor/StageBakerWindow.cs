@@ -240,14 +240,12 @@ public sealed class StageBakerWindow : EditorWindow
 
         foreach (TilemapEntry entry in tilemapEntries)
         {
-            if (entry.tilemap == null)
+            if (entry.tilemap == null || !entry.includeInBake)
             {
                 continue;
             }
 
-            BoundsInt tilemapBounds = entry.tilemap.cellBounds;
-            RectInt bounds = new RectInt(tilemapBounds.xMin, tilemapBounds.yMin, tilemapBounds.size.x, tilemapBounds.size.y);
-            if (bounds.width <= 0 || bounds.height <= 0)
+            if (!TryGetOccupiedTileBounds(entry.tilemap, out RectInt bounds))
             {
                 continue;
             }
@@ -268,11 +266,57 @@ public sealed class StageBakerWindow : EditorWindow
 
         if (!hasBounds)
         {
-            Debug.LogWarning("No tilemap bounds are available.");
+            Debug.LogWarning("No included tilemap has occupied cells.");
             return;
         }
 
         cellBounds = combined;
+    }
+
+    // - Role: Get actual occupied tile bounds instead of Unity's possibly stale Tilemap.cellBounds.
+    private static bool TryGetOccupiedTileBounds(Tilemap tilemap, out RectInt bounds)
+    {
+        bounds = default;
+        if (tilemap == null)
+        {
+            return false;
+        }
+
+        BoundsInt cellBounds = tilemap.cellBounds;
+        bool hasTile = false;
+        int xMin = int.MaxValue;
+        int yMin = int.MaxValue;
+        int xMax = int.MinValue;
+        int yMax = int.MinValue;
+
+        for (int z = cellBounds.zMin; z < cellBounds.zMax; z++)
+        {
+            for (int y = cellBounds.yMin; y < cellBounds.yMax; y++)
+            {
+                for (int x = cellBounds.xMin; x < cellBounds.xMax; x++)
+                {
+                    Vector3Int cell = new Vector3Int(x, y, z);
+                    if (!tilemap.HasTile(cell))
+                    {
+                        continue;
+                    }
+
+                    hasTile = true;
+                    xMin = Mathf.Min(xMin, x);
+                    yMin = Mathf.Min(yMin, y);
+                    xMax = Mathf.Max(xMax, x);
+                    yMax = Mathf.Max(yMax, y);
+                }
+            }
+        }
+
+        if (!hasTile)
+        {
+            return false;
+        }
+
+        bounds = new RectInt(xMin, yMin, xMax - xMin + 1, yMax - yMin + 1);
+        return true;
     }
 
     // - Role: Build request.

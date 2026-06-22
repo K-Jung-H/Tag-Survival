@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4c1aab328dfd8f43b459c232ef65cbe, type: 3}
   m_Name: Skill Stlealth Special Item Set
   m_EditorClassIdentifier: Assembly-CSharp::SkillSpecialItemSet
-  skillDefinition: {fileID: 0}
+  skillDefinition: {fileID: 11400000, guid: 6eb244e7bb3d10e4dbd21e7b0a604fea, type: 2}
   items:
   - entry:
       id: 600

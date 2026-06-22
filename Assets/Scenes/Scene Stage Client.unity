@@ -5679,10 +5679,13 @@ MonoBehaviour:
   worldView: {fileID: 515449761}
   syncManager: {fileID: 1941727314}
   worldCamera: {fileID: 519420031}
-  targetCanvas: {fileID: 1795723598}
-  labelLayer: {fileID: 1739542463}
-  labelPrefab: {fileID: 6769193256410286183, guid: 833e544fa582e5d47b31a1c0513d4664, type: 3}
-  screenOffset: {x: 0, y: 0}
+  fontAsset: {fileID: 11400000, guid: 9a14a8a1184c5f14fbce3338ea4d7a35, type: 2}
+  fontMaterial: {fileID: 1260715531048141648, guid: 9a14a8a1184c5f14fbce3338ea4d7a35, type: 2}
+  worldOffset: {x: 0, y: 0, z: 0}
+  fontSize: 3
+  sortingLayerName: Default
+  sortingOrder: 0
+  faceCamera: 1
   defaultTextColor: {r: 1, g: 1, b: 1, a: 1}
   taggerTextColor: {r: 1, g: 0.3137255, b: 0.3137255, a: 1}
   hideWhenBehindCamera: 1

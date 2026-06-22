@@ -28,14 +28,14 @@ MonoBehaviour:
     wallIdleSlideAcceleration: 0
     wallMaxSlideSpeed: 0
   - surfacePhysicType: 3
-    moveSpeedRate: 1
-    moveAccelRate: 1
-    moveDecelRate: 1
-    overSpeedDecelRate: 1
-    jumpStartSpeedRate: 1
+    moveSpeedRate: 0.55
+    moveAccelRate: 0.65
+    moveDecelRate: 1.4
+    overSpeedDecelRate: 2
+    jumpStartSpeedRate: 0.9
     gravityScale: 1
-    maxFallSpeedRate: 1
-    wallUpMoveRate: 1
-    wallDownMoveRate: 1
+    maxFallSpeedRate: 0.85
+    wallUpMoveRate: 0.45
+    wallDownMoveRate: 0.6
     wallIdleSlideAcceleration: 0
     wallMaxSlideSpeed: 0

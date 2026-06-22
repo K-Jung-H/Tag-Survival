@@ -8,17 +8,19 @@ public sealed class Client_NameplateManager : MonoBehaviour
     {
         public ulong clientId;
         public Transform anchor;
-        public TMP_Text label;
-        public RectTransform labelRect;
+        public TextMeshPro label;
     }
 
     [SerializeField] private Client_WorldView worldView;
     [SerializeField] private Client_SyncManager syncManager;
     [SerializeField] private Camera worldCamera;
-    [SerializeField] private Canvas targetCanvas;
-    [SerializeField] private RectTransform labelLayer;
-    [SerializeField] private TMP_Text labelPrefab;
-    [SerializeField] private Vector2 screenOffset = Vector2.zero;
+    [SerializeField] private TMP_FontAsset fontAsset;
+    [SerializeField] private Material fontMaterial;
+    [SerializeField] private Vector3 worldOffset = new Vector3(0f, 1f, 0f);
+    [SerializeField] private float fontSize = 2f;
+    [SerializeField] private string sortingLayerName = "Default";
+    [SerializeField] private int sortingOrder;
+    [SerializeField] private bool faceCamera = true;
     [SerializeField] private Color defaultTextColor = Color.white;
     [SerializeField] private Color taggerTextColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
     [SerializeField] private bool hideWhenBehindCamera = true;
@@ -26,6 +28,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
     private readonly Dictionary<ulong, NameplateEntry> nameplates = new();
     private readonly List<ClientWorldPlayerViewRef> existingPlayerViews = new();
     private readonly List<ulong> removeTargets = new();
+    private Transform runtimeRoot;
     private bool hasLoggedMissingReferences;
 
     // - Role: Set up needed links before start.
@@ -34,16 +37,6 @@ public sealed class Client_NameplateManager : MonoBehaviour
         if (worldCamera == null)
         {
             worldCamera = Camera.main;
-        }
-
-        if (labelLayer == null)
-        {
-            labelLayer = transform as RectTransform;
-        }
-
-        if (targetCanvas == null && labelLayer != null)
-        {
-            targetCanvas = labelLayer.GetComponentInParent<Canvas>();
         }
 
         LogMissingReferencesOnce();
@@ -77,6 +70,19 @@ public sealed class Client_NameplateManager : MonoBehaviour
         if (syncManager != null)
         {
             syncManager.RosterUpdated -= RefreshAllLabelTexts;
+        }
+
+        ClearNameplates();
+    }
+
+    // - Role: Clean up runtime world labels.
+    private void OnDestroy()
+    {
+        ClearNameplates();
+        if (runtimeRoot != null)
+        {
+            Destroy(runtimeRoot.gameObject);
+            runtimeRoot = null;
         }
     }
 
@@ -127,7 +133,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         if (worldCamera == null)
             return false;
 
-        if (labelLayer == null)
+        if (fontAsset == null)
             return false;
 
         return true;
@@ -136,33 +142,75 @@ public sealed class Client_NameplateManager : MonoBehaviour
     // - Role: Try to create nameplate.
     private void TryCreateNameplate(ClientWorldPlayerViewRef viewRef)
     {
-        if (labelPrefab == null || labelLayer == null)
+        if (fontAsset == null)
         {
             LogMissingReferencesOnce();
             return;
         }
 
-        TMP_Text label = Instantiate(labelPrefab, labelLayer);
-        label.gameObject.name = $"Nameplate_{viewRef.clientId}";
-        label.gameObject.SetActive(true);
-        label.color = defaultTextColor;
-        label.text = ResolveNickname(viewRef.clientId);
-
-        RectTransform labelRect = label.transform as RectTransform;
-        if (labelRect == null)
-        {
-            Debug.LogWarning("[Client_NameplateManager] Label prefab must use RectTransform.", this);
-            Destroy(label.gameObject);
-            return;
-        }
+        TextMeshPro label = CreateWorldLabel(viewRef.clientId);
 
         nameplates.Add(viewRef.clientId, new NameplateEntry
         {
             clientId = viewRef.clientId,
             anchor = viewRef.nameplateAnchor != null ? viewRef.nameplateAnchor : viewRef.root,
-            label = label,
-            labelRect = labelRect
+            label = label
         });
+    }
+
+    // - Role: Create one world-space TMP label.
+    private TextMeshPro CreateWorldLabel(ulong clientId)
+    {
+        EnsureRuntimeRoot();
+
+        GameObject labelObject = new GameObject($"Nameplate_{clientId}");
+        labelObject.transform.SetParent(runtimeRoot, false);
+
+        TextMeshPro label = labelObject.AddComponent<TextMeshPro>();
+        label.font = fontAsset;
+        if (fontMaterial != null)
+        {
+            label.fontSharedMaterial = fontMaterial;
+        }
+
+        label.text = ResolveNickname(clientId);
+        label.color = defaultTextColor;
+        label.fontSize = fontSize;
+        label.alignment = TextAlignmentOptions.Center;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.overflowMode = TextOverflowModes.Overflow;
+
+        RectTransform labelRect = label.rectTransform;
+        if (labelRect != null)
+        {
+            labelRect.sizeDelta = new Vector2(4f, 1f);
+            labelRect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        Renderer labelRenderer = label.GetComponent<Renderer>();
+        if (labelRenderer != null)
+        {
+            if (!string.IsNullOrWhiteSpace(sortingLayerName))
+            {
+                labelRenderer.sortingLayerName = sortingLayerName;
+            }
+
+            labelRenderer.sortingOrder = sortingOrder;
+        }
+
+        return label;
+    }
+
+    // - Role: Create a scene root that is not under Canvas.
+    private void EnsureRuntimeRoot()
+    {
+        if (runtimeRoot != null)
+        {
+            return;
+        }
+
+        GameObject rootObject = new GameObject("Runtime_Nameplates");
+        runtimeRoot = rootObject.transform;
     }
 
     // - Role: Update nameplates.
@@ -171,7 +219,7 @@ public sealed class Client_NameplateManager : MonoBehaviour
         foreach (var pair in nameplates)
         {
             NameplateEntry entry = pair.Value;
-            if (entry.anchor == null || entry.label == null || entry.labelRect == null)
+            if (entry.anchor == null || entry.label == null)
             {
                 continue;
             }
@@ -189,8 +237,9 @@ public sealed class Client_NameplateManager : MonoBehaviour
             return;
         }
 
-        Vector3 screenPosition = worldCamera.WorldToScreenPoint(entry.anchor.position);
-        bool isBehindCamera = screenPosition.z <= 0f;
+        Vector3 labelPosition = entry.anchor.position + worldOffset;
+        Vector3 viewportPosition = worldCamera.WorldToViewportPoint(labelPosition);
+        bool isBehindCamera = viewportPosition.z <= 0f;
 
         if (hideWhenBehindCamera && isBehindCamera)
         {
@@ -205,40 +254,11 @@ public sealed class Client_NameplateManager : MonoBehaviour
 
         entry.label.text = ResolveNickname(entry.clientId);
         entry.label.color = ResolveNameplateColor(entry.clientId);
-        screenPosition.x += screenOffset.x;
-        screenPosition.y += screenOffset.y;
-
-        if (targetCanvas != null && targetCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+        entry.label.transform.position = labelPosition;
+        if (faceCamera)
         {
-            entry.labelRect.position = screenPosition;
-            return;
+            entry.label.transform.rotation = worldCamera.transform.rotation;
         }
-
-        Camera uiCamera = ResolveUiCamera();
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            labelLayer,
-            screenPosition,
-            uiCamera,
-            out Vector2 localPoint))
-        {
-            entry.labelRect.anchoredPosition = localPoint;
-        }
-    }
-
-    // - Role: Find UI camera.
-    private Camera ResolveUiCamera()
-    {
-        if (targetCanvas == null)
-        {
-            return null;
-        }
-
-        if (targetCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
-        {
-            return null;
-        }
-
-        return targetCanvas.worldCamera != null ? targetCanvas.worldCamera : worldCamera;
     }
 
     // - Role: Find nickname.
@@ -327,6 +347,21 @@ public sealed class Client_NameplateManager : MonoBehaviour
         nameplates.Remove(clientId);
     }
 
+    // - Role: Remove all runtime labels.
+    private void ClearNameplates()
+    {
+        foreach (var pair in nameplates)
+        {
+            if (pair.Value.label != null)
+            {
+                Destroy(pair.Value.label.gameObject);
+            }
+        }
+
+        nameplates.Clear();
+        removeTargets.Clear();
+    }
+
     // - Role: Log missing references once.
     private void LogMissingReferencesOnce()
     {
@@ -350,14 +385,9 @@ public sealed class Client_NameplateManager : MonoBehaviour
             Debug.LogWarning("[Client_NameplateManager] WorldCamera is not assigned.", this);
         }
 
-        if (labelLayer == null)
+        if (fontAsset == null)
         {
-            Debug.LogWarning("[Client_NameplateManager] LabelLayer is not assigned.", this);
-        }
-
-        if (labelPrefab == null)
-        {
-            Debug.LogWarning("[Client_NameplateManager] LabelPrefab is not assigned.", this);
+            Debug.LogWarning("[Client_NameplateManager] FontAsset is not assigned.", this);
         }
     }
 }

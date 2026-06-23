@@ -36,8 +36,9 @@ public sealed class DedicatedServerRuntime : MonoBehaviour
 
     public void SetDebugHudVisible(bool isVisible)
     {
-        debugHudView?.SetVisible(isVisible);
-        SetDedicatedPresentationVisible(isVisible);
+        bool shouldShow = ShouldShowRuntimeDebugPresentation(isVisible);
+        debugHudView?.SetVisible(shouldShow);
+        SetDedicatedPresentationVisible(shouldShow);
     }
 
     private void SetDedicatedPresentationVisible(bool isVisible)
@@ -54,5 +55,14 @@ public sealed class DedicatedServerRuntime : MonoBehaviour
                 dedicatedPresentationObjects[i].SetActive(isVisible);
             }
         }
+    }
+
+    private static bool ShouldShowRuntimeDebugPresentation(bool requestedVisible)
+    {
+#if !UNITY_EDITOR && !DEVELOPMENT_BUILD && (UNITY_ANDROID || UNITY_IOS)
+        return false;
+#else
+        return requestedVisible;
+#endif
     }
 }

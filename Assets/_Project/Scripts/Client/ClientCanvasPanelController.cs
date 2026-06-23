@@ -13,9 +13,6 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
     [SerializeField] private GameObject nameplatePanel;
     [SerializeField] private GameObject mobileInputPanel;
 
-    [Header("Online")]
-    [SerializeField] private GameObject networkDelayPanel;
-
     [Header("Overlay")]
     [SerializeField] private GameObject itemSelectionRoot;
     [SerializeField] private GameObject gameResultPanel;
@@ -37,12 +34,6 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
         if (mobileInputPanel == null)
         {
             missingReferenceName = nameof(mobileInputPanel);
-            return false;
-        }
-
-        if (networkDelayPanel == null)
-        {
-            missingReferenceName = nameof(networkDelayPanel);
             return false;
         }
 
@@ -74,7 +65,6 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
         SetActive(hudPanel, true);
         SetActive(nameplatePanel, true);
         SetActive(mobileInputPanel, true);
-        SetActive(networkDelayPanel, false);
         SetActive(itemSelectionRoot, true);
         SetActive(gameResultPanel, false);
     }
@@ -84,7 +74,6 @@ public sealed class ClientCanvasPanelController : MonoBehaviour
         SetActive(hudPanel, true);
         SetActive(nameplatePanel, true);
         SetActive(mobileInputPanel, true);
-        SetActive(networkDelayPanel, true);
         SetActive(itemSelectionRoot, true);
         SetActive(gameResultPanel, false);
     }

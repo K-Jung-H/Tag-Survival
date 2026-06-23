@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class Client_CharacterAudioView : MonoBehaviour
@@ -7,10 +6,15 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
     [SerializeField] private AudioSource oneShotAudioSource;
     [SerializeField] private Transform audioListenerTransform;
 
-    private readonly List<AudioSource> activeAudioSources = new();
+    private FeedbackAudioSourcePool audioPool;
     private LocomotionState previousLocomotionState;
     private bool hasSnapshot;
     private float runStepTimer;
+
+    private void Awake()
+    {
+        EnsureAudioPool();
+    }
 
     private void OnEnable()
     {
@@ -20,6 +24,17 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
     private void OnDisable()
     {
         AudioManager.StageSfxEnabledChanged -= OnStageSfxEnabledChanged;
+        audioPool?.StopAll();
+    }
+
+    private void Update()
+    {
+        audioPool?.Tick(Time.deltaTime);
+    }
+
+    private void OnDestroy()
+    {
+        audioPool?.Dispose();
     }
 
     // - Role: Bind scene-level audio listener transform.
@@ -147,17 +162,25 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
         }
 
         Transform parent = oneShotAudioSource.transform.parent;
-        AudioSource audioSource = Instantiate(oneShotAudioSource, parent);
+        EnsureAudioPool();
+
+        AudioSource audioSource = audioPool.Rent(
+            oneShotAudioSource,
+            parent,
+            oneShotAudioSource.transform.position,
+            oneShotAudioSource.transform.rotation);
+        audioSource.transform.localPosition = oneShotAudioSource.transform.localPosition;
+        audioSource.transform.localRotation = oneShotAudioSource.transform.localRotation;
+        audioSource.transform.localScale = oneShotAudioSource.transform.localScale;
         audioSource.gameObject.SetActive(true);
         audioSource.Stop();
         ApplySoundSettings(audioSource, data.sound);
         audioSource.loop = false;
         audioSource.clip = data.sound.clip;
-        RegisterActiveAudioSource(audioSource);
         audioSource.Play();
 
         float lifetime = ResolveSoundLifetime(data.sound.clip, audioSource, data.lifetimeSeconds);
-        Destroy(audioSource.gameObject, lifetime);
+        audioPool.ScheduleReturn(audioSource, lifetime);
         return lifetime;
     }
 
@@ -213,41 +236,15 @@ public sealed class Client_CharacterAudioView : MonoBehaviour
         if (!enabled)
         {
             runStepTimer = 0f;
-            StopActiveAudioSources();
+            audioPool?.StopAll();
         }
     }
 
-    // - Role: Register spawned audio source for stage mute.
-    private void RegisterActiveAudioSource(AudioSource audioSource)
+    private void EnsureAudioPool()
     {
-        PruneActiveAudioSources();
-        activeAudioSources.Add(audioSource);
-    }
-
-    // - Role: Stop active audio sources.
-    private void StopActiveAudioSources()
-    {
-        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        if (audioPool == null)
         {
-            AudioSource audioSource = activeAudioSources[i];
-            if (audioSource != null)
-            {
-                Destroy(audioSource.gameObject);
-            }
-        }
-
-        activeAudioSources.Clear();
-    }
-
-    // - Role: Remove destroyed audio sources.
-    private void PruneActiveAudioSources()
-    {
-        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
-        {
-            if (activeAudioSources[i] == null)
-            {
-                activeAudioSources.RemoveAt(i);
-            }
+            audioPool = new FeedbackAudioSourcePool(transform, "Character Audio Pool");
         }
     }
 }

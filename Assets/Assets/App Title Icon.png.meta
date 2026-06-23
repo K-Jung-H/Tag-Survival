@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c3f590b7ef417ea49b1a97f6163421c8
+guid: 6e9201ad0ef87ab4d93c7e4053e93f9a
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4707754604676800040
-    second: app icon_0
+      213: -7529519826213007682
+    second: App Icon_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: app icon_0
+      name: App Icon_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 480
-        height: 480
+        width: 512
+        height: 512
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8d1a78a3122baaeb0800000000000000
-      internalID: -4707754604676800040
+      spriteID: ebe00557c95c18790800000000000000
+      internalID: -7529519826213007682
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      app icon_0: -4707754604676800040
+      App Icon_0: -7529519826213007682
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -13,23 +13,23 @@ MonoBehaviour:
   m_Name: CoinCollectGameModeConfig
   m_EditorClassIdentifier: Assembly-CSharp::CoinCollectGameModeConfig
   gameDurationSeconds: 300
-  minActiveItems: 20
-  maxActiveItems: 20
+  minActiveItems: 5
+  maxActiveItems: 15
   itemTypeWeights:
   - itemType: 1
-    weight: 1
+    weight: 70
   - itemType: 2
-    weight: 1
-  minActiveCoins: 10
-  maxActiveCoins: 20
+    weight: 30
+  minActiveCoins: 15
+  maxActiveCoins: 30
   spawnIntervalSeconds: 1
-  coinLifetimeSeconds: 20
+  coinLifetimeSeconds: 30
   oldTaggerGainRate: 0.25
   newTaggerLoseRate: 0.5
   coinGrades:
-  - weight: 70
+  - weight: 60
     value: 1
-  - weight: 25
+  - weight: 30
     value: 3
-  - weight: 5
+  - weight: 10
     value: 5

@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: TimeAttackGameModeConfig
   m_EditorClassIdentifier: Assembly-CSharp::TimeAttackGameModeConfig
   gameDurationSeconds: 300
-  minActiveItems: 20
-  maxActiveItems: 20
+  minActiveItems: 5
+  maxActiveItems: 15
   itemTypeWeights:
   - itemType: 1
-    weight: 1
+    weight: 70
   - itemType: 2
-    weight: 1
+    weight: 30

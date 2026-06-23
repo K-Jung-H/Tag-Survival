@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameModeCatalog
   entries:
   - isRandom: 1
-    icon: {fileID: 21300056, guid: 7ab74e659e1f0a34d9cfec21c478fc12, type: 3}
+    icon: {fileID: 21300000, guid: 8049ea91a9d5fca4dab4024c0915dbe6, type: 3}
     displayName: Random
     modeType: 0
     config: {fileID: 0}
   - isRandom: 0
-    icon: {fileID: 21300088, guid: 7ab74e659e1f0a34d9cfec21c478fc12, type: 3}
+    icon: {fileID: -2178660795691964443, guid: 04df528181a29364ca981518841a6a36, type: 3}
     displayName: Coin Collect
     modeType: 1
     config: {fileID: 11400000, guid: 0529a1df89ddfa949a5a4d26cad41228, type: 2}
   - isRandom: 0
-    icon: {fileID: 21300000, guid: 7ab74e659e1f0a34d9cfec21c478fc12, type: 3}
+    icon: {fileID: 21300000, guid: 6957d0e9e59addf438d0f5d67d81eab4, type: 3}
     displayName: Time Attack
     modeType: 0
     config: {fileID: 11400000, guid: aa94cbb3659793c43882bf403c6da6fc, type: 2}

@@ -6,66 +6,10 @@ using UnityEngine;
 
 public sealed class Client_NetworkReceiverHub : MonoBehaviour
 {
-    private struct QueuedServerSnapshot
-    {
-        public uint sessionId;
-        public float applyTime;
-        public ServerSnapshotHeaderPacket header;
-        public PlayerSnapshotPacket[] players;
-        public SkillSnapshotPacket[] skills;
-        public ItemSnapshotPacket[] items;
-        public CoinSnapshotPacket[] coins;
-    }
-
-    private struct QueuedGameStateSnapshot
-    {
-        public float applyTime;
-        public GameStateSnapshotPacket packet;
-    }
-
-    private struct QueuedGameEvent
-    {
-        public uint sessionId;
-        public float applyTime;
-        public GameEventEntryPacket packet;
-    }
-
-    private struct QueuedGameEnd
-    {
-        public float applyTime;
-        public ServerGameEndPacket packet;
-    }
-
-    private struct QueuedItemSelectionOffer
-    {
-        public float applyTime;
-        public ItemSelectionOfferPacket packet;
-    }
-
-    private struct QueuedItemSelectionResult
-    {
-        public float applyTime;
-        public ItemSelectionResultPacket packet;
-    }
-
-    private struct QueuedItemSelectionChoice
-    {
-        public float sendTime;
-        public ItemSelectionChoicePacket packet;
-    }
-
     [SerializeField] private Client_SyncManager syncManager;
-    [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
     [SerializeField] private float stageSyncRequestRetryInterval = 0.5f;
     [SerializeField] private int maxStageSyncRequestAttempts = 10;
 
-    private readonly List<QueuedServerSnapshot> delayedSnapshots = new();
-    private readonly List<QueuedGameStateSnapshot> delayedGameStates = new();
-    private readonly List<QueuedGameEvent> delayedGameEvents = new();
-    private readonly List<QueuedGameEnd> delayedGameEnds = new();
-    private readonly List<QueuedItemSelectionOffer> delayedItemSelectionOffers = new();
-    private readonly List<QueuedItemSelectionResult> delayedItemSelectionResults = new();
-    private readonly List<QueuedItemSelectionChoice> delayedItemSelectionChoices = new();
     private readonly Dictionary<ulong, SkillObjectSnapshotPacket[]> reusableSkillObjectReadBuffers = new();
 
     private FastBufferWriter itemSelectionChoiceWriter;
@@ -79,7 +23,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     private bool stageIntroReadyWriterCreated;
     private bool resultChoiceWriterCreated;
     private bool areHandlersRegistered;
-    private uint delayedMessageSessionId;
     private float stageSyncRequestTimer;
     private int stageSyncRequestAttempts;
     private PlayerSnapshotPacket[] playerSnapshotReadBuffer = Array.Empty<PlayerSnapshotPacket>();
@@ -140,12 +83,11 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     {
         TryRegisterMessageHandlers();
         SendStageSyncRequestIfNeeded();
-        FlushDelayedMessages();
     }
 
     private void OnDisable()
     {
-        ResetDelayedMessageSession();
+        ResetOnlineMessageSession();
 
         if (syncManager != null)
         {
@@ -158,7 +100,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
     private void OnDestroy()
     {
-        ResetDelayedMessageSession();
+        ResetOnlineMessageSession();
         UnregisterMessageHandlers();
 
         if (NetworkManager.Singleton != null)
@@ -202,7 +144,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
     {
         if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
         {
-            ResetDelayedMessageSession();
+            ResetOnlineMessageSession();
             TryRegisterMessageHandlers();
         }
     }
@@ -219,7 +161,7 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        ResetDelayedMessageSession();
+        ResetOnlineMessageSession();
         syncManager?.ClearAll();
         UnregisterMessageHandlers();
 
@@ -293,22 +235,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        float delaySeconds = GetNetworkDelaySeconds();
-        if (delaySeconds > 0f)
-        {
-            delayedSnapshots.Add(new QueuedServerSnapshot
-            {
-                sessionId = delayedMessageSessionId,
-                applyTime = Time.realtimeSinceStartup + delaySeconds,
-                header = header,
-                players = CopySnapshotBuffer(players, header.playerCount),
-                skills = CopySkillSnapshotBuffer(skills, header.skillCount),
-                items = CopySnapshotBuffer(items, header.itemCount),
-                coins = CopySnapshotBuffer(coins, header.coinCount)
-            });
-            return;
-        }
-
         syncManager.ApplyServerSnapshot(
             header,
             players,
@@ -333,17 +259,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        float delaySeconds = GetNetworkDelaySeconds();
-        if (delaySeconds > 0f)
-        {
-            delayedGameStates.Add(new QueuedGameStateSnapshot
-            {
-                applyTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = CopyGameStatePacket(packet)
-            });
-            return;
-        }
-
         ApplyGameState(packet);
     }
 
@@ -359,22 +274,10 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        float delaySeconds = GetNetworkDelaySeconds();
         int eventCount = Mathf.Min(packet.eventCount, packet.events != null ? packet.events.Length : 0);
         for (int i = 0; i < eventCount; i++)
         {
             GameEventEntryPacket gameEvent = packet.events[i];
-            if (delaySeconds > 0f)
-            {
-                delayedGameEvents.Add(new QueuedGameEvent
-                {
-                    sessionId = delayedMessageSessionId,
-                    applyTime = Time.realtimeSinceStartup + delaySeconds,
-                    packet = gameEvent
-                });
-                continue;
-            }
-
             syncManager.ApplyGameEvent(gameEvent);
         }
     }
@@ -388,17 +291,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
 
         if (!ServerGameEndPacket.TryRead(ref reader, out ServerGameEndPacket packet, ref gameEndEntryReadBuffer))
         {
-            return;
-        }
-
-        float delaySeconds = GetNetworkDelaySeconds();
-        if (delaySeconds > 0f)
-        {
-            delayedGameEnds.Add(new QueuedGameEnd
-            {
-                applyTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = CopyGameEndPacket(packet)
-            });
             return;
         }
 
@@ -456,17 +348,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        float delaySeconds = GetNetworkDelaySeconds();
-        if (delaySeconds > 0f)
-        {
-            delayedItemSelectionOffers.Add(new QueuedItemSelectionOffer
-            {
-                applyTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = packet
-            });
-            return;
-        }
-
         syncManager.ApplyItemSelectionOffer(packet);
     }
 
@@ -482,17 +363,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             return;
         }
 
-        float delaySeconds = GetNetworkDelaySeconds();
-        if (delaySeconds > 0f)
-        {
-            delayedItemSelectionResults.Add(new QueuedItemSelectionResult
-            {
-                applyTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = packet
-            });
-            return;
-        }
-
         syncManager.ApplyItemSelectionResult(packet);
     }
 
@@ -504,17 +374,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             requestId = requestId,
             selectedId = selectedId
         };
-
-        float delaySeconds = GetNetworkDelaySeconds();
-        if (delaySeconds > 0f)
-        {
-            delayedItemSelectionChoices.Add(new QueuedItemSelectionChoice
-            {
-                sendTime = Time.realtimeSinceStartup + delaySeconds,
-                packet = packet
-            });
-            return;
-        }
 
         SendItemSelectionChoiceNow(packet);
     }
@@ -654,198 +513,6 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         return buffer != null && buffer.Length >= count ? buffer : new T[count];
     }
 
-    private static T[] CopySnapshotBuffer<T>(T[] source, int count)
-    {
-        int safeCount = Mathf.Clamp(count, 0, source != null ? source.Length : 0);
-        if (safeCount <= 0)
-        {
-            return Array.Empty<T>();
-        }
-
-        T[] copy = new T[safeCount];
-        Array.Copy(source, copy, safeCount);
-        return copy;
-    }
-
-    private static SkillSnapshotPacket[] CopySkillSnapshotBuffer(SkillSnapshotPacket[] source, int count)
-    {
-        int safeCount = Mathf.Clamp(count, 0, source != null ? source.Length : 0);
-        if (safeCount <= 0)
-        {
-            return Array.Empty<SkillSnapshotPacket>();
-        }
-
-        SkillSnapshotPacket[] copy = new SkillSnapshotPacket[safeCount];
-        for (int i = 0; i < safeCount; i++)
-        {
-            SkillSnapshotPacket packet = source[i];
-            packet.skillObjects = CopySnapshotBuffer(packet.skillObjects, packet.skillObjectCount);
-            copy[i] = packet;
-        }
-
-        return copy;
-    }
-
-    private static GameStateSnapshotPacket CopyGameStatePacket(GameStateSnapshotPacket packet)
-    {
-        packet.entries = CopySnapshotBuffer(packet.entries, packet.entryCount);
-        return packet;
-    }
-
-    private static ServerGameEndPacket CopyGameEndPacket(ServerGameEndPacket packet)
-    {
-        packet.entries = CopySnapshotBuffer(packet.entries, packet.entryCount);
-        return packet;
-    }
-
-    private void FlushDelayedMessages()
-    {
-        if (!CanUseOnlineClientMessages())
-        {
-            if (HasDelayedMessages())
-            {
-                ResetDelayedMessageSession();
-            }
-
-            return;
-        }
-
-        float now = Time.realtimeSinceStartup;
-        FlushDelayedSnapshots(now);
-        FlushDelayedGameStates(now);
-        FlushDelayedGameEvents(now);
-        FlushDelayedGameEnds(now);
-        FlushDelayedItemSelectionOffers(now);
-        FlushDelayedItemSelectionResults(now);
-        FlushDelayedItemSelectionChoices(now);
-    }
-
-    private void FlushDelayedSnapshots(float now)
-    {
-        for (int i = 0; i < delayedSnapshots.Count; i++)
-        {
-            QueuedServerSnapshot snapshot = delayedSnapshots[i];
-            if (snapshot.sessionId != delayedMessageSessionId)
-            {
-                delayedSnapshots.RemoveAt(i);
-                i--;
-                continue;
-            }
-
-            if (snapshot.applyTime > now)
-            {
-                continue;
-            }
-
-            delayedSnapshots.RemoveAt(i);
-            i--;
-            syncManager.ApplyServerSnapshot(snapshot.header, snapshot.players, snapshot.skills, snapshot.items, snapshot.coins);
-        }
-    }
-
-    private void FlushDelayedGameStates(float now)
-    {
-        for (int i = 0; i < delayedGameStates.Count; i++)
-        {
-            QueuedGameStateSnapshot snapshot = delayedGameStates[i];
-            if (snapshot.applyTime > now)
-            {
-                continue;
-            }
-
-            delayedGameStates.RemoveAt(i);
-            i--;
-            ApplyGameState(snapshot.packet);
-        }
-    }
-
-    private void FlushDelayedGameEvents(float now)
-    {
-        for (int i = 0; i < delayedGameEvents.Count; i++)
-        {
-            QueuedGameEvent queuedEvent = delayedGameEvents[i];
-            if (queuedEvent.sessionId != delayedMessageSessionId)
-            {
-                delayedGameEvents.RemoveAt(i);
-                i--;
-                continue;
-            }
-
-            if (queuedEvent.applyTime > now)
-            {
-                continue;
-            }
-
-            delayedGameEvents.RemoveAt(i);
-            i--;
-            syncManager.ApplyGameEvent(queuedEvent.packet);
-        }
-    }
-
-    private void FlushDelayedGameEnds(float now)
-    {
-        for (int i = 0; i < delayedGameEnds.Count; i++)
-        {
-            QueuedGameEnd queuedEnd = delayedGameEnds[i];
-            if (queuedEnd.applyTime > now)
-            {
-                continue;
-            }
-
-            delayedGameEnds.RemoveAt(i);
-            i--;
-            syncManager.ApplyGameEnd(queuedEnd.packet);
-        }
-    }
-
-    private void FlushDelayedItemSelectionOffers(float now)
-    {
-        for (int i = 0; i < delayedItemSelectionOffers.Count; i++)
-        {
-            QueuedItemSelectionOffer queuedOffer = delayedItemSelectionOffers[i];
-            if (queuedOffer.applyTime > now)
-            {
-                continue;
-            }
-
-            delayedItemSelectionOffers.RemoveAt(i);
-            i--;
-            syncManager.ApplyItemSelectionOffer(queuedOffer.packet);
-        }
-    }
-
-    private void FlushDelayedItemSelectionResults(float now)
-    {
-        for (int i = 0; i < delayedItemSelectionResults.Count; i++)
-        {
-            QueuedItemSelectionResult queuedResult = delayedItemSelectionResults[i];
-            if (queuedResult.applyTime > now)
-            {
-                continue;
-            }
-
-            delayedItemSelectionResults.RemoveAt(i);
-            i--;
-            syncManager.ApplyItemSelectionResult(queuedResult.packet);
-        }
-    }
-
-    private void FlushDelayedItemSelectionChoices(float now)
-    {
-        for (int i = 0; i < delayedItemSelectionChoices.Count; i++)
-        {
-            QueuedItemSelectionChoice queuedChoice = delayedItemSelectionChoices[i];
-            if (queuedChoice.sendTime > now)
-            {
-                continue;
-            }
-
-            delayedItemSelectionChoices.RemoveAt(i);
-            i--;
-            SendItemSelectionChoiceNow(queuedChoice.packet);
-        }
-    }
-
     private void ApplyGameState(GameStateSnapshotPacket packet)
     {
         syncManager.ApplyGameStateSnapshot(
@@ -910,44 +577,11 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
             && syncManager.TryGetRosterEntry(NetworkManager.Singleton.LocalClientId, out _);
     }
 
-    private void ClearDelayedMessages()
-    {
-        delayedSnapshots.Clear();
-        delayedGameStates.Clear();
-        delayedGameEvents.Clear();
-        delayedGameEnds.Clear();
-        delayedItemSelectionOffers.Clear();
-        delayedItemSelectionResults.Clear();
-        delayedItemSelectionChoices.Clear();
-    }
-
     public void ResetOnlineMessageSession()
     {
-        ResetDelayedMessageSession();
-    }
-
-    private void ResetDelayedMessageSession()
-    {
-        unchecked
-        {
-            delayedMessageSessionId++;
-        }
-
-        ClearDelayedMessages();
         reusableSkillObjectReadBuffers.Clear();
         stageSyncRequestTimer = 0f;
         stageSyncRequestAttempts = 0;
-    }
-
-    private bool HasDelayedMessages()
-    {
-        return delayedSnapshots.Count > 0
-            || delayedGameStates.Count > 0
-            || delayedGameEvents.Count > 0
-            || delayedGameEnds.Count > 0
-            || delayedItemSelectionOffers.Count > 0
-            || delayedItemSelectionResults.Count > 0
-            || delayedItemSelectionChoices.Count > 0;
     }
 
     private bool CanUseOnlineClientMessages()
@@ -975,8 +609,4 @@ public sealed class Client_NetworkReceiverHub : MonoBehaviour
         return NetworkManager.Singleton.CustomMessagingManager != null;
     }
 
-    private float GetNetworkDelaySeconds()
-    {
-        return networkDelaySimulator != null ? networkDelaySimulator.OneWayDelaySeconds : 0f;
-    }
 }

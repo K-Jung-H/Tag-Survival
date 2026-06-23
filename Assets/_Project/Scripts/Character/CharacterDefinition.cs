@@ -20,6 +20,8 @@ public sealed class CharacterDefinition : ScriptableObject
     [SerializeField] private float overSpeedDecel = 18f;
     [SerializeField] private float wallMoveRate = GameSimulationConfig.PlayerWallMoveRate;
     [SerializeField] private float lateJumpTime = 0.08f;
+    [SerializeField] private Vector2 fallbackCollisionExtent = new(0.45f, 0.55f);
+    [SerializeField] private Vector2 fallbackCollisionOffset = new(0f, -0.2f);
 
     public byte CharacterId => characterId;
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
@@ -40,49 +42,9 @@ public sealed class CharacterDefinition : ScriptableObject
         wallMoveRate,
         lateJumpTime);
 
-    // - Role: Get the player collision size from the view prefab.
-    public Vector2 CollisionExtent
-    {
-        get
-        {
-            if (playerViewPrefab == null)
-            {
-                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab is not assigned. characterId={characterId}", this);
-                return Vector2.zero;
-            }
+    public Vector2 CollisionExtent => new(
+        Mathf.Max(0f, fallbackCollisionExtent.x),
+        Mathf.Max(0f, fallbackCollisionExtent.y));
 
-            BoxCollider2D collider = playerViewPrefab.GetComponent<BoxCollider2D>();
-            if (collider == null)
-            {
-                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab must have BoxCollider2D on root. characterId={characterId}", this);
-                return Vector2.zero;
-            }
-
-            return new Vector2(
-                Mathf.Abs(collider.size.x) * 0.5f,
-                Mathf.Abs(collider.size.y) * 0.5f);
-        }
-    }
-
-    // - Role: Get the player collision offset from the view prefab.
-    public Vector2 CollisionOffset
-    {
-        get
-        {
-            if (playerViewPrefab == null)
-            {
-                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab is not assigned. characterId={characterId}", this);
-                return Vector2.zero;
-            }
-
-            BoxCollider2D collider = playerViewPrefab.GetComponent<BoxCollider2D>();
-            if (collider == null)
-            {
-                Debug.LogError($"[CharacterDefinition] PlayerViewPrefab must have BoxCollider2D on root. characterId={characterId}", this);
-                return Vector2.zero;
-            }
-
-            return collider.offset;
-        }
-    }
+    public Vector2 CollisionOffset => fallbackCollisionOffset;
 }

@@ -1,16 +1,19 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 {
-    private const float DefaultFeedbackLifetimeSeconds = 2f;
-
     [SerializeField] private Transform feedbackRoot;
     [SerializeField] private AudioSource audioSourcePrefab;
     [SerializeField] private Transform audioListenerTransform;
 
-    private readonly List<AudioSource> activeAudioSources = new();
+    private FeedbackVisualPool visualPool;
+    private FeedbackAudioSourcePool audioPool;
     private bool warnedMissingAudioSourcePrefab;
+
+    private void Awake()
+    {
+        EnsurePools();
+    }
 
     private void OnEnable()
     {
@@ -20,6 +23,20 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     private void OnDisable()
     {
         AudioManager.StageSfxEnabledChanged -= OnStageSfxEnabledChanged;
+        visualPool?.StopAll();
+        audioPool?.StopAll();
+    }
+
+    private void Update()
+    {
+        visualPool?.Tick(Time.deltaTime);
+        audioPool?.Tick(Time.deltaTime);
+    }
+
+    private void OnDestroy()
+    {
+        visualPool?.Dispose();
+        audioPool?.Dispose();
     }
 
     // - Role: Bind scene-level audio listener transform.
@@ -59,15 +76,11 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
         Transform followTarget)
     {
         Transform visualParent = data.followTarget && followTarget != null ? followTarget : parent;
-        GameObject instance = Instantiate(data.visualPrefab, position, rotation, visualParent);
-        instance.SetActive(true);
-        PlayParticleSystems(instance);
+        EnsurePools();
 
-        float lifetime = ResolveLifetime(instance, data.lifetimeSeconds);
-        if (lifetime > 0f)
-        {
-            Destroy(instance, lifetime);
-        }
+        FeedbackVisualPoolItem item = visualPool.Rent(data.visualPrefab, position, rotation, visualParent);
+        float lifetime = item.ResolveLifetime(data.lifetimeSeconds);
+        visualPool.ScheduleReturn(item, lifetime);
     }
 
     // - Role: Spawn audio feedback.
@@ -97,22 +110,23 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
 
         Transform audioParent = followTargetEnabled && followTarget != null ? followTarget : parent;
         Vector3 audioPosition = ResolveAudioPosition(position, sound.space);
-        AudioSource audioSource = Instantiate(audioSourcePrefab, audioPosition, Quaternion.identity, audioParent);
+        EnsurePools();
+
+        AudioSource audioSource = audioPool.Rent(audioSourcePrefab, audioParent, audioPosition, Quaternion.identity);
         audioSource.playOnAwake = false;
         audioSource.Stop();
         audioSource.clip = sound.clip;
         audioSource.spatialBlend = sound.space == GameFeedbackSoundSpace.World ? 1f : 0f;
         audioSource.dopplerLevel = 0f;
-        audioSource.volume *= sound.Volume;
+        audioSource.volume = audioSourcePrefab.volume * sound.Volume;
         audioSource.gameObject.SetActive(true);
-        RegisterActiveAudioSource(audioSource);
         audioSource.Play();
 
         float clipLength = sound.clip.length / Mathf.Max(0.01f, Mathf.Abs(audioSource.pitch));
         float lifetime = lifetimeSeconds > 0f
             ? lifetimeSeconds
             : clipLength + 0.1f;
-        Destroy(audioSource.gameObject, lifetime);
+        audioPool.ScheduleReturn(audioSource, lifetime);
     }
 
     // - Role: Resolve audio source position.
@@ -132,124 +146,20 @@ public sealed class Client_WorldFeedbackPlayer : MonoBehaviour
     {
         if (!enabled)
         {
-            StopActiveAudioSources();
+            audioPool?.StopAll();
         }
     }
 
-    // - Role: Register spawned audio source for stage mute.
-    private void RegisterActiveAudioSource(AudioSource audioSource)
+    private void EnsurePools()
     {
-        PruneActiveAudioSources();
-        activeAudioSources.Add(audioSource);
-    }
-
-    // - Role: Stop active audio sources.
-    private void StopActiveAudioSources()
-    {
-        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        if (visualPool == null)
         {
-            AudioSource audioSource = activeAudioSources[i];
-            if (audioSource != null)
-            {
-                Destroy(audioSource.gameObject);
-            }
+            visualPool = new FeedbackVisualPool(transform, "World Feedback Visual Pool");
         }
 
-        activeAudioSources.Clear();
-    }
-
-    // - Role: Remove destroyed audio sources.
-    private void PruneActiveAudioSources()
-    {
-        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        if (audioPool == null)
         {
-            if (activeAudioSources[i] == null)
-            {
-                activeAudioSources.RemoveAt(i);
-            }
+            audioPool = new FeedbackAudioSourcePool(transform, "World Feedback Audio Pool");
         }
-    }
-
-    // - Role: Play particle systems.
-    private static void PlayParticleSystems(GameObject instance)
-    {
-        ParticleSystem[] particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
-        for (int i = 0; i < particleSystems.Length; i++)
-        {
-            ParticleSystem particleSystem = particleSystems[i];
-            if (particleSystem == null)
-            {
-                continue;
-            }
-
-            if (!particleSystem.gameObject.activeSelf)
-            {
-                particleSystem.gameObject.SetActive(true);
-            }
-
-            particleSystem.Play(withChildren: false);
-        }
-    }
-
-    // - Role: Find lifetime.
-    private static float ResolveLifetime(GameObject instance, float configuredLifetime)
-    {
-        if (configuredLifetime > 0f)
-        {
-            return configuredLifetime;
-        }
-
-        float particleLifetime = GetParticleLifetime(instance);
-        return particleLifetime > 0f ? particleLifetime : DefaultFeedbackLifetimeSeconds;
-    }
-
-    // - Role: Get particle lifetime.
-    private static float GetParticleLifetime(GameObject instance)
-    {
-        ParticleSystem[] particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
-        float maxLifetime = 0f;
-
-        for (int i = 0; i < particleSystems.Length; i++)
-        {
-            ParticleSystem particleSystem = particleSystems[i];
-            if (particleSystem == null)
-            {
-                continue;
-            }
-
-            ParticleSystem.MainModule main = particleSystem.main;
-            if (main.loop)
-            {
-                continue;
-            }
-
-            maxLifetime = Mathf.Max(maxLifetime, main.duration + GetStartLifetimeMax(main.startLifetime));
-        }
-
-        return maxLifetime;
-    }
-
-    // - Role: Get start lifetime max.
-    private static float GetStartLifetimeMax(ParticleSystem.MinMaxCurve lifetime)
-    {
-        return lifetime.mode switch
-        {
-            ParticleSystemCurveMode.Constant => lifetime.constant,
-            ParticleSystemCurveMode.TwoConstants => lifetime.constantMax,
-            ParticleSystemCurveMode.Curve => GetLastKeyTime(lifetime.curve, lifetime.constant),
-            ParticleSystemCurveMode.TwoCurves => GetLastKeyTime(lifetime.curveMax, lifetime.constantMax),
-            _ => lifetime.constant
-        };
-    }
-
-    // - Role: Get last key time.
-    private static float GetLastKeyTime(AnimationCurve curve, float defaultValue)
-    {
-        if (curve == null || curve.length == 0)
-        {
-            return defaultValue;
-        }
-
-        return curve.keys[curve.length - 1].time;
     }
 }

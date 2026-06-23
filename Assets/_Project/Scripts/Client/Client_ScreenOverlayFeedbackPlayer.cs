@@ -7,8 +7,13 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
     [SerializeField] private AudioSource audioSourcePrefab;
 
     private readonly Dictionary<ScreenOverlayFeedbackType, Client_ScreenOverlayFeedbackPanel> panelsByType = new();
-    private readonly List<AudioSource> activeAudioSources = new();
+    private FeedbackAudioSourcePool audioPool;
     private bool warnedMissingAudioSourcePrefab;
+
+    private void Awake()
+    {
+        EnsureAudioPool();
+    }
 
     private void OnEnable()
     {
@@ -18,6 +23,17 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
     private void OnDisable()
     {
         AudioManager.StageSfxEnabledChanged -= OnStageSfxEnabledChanged;
+        audioPool?.StopAll();
+    }
+
+    private void Update()
+    {
+        audioPool?.Tick(Time.deltaTime);
+    }
+
+    private void OnDestroy()
+    {
+        audioPool?.Dispose();
     }
 
     // - Role: Set overlay active state.
@@ -110,20 +126,21 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
         }
 
         Transform parent = overlayRoot != null ? overlayRoot : transform;
-        AudioSource audioSource = Instantiate(audioSourcePrefab, parent, false);
+        EnsureAudioPool();
+
+        AudioSource audioSource = audioPool.Rent(audioSourcePrefab, parent, parent.position, Quaternion.identity);
         audioSource.playOnAwake = false;
         audioSource.Stop();
         audioSource.clip = data.sound.clip;
         audioSource.spatialBlend = 0f;
         audioSource.dopplerLevel = 0f;
-        audioSource.volume *= data.sound.Volume;
+        audioSource.volume = audioSourcePrefab.volume * data.sound.Volume;
         audioSource.gameObject.SetActive(true);
-        RegisterActiveAudioSource(audioSource);
         audioSource.Play();
 
         float clipLength = data.sound.clip.length / Mathf.Max(0.01f, Mathf.Abs(audioSource.pitch));
         float lifetime = data.lifetimeSeconds > 0f ? data.lifetimeSeconds : clipLength + 0.1f;
-        Destroy(audioSource.gameObject, lifetime);
+        audioPool.ScheduleReturn(audioSource, lifetime);
     }
 
     // - Role: Stop currently playing stage sound sources.
@@ -131,41 +148,15 @@ public sealed class Client_ScreenOverlayFeedbackPlayer : MonoBehaviour
     {
         if (!enabled)
         {
-            StopActiveAudioSources();
+            audioPool?.StopAll();
         }
     }
 
-    // - Role: Register spawned audio source for stage mute.
-    private void RegisterActiveAudioSource(AudioSource audioSource)
+    private void EnsureAudioPool()
     {
-        PruneActiveAudioSources();
-        activeAudioSources.Add(audioSource);
-    }
-
-    // - Role: Stop active audio sources.
-    private void StopActiveAudioSources()
-    {
-        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
+        if (audioPool == null)
         {
-            AudioSource audioSource = activeAudioSources[i];
-            if (audioSource != null)
-            {
-                Destroy(audioSource.gameObject);
-            }
-        }
-
-        activeAudioSources.Clear();
-    }
-
-    // - Role: Remove destroyed audio sources.
-    private void PruneActiveAudioSources()
-    {
-        for (int i = activeAudioSources.Count - 1; i >= 0; i--)
-        {
-            if (activeAudioSources[i] == null)
-            {
-                activeAudioSources.RemoveAt(i);
-            }
+            audioPool = new FeedbackAudioSourcePool(transform, "Screen Overlay Audio Pool");
         }
     }
 }

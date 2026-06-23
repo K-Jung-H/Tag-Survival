@@ -121,20 +121,32 @@ public sealed class ServerStageBuilder : MonoBehaviour
 
     private void ApplyServerPresentation(bool showServerGameHud, bool showDedicatedCamera)
     {
+        bool shouldShowServerGameHud = ShouldShowServerPresentation(showServerGameHud);
+        bool shouldShowDedicatedCamera = ShouldShowServerPresentation(showDedicatedCamera);
+
         if (serverGameHudView != null)
         {
-            serverGameHudView.gameObject.SetActive(showServerGameHud);
+            serverGameHudView.gameObject.SetActive(shouldShowServerGameHud);
         }
 
         if (serverCanvas != null)
         {
-            serverCanvas.gameObject.SetActive(showServerGameHud);
+            serverCanvas.gameObject.SetActive(shouldShowServerGameHud);
         }
 
         if (dedicatedServerCamera != null)
         {
-            dedicatedServerCamera.enabled = showDedicatedCamera;
+            dedicatedServerCamera.enabled = shouldShowDedicatedCamera;
         }
+    }
+
+    private static bool ShouldShowServerPresentation(bool requestedVisible)
+    {
+#if !UNITY_EDITOR && !DEVELOPMENT_BUILD && (UNITY_ANDROID || UNITY_IOS)
+        return false;
+#else
+        return requestedVisible;
+#endif
     }
 
     private bool ValidateGamePlayRunnerAssigned()

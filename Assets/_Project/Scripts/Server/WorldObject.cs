@@ -36,7 +36,7 @@ public enum WorldObjectLayer : ushort
     Player = 1 << 0,
     SkillObject = 1 << 1,
     Area = 1 << 2,
-    Item = 1 << 3
+    WorldObject = 1 << 3
 }
 
 public readonly struct WorldCollider
@@ -156,7 +156,7 @@ public sealed class PlayerObject : IWorldObject
     public bool hasAimInput;
     public float lateJumpTimer;
     public WorldObjectLayer layer = WorldObjectLayer.Player;
-    public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
+    public WorldObjectLayer collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.WorldObject | WorldObjectLayer.Area;
     public WorldCollider collider;
 
     public WorldObjectType ObjectType => WorldObjectType.Player;
@@ -209,7 +209,7 @@ public sealed class PlayerObject : IWorldObject
         hasAimInput = false;
         lateJumpTimer = 0f;
         layer = WorldObjectLayer.Player;
-        collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.Area | WorldObjectLayer.Item;
+        collisionMask = WorldObjectLayer.Player | WorldObjectLayer.SkillObject | WorldObjectLayer.WorldObject | WorldObjectLayer.Area;
         collider = new WorldCollider(collisionOffset, collisionHalfExtent);
     }
 
@@ -352,7 +352,7 @@ public sealed class ItemObject : IWorldObject
     public Vector2 position;
     public WorldCollider collider;
     public ItemStateMachine stateMachine;
-    public WorldObjectLayer layer = WorldObjectLayer.Item;
+    public WorldObjectLayer layer = WorldObjectLayer.WorldObject;
     public WorldObjectLayer collisionMask = WorldObjectLayer.Player;
 
     public WorldObjectType ObjectType => WorldObjectType.Item;
@@ -377,7 +377,7 @@ public sealed class CoinObject : IWorldObject
     public Vector2 position;
     public WorldCollider collider;
     public ServerCoinSystem coinSystem;
-    public WorldObjectLayer layer = WorldObjectLayer.Item;
+    public WorldObjectLayer layer = WorldObjectLayer.WorldObject;
     public WorldObjectLayer collisionMask = WorldObjectLayer.Player;
 
     public WorldObjectType ObjectType => WorldObjectType.Coin;

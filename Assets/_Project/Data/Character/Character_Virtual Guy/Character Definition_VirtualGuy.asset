@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Character Definition_VirtualGuy
   m_EditorClassIdentifier: Assembly-CSharp::CharacterDefinition
   characterId: 3
+  displayName: VirtualGuy
+  color: {r: 0, g: 0.8855696, b: 1, a: 1}
   playerViewPrefab: {fileID: 6471373974344987701, guid: 29bdc0cbea57efe4ba5bf4e34bede596, type: 3}
   animationData: {fileID: 11400000, guid: a8084c550c9e3064d9309c8bb3cf0ac6, type: 2}
   moveSpeed: 12
@@ -27,5 +29,5 @@ MonoBehaviour:
   overSpeedDecel: 18
   wallMoveRate: 1.5
   lateJumpTime: 0.05
-  fallbackCollisionExtent: {x: 0.4, y: 0.4}
-  fallbackCollisionOffset: {x: 0, y: 0}
+  fallbackCollisionExtent: {x: 0.45, y: 0.55}
+  fallbackCollisionOffset: {x: 0, y: -0.19999999}

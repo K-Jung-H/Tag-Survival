@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Character Definition_PinkMan
   m_EditorClassIdentifier: Assembly-CSharp::CharacterDefinition
   characterId: 2
+  displayName: PinkMan
+  color: {r: 1, g: 0.6924528, b: 0.92352736, a: 1}
   playerViewPrefab: {fileID: 6471373974344987701, guid: 29bdc0cbea57efe4ba5bf4e34bede596, type: 3}
   animationData: {fileID: 11400000, guid: e47c06aa4c4bfc54a93555760810731b, type: 2}
   moveSpeed: 12
@@ -27,5 +29,5 @@ MonoBehaviour:
   overSpeedDecel: 18
   wallMoveRate: 0.25
   lateJumpTime: 0.05
-  fallbackCollisionExtent: {x: 0.4, y: 0.4}
-  fallbackCollisionOffset: {x: 0, y: 0}
+  fallbackCollisionExtent: {x: 0.45, y: 0.55}
+  fallbackCollisionOffset: {x: 0, y: -0.19999999}

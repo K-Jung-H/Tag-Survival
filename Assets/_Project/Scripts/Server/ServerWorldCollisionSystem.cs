@@ -3,6 +3,11 @@ using UnityEngine;
 
 public sealed class ServerWorldCollisionSystem
 {
+    private readonly List<IWorldObject> players = new();
+    private readonly List<IWorldObject> skillObjects = new();
+    private readonly List<IWorldObject> worldObjects = new();
+    private readonly List<IWorldObject> areas = new();
+
     // - Role: Find collisions.
     public void ResolveCollisions(
         IReadOnlyList<IWorldObject> objects,
@@ -32,32 +37,93 @@ public sealed class ServerWorldCollisionSystem
             return;
         }
 
+        SplitObjectsByLayer(objects);
+
+        FindPlayerCollisions(results, stageCollisionSystem);
+    }
+
+    private void SplitObjectsByLayer(IReadOnlyList<IWorldObject> objects)
+    {
+        players.Clear();
+        skillObjects.Clear();
+        worldObjects.Clear();
+        areas.Clear();
+
         for (int i = 0; i < objects.Count; i++)
         {
-            IWorldObject first = objects[i];
-            if (first == null)
+            IWorldObject worldObject = objects[i];
+            if (worldObject == null)
             {
                 continue;
             }
 
-            for (int j = i + 1; j < objects.Count; j++)
+            switch (worldObject.Layer)
             {
-                IWorldObject second = objects[j];
-                if (second == null || !CanCollide(first, second))
-                {
-                    continue;
-                }
-
-                if (TryGetCollision(
-                    first,
-                    second,
-                    stageCollisionSystem,
-                    out Vector2 normal,
-                    out float penetration))
-                {
-                    results.Add(new WorldCollisionEvent(first, second, normal, penetration));
-                }
+                case WorldObjectLayer.Player:
+                    players.Add(worldObject);
+                    break;
+                case WorldObjectLayer.SkillObject:
+                    skillObjects.Add(worldObject);
+                    break;
+                case WorldObjectLayer.WorldObject:
+                    worldObjects.Add(worldObject);
+                    break;
+                case WorldObjectLayer.Area:
+                    areas.Add(worldObject);
+                    break;
             }
+        }
+    }
+
+    private void FindPlayerCollisions(
+        List<WorldCollisionEvent> results,
+        StageCollisionSystem stageCollisionSystem)
+    {
+        for (int i = 0; i < players.Count; i++)
+        {
+            IWorldObject player = players[i];
+            for (int j = i + 1; j < players.Count; j++)
+            {
+                AddCollisionIfPresent(player, players[j], results, stageCollisionSystem);
+            }
+
+            AddCollisions(player, skillObjects, results, stageCollisionSystem);
+            AddCollisions(player, worldObjects, results, stageCollisionSystem);
+            AddCollisions(player, areas, results, stageCollisionSystem);
+        }
+    }
+
+    private static void AddCollisions(
+        IWorldObject first,
+        IReadOnlyList<IWorldObject> candidates,
+        List<WorldCollisionEvent> results,
+        StageCollisionSystem stageCollisionSystem)
+    {
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            AddCollisionIfPresent(first, candidates[i], results, stageCollisionSystem);
+        }
+    }
+
+    private static void AddCollisionIfPresent(
+        IWorldObject first,
+        IWorldObject second,
+        List<WorldCollisionEvent> results,
+        StageCollisionSystem stageCollisionSystem)
+    {
+        if (first == null || second == null || !CanCollide(first, second))
+        {
+            return;
+        }
+
+        if (TryGetCollision(
+            first,
+            second,
+            stageCollisionSystem,
+            out Vector2 normal,
+            out float penetration))
+        {
+            results.Add(new WorldCollisionEvent(first, second, normal, penetration));
         }
     }
 

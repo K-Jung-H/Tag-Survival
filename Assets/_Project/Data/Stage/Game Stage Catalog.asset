@@ -14,14 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameStageCatalog
   entries:
   - isRandom: 1
-    thumbnail: {fileID: 21300056, guid: 7ab74e659e1f0a34d9cfec21c478fc12, type: 3}
+    thumbnail: {fileID: 21300000, guid: ffc80c129c9aca14c9fb4dbeba0e10d2, type: 3}
     displayName: Random
     stageDefinition: {fileID: 0}
   - isRandom: 0
-    thumbnail: {fileID: 21300000, guid: d9f516e8c7fe1954abd84c03a877a4cf, type: 3}
+    thumbnail: {fileID: 21300000, guid: 6ec7e3457f53be741a06f873cbc372f5, type: 3}
     displayName: Default
     stageDefinition: {fileID: 11400000, guid: e280c1ed45f119242908d58f59ccdb55, type: 2}
   - isRandom: 0
-    thumbnail: {fileID: 21300000, guid: 0aa694d4e6ad41e4ba48750d030c88cf, type: 3}
+    thumbnail: {fileID: 21300000, guid: ef1ccd15dc83c6743a25a96a479d533e, type: 3}
     displayName: Forest
     stageDefinition: {fileID: 11400000, guid: a1b8b4d448754df45a6ef8813646de9c, type: 2}

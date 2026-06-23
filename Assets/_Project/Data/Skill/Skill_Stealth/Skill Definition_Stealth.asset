@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SkillDefinition
   skillId: 3
   displayName: Stealth
-  icon: {fileID: -6415160527855421042, guid: 99e1beacf34e67c42afd2d344aefcc3c, type: 3}
+  icon: {fileID: -1582829004, guid: 83bd0097212cd6b47b8ad6fa37ea59f7, type: 3}
   logicKey: stealth
   skillType: 6
   range: 1

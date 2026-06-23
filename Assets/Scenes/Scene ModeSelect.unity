@@ -270,6 +270,8 @@ MonoBehaviour:
   bgmToggleView: {fileID: 1488225513}
   sfxToggle: {fileID: 717686023}
   sfxToggleView: {fileID: 717686026}
+  stageSfxToggle: {fileID: 0}
+  stageSfxToggleView: {fileID: 0}
 --- !u!114 &124598311
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -984,7 +986,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 350, y: -250}
+  m_AnchoredPosition: {x: 350, y: -300}
   m_SizeDelta: {x: 600, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &444701847
@@ -2849,7 +2851,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -350, y: -250}
+  m_AnchoredPosition: {x: -350, y: -300}
   m_SizeDelta: {x: 600, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1277845816

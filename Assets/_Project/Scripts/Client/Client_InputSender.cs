@@ -1,25 +1,16 @@
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
 public class Client_InputSender : MonoBehaviour
 {
-    private struct DelayedInputPacket
-    {
-        public ClientInputPacket packet;
-        public float sendTime;
-    }
-
     [SerializeField] private InputProvider_Client_Base[] inputProviderList;
-    [SerializeField] private Client_NetworkDelaySimulator networkDelaySimulator;
     [SerializeField] private float maxInputAccumulatedTime = 0.15f;
     [SerializeField] private bool sendImmediatelyOnInputChanged = true;
     [SerializeField] private float inputChangeThreshold = 0.001f;
     [SerializeField] private float minImmediateSendInterval = 0.0083f;
 
     private readonly float inputSendInterval = 1f / GameNetProtocol.InputSendRate;
-    private readonly List<DelayedInputPacket> delayedInputPackets = new();
 
     private FastBufferWriter inputWriter;
     private bool inputWriterCreated;
@@ -41,11 +32,6 @@ public class Client_InputSender : MonoBehaviour
             return;
         }
 
-        if (networkDelaySimulator == null)
-        {
-            Debug.LogWarning("[Client_InputSender] NetworkDelaySimulator is not assigned. Network delay is disabled.", this);
-        }
-
         inputWriter = new FastBufferWriter(GameNetProtocol.InputPacketBufferSize, Allocator.Persistent);
 
         inputWriterCreated = true;
@@ -59,8 +45,6 @@ public class Client_InputSender : MonoBehaviour
             inputWriter.Dispose();
             inputWriterCreated = false;
         }
-
-        delayedInputPackets.Clear();
     }
 
     // - Role: Update this object each frame.
@@ -68,11 +52,8 @@ public class Client_InputSender : MonoBehaviour
     {
         if (!CanSendInput())
         {
-            delayedInputPackets.Clear();
             return;
         }
-
-        FlushDelayedInputPackets();
 
         float deltaTime = Time.deltaTime;
         inputAccumulator += deltaTime;
@@ -185,46 +166,7 @@ public class Client_InputSender : MonoBehaviour
         inputSeq = unchecked((ushort)(inputSeq + 1));
         clientTick++;
 
-        QueueOrSendInputPacket(packet);
-    }
-
-    // - Role: Queue or send input packet.
-    private void QueueOrSendInputPacket(ClientInputPacket packet)
-    {
-        float delaySeconds = GetNetworkDelaySeconds();
-
-        if (delaySeconds <= 0f)
-        {
-            SendInputPacketNow(packet);
-            return;
-        }
-
-        delayedInputPackets.Add(new DelayedInputPacket
-        {
-            packet = packet,
-            sendTime = Time.realtimeSinceStartup + delaySeconds
-        });
-    }
-
-    // - Role: Flush delayed input packets.
-    private void FlushDelayedInputPackets()
-    {
-        if (delayedInputPackets.Count == 0)
-            return;
-
-        float now = Time.realtimeSinceStartup;
-
-        for (int i = 0; i < delayedInputPackets.Count; i++)
-        {
-            DelayedInputPacket delayedPacket = delayedInputPackets[i];
-
-            if (delayedPacket.sendTime > now)
-                continue;
-
-            delayedInputPackets.RemoveAt(i);
-            i--;
-            SendInputPacketNow(delayedPacket.packet);
-        }
+        SendInputPacketNow(packet);
     }
 
     // - Role: Send input packet now.
@@ -241,12 +183,4 @@ public class Client_InputSender : MonoBehaviour
         );
     }
 
-    // - Role: Get network delay seconds.
-    private float GetNetworkDelaySeconds()
-    {
-        if (networkDelaySimulator == null)
-            return 0f;
-
-        return networkDelaySimulator.OneWayDelaySeconds;
-    }
 }

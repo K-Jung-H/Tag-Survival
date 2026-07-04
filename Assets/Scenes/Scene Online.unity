@@ -752,21 +752,6 @@ MonoBehaviour:
   isAlert: 0
   m_InputValidator: {fileID: 0}
   m_ShouldActivateOnSelect: 1
---- !u!114 &287226876
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 287226871}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8626621f95214336b90745e55d92df51, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  inputField: {fileID: 287226873}
-  mode: 1
-  maxLength: 0
 --- !u!114 &287226874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -805,6 +790,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 287226871}
   m_CullTransparentMesh: 1
+--- !u!114 &287226876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 287226871}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8626621f95214336b90745e55d92df51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputField: {fileID: 287226873}
+  mode: 1
+  maxLength: 0
 --- !u!1 &313321945
 GameObject:
   m_ObjectHideFlags: 0
@@ -1936,12 +1936,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.CanvasScaler
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 1920, y: 1080}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 0.5
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -2605,21 +2605,6 @@ MonoBehaviour:
   isAlert: 0
   m_InputValidator: {fileID: 0}
   m_ShouldActivateOnSelect: 1
---- !u!114 &580239126
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 580239121}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8626621f95214336b90745e55d92df51, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  inputField: {fileID: 580239123}
-  mode: 1
-  maxLength: 0
 --- !u!114 &580239124
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2658,6 +2643,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 580239121}
   m_CullTransparentMesh: 1
+--- !u!114 &580239126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 580239121}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8626621f95214336b90745e55d92df51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputField: {fileID: 580239123}
+  mode: 1
+  maxLength: 0
 --- !u!1 &614128283
 GameObject:
   m_ObjectHideFlags: 0
@@ -5899,7 +5899,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 30, y: -380}
+  m_AnchoredPosition: {x: 30, y: -53}
   m_SizeDelta: {x: 400, y: 300}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &1193606210
@@ -6089,7 +6089,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -30, y: -380}
+  m_AnchoredPosition: {x: -30, y: -53}
   m_SizeDelta: {x: 400, y: 300}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &1236233145
@@ -6349,7 +6349,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -30, y: -649}
+  m_AnchoredPosition: {x: -30, y: -204}
   m_SizeDelta: {x: 400, y: 100}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &1416449796
@@ -7745,7 +7745,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 30, y: -649}
+  m_AnchoredPosition: {x: 30, y: -204}
   m_SizeDelta: {x: 400, y: 100}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1857845449
@@ -8160,6 +8160,8 @@ MonoBehaviour:
   bgmToggleView: {fileID: 720055889}
   sfxToggle: {fileID: 732335206}
   sfxToggleView: {fileID: 732335201}
+  stageSfxToggle: {fileID: 0}
+  stageSfxToggleView: {fileID: 0}
 --- !u!1 &1984602639
 GameObject:
   m_ObjectHideFlags: 0
@@ -8975,21 +8977,6 @@ MonoBehaviour:
   isAlert: 0
   m_InputValidator: {fileID: 0}
   m_ShouldActivateOnSelect: 1
---- !u!114 &2093611686
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2093611681}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8626621f95214336b90745e55d92df51, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  inputField: {fileID: 2093611683}
-  mode: 1
-  maxLength: 0
 --- !u!114 &2093611684
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9028,6 +9015,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2093611681}
   m_CullTransparentMesh: 1
+--- !u!114 &2093611686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2093611681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8626621f95214336b90745e55d92df51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputField: {fileID: 2093611683}
+  mode: 1
+  maxLength: 0
 --- !u!1 &2102501761
 GameObject:
   m_ObjectHideFlags: 0

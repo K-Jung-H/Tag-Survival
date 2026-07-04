@@ -38,6 +38,18 @@ public sealed class GameFlowButtonRouter : MonoBehaviour
         manager.LoadOnlineScene();
     }
 
+    public void LoadStorySelectScene()
+    {
+        GameFlowManager manager = GameFlowManager.Instance;
+        if (manager == null)
+        {
+            Debug.LogError("[GameFlowButtonRouter] GameFlowManager is not available.", this);
+            return;
+        }
+
+        manager.LoadStorySelectScene();
+    }
+
     public void GoBack()
     {
         GameFlowManager manager = GameFlowManager.Instance;

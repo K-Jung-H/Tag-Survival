@@ -16,6 +16,13 @@ public class Client_GameHudView : MonoBehaviour
     [SerializeField] private Color defaultTextColor = Color.white;
 
     private bool hasLoggedMissingReferences;
+    private bool showLeaderboard = true;
+
+    public void SetLeaderboardVisible(bool visible)
+    {
+        showLeaderboard = visible;
+        SetLeaderboardObjectsVisible(visible);
+    }
 
     // - Role: Set up needed links before start.
     private void Awake()
@@ -38,7 +45,10 @@ public class Client_GameHudView : MonoBehaviour
         }
 
         RenderTimer(state.remainingSeconds, state.isGameEnded);
-        RenderLeaderboard(state.entries, state.entryCount, state.gameModeType);
+        if (showLeaderboard)
+        {
+            RenderLeaderboard(state.entries, state.entryCount, state.gameModeType);
+        }
     }
 
     // - Role: Render the game timer.
@@ -127,6 +137,27 @@ public class Client_GameHudView : MonoBehaviour
         {
             localPlayerOutsideRow.gameObject.SetActive(false);
             localPlayerOutsideRow.text = string.Empty;
+        }
+    }
+
+    private void SetLeaderboardObjectsVisible(bool visible)
+    {
+        if (leaderboardTitleText != null)
+        {
+            leaderboardTitleText.gameObject.SetActive(visible);
+        }
+
+        for (int i = 0; i < leaderboardRows.Count; i++)
+        {
+            if (leaderboardRows[i] != null)
+            {
+                leaderboardRows[i].gameObject.SetActive(visible);
+            }
+        }
+
+        if (localPlayerOutsideRow != null)
+        {
+            localPlayerOutsideRow.gameObject.SetActive(visible);
         }
     }
 

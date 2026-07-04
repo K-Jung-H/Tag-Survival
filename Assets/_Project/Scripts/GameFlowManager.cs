@@ -7,6 +7,8 @@ public sealed class GameFlowManager : MonoBehaviour
     [Header("Flow Scenes")]
     [SerializeField] private string startSceneName = "StartScene";
     [SerializeField] private string modeSelectSceneName = "ModeSelect";
+    [SerializeField] private string storySelectSceneName = "Scene Story Select";
+    [SerializeField] private string storyStageSceneName = "Scene Stage Story";
     [SerializeField] private string onlineSceneName = "Online";
     [SerializeField] private string serverRoomSceneName = "Server_Room";
     [SerializeField] private string clientRoomSceneName = "Client_Room";
@@ -27,18 +29,23 @@ public sealed class GameFlowManager : MonoBehaviour
     private Client_RoomBuilder clientRoomBuilder;
     private ServerStageBuilder serverStageBuilder;
     private ClientStageBuilder clientStageBuilder;
+    private StoryStageBuilder storyStageBuilder;
     private RoomSnapshotPacket lastStartedRoomSnapshot;
     private GameSettingsPanelController activeSettingsPanel;
+    private StoryStageStartContext currentStoryStageStartContext;
 
     public static GameFlowManager Instance => instance;
     public string StartSceneName => startSceneName;
     public string ModeSelectSceneName => modeSelectSceneName;
+    public string StorySelectSceneName => ResolveStorySelectSceneName();
+    public string StoryStageSceneName => ResolveStoryStageSceneName();
     public string OnlineSceneName => onlineSceneName;
     public string ServerRoomSceneName => serverRoomSceneName;
     public string ClientRoomSceneName => clientRoomSceneName;
     public string ServerStageSceneName => serverStageSceneName;
     public string ClientStageSceneName => clientStageSceneName;
     public RoomLaunchRequest CurrentRoomLaunchRequest => currentRoomLaunchRequest;
+    public StoryStageStartContext CurrentStoryStageStartContext => currentStoryStageStartContext;
 
     private void Awake()
     {
@@ -65,6 +72,28 @@ public sealed class GameFlowManager : MonoBehaviour
     public void LoadOnlineScene()
     {
         _ = LoadSceneAsync(onlineSceneName);
+    }
+
+    public void LoadStorySelectScene()
+    {
+        _ = LoadSceneAsync(ResolveStorySelectSceneName());
+    }
+
+    public void StartStoryStage(StoryStageStartContext context)
+    {
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        if (!context.IsValid)
+        {
+            Debug.LogWarning("[GameFlowManager] Story stage start context is invalid.", this);
+            return;
+        }
+
+        currentStoryStageStartContext = context;
+        _ = StartStoryStageAsync();
     }
 
     public void RegisterSettingsPanel(GameSettingsPanelController settingsPanel)
@@ -471,6 +500,15 @@ public sealed class GameFlowManager : MonoBehaviour
         {
             await LoadSceneInternalAsync(modeSelectSceneName, LoadSceneMode.Single);
         }
+        else if (IsSameScene(activeSceneName, ResolveStorySelectSceneName()))
+        {
+            await LoadSceneInternalAsync(modeSelectSceneName, LoadSceneMode.Single);
+        }
+        else if (IsSameScene(activeSceneName, ResolveStoryStageSceneName()))
+        {
+            ClearStoryFlowState();
+            await LoadSceneInternalAsync(ResolveStorySelectSceneName(), LoadSceneMode.Single);
+        }
         else if (IsSameScene(activeSceneName, modeSelectSceneName))
         {
             await LoadSceneInternalAsync(startSceneName, LoadSceneMode.Single);
@@ -502,9 +540,12 @@ public sealed class GameFlowManager : MonoBehaviour
             StopSessionAndClearRoomFlow();
         }
         else if (IsSameScene(activeSceneName, onlineSceneName)
+            || IsSameScene(activeSceneName, ResolveStorySelectSceneName())
+            || IsSameScene(activeSceneName, ResolveStoryStageSceneName())
             || IsSameScene(activeSceneName, modeSelectSceneName))
         {
             StopSessionAndClearRoomFlow();
+            ClearStoryFlowState();
         }
 
         await LoadSceneInternalAsync(startSceneName, LoadSceneMode.Single);
@@ -611,6 +652,21 @@ public sealed class GameFlowManager : MonoBehaviour
         clientStageBuilder.ConfigureStageDefinition(stageDefinition);
         clientStageBuilder.BuildOnlineGuest();
         SceneManager.SetActiveScene(clientStageScene);
+    }
+
+    private async Task StartStoryStageAsync()
+    {
+        isTransitioning = true;
+        StopSessionAndClearRoomFlow();
+
+        Scene storyStageScene = await LoadSceneInternalAsync(ResolveStoryStageSceneName(), LoadSceneMode.Single);
+        if (TryFindUniqueBuilder(storyStageScene, out storyStageBuilder))
+        {
+            storyStageBuilder.Build();
+            SceneManager.SetActiveScene(storyStageScene);
+        }
+
+        isTransitioning = false;
     }
 
     private async Task<Scene> LoadSceneInternalAsync(string sceneName, LoadSceneMode loadSceneMode)
@@ -730,6 +786,12 @@ public sealed class GameFlowManager : MonoBehaviour
         ClearRoomFlowState();
     }
 
+    private void ClearStoryFlowState()
+    {
+        storyStageBuilder = null;
+        currentStoryStageStartContext = default;
+    }
+
     private static GameSessionPlayerProfile ResolveRoomPlayerProfile(
         RoomSnapshotPacket roomSnapshot,
         ulong clientId,
@@ -807,6 +869,20 @@ public sealed class GameFlowManager : MonoBehaviour
     {
         return IsSameScene(sceneName, clientRoomSceneName)
             || IsSameScene(sceneName, serverRoomSceneName);
+    }
+
+    private string ResolveStorySelectSceneName()
+    {
+        return string.IsNullOrWhiteSpace(storySelectSceneName)
+            ? "Scene Story Select"
+            : storySelectSceneName;
+    }
+
+    private string ResolveStoryStageSceneName()
+    {
+        return string.IsNullOrWhiteSpace(storyStageSceneName)
+            ? "Scene Stage Story"
+            : storyStageSceneName;
     }
 
     private static bool IsSameScene(string left, string right)

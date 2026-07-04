@@ -360,6 +360,7 @@ public class Server_GamePlay
                 this,
                 modeConfig as CoinCollectGameModeConfig,
                 TagStunDurationSeconds),
+            GameModeType.Story => new StoryGameMode(),
             _ => new TimeAttackGameMode(TagStunDurationSeconds)
         };
     }

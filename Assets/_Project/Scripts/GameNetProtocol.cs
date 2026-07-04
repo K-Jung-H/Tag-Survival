@@ -134,7 +134,8 @@ public enum ScreenOverlayFeedbackType : byte
 public enum GameModeType : byte
 {
     TimeAttack = 0,
-    CoinCollect = 1
+    CoinCollect = 1,
+    Story = 2
 }
 
 public enum CoinGrade : byte

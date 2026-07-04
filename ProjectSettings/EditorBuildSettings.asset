@@ -12,6 +12,12 @@ EditorBuildSettings:
     path: Assets/Scenes/Scene ModeSelect.unity
     guid: dd5c92fc03315b3428c4aafd8ffefed0
   - enabled: 1
+    path: Assets/Scenes/Scene Story Select.unity
+    guid: a69f4bb483584dbda41fd76d12808d3a
+  - enabled: 1
+    path: Assets/Scenes/Scene Stage Story.unity
+    guid: 0f183704beeb99b4b923bbccbf433c9e
+  - enabled: 1
     path: Assets/Scenes/Scene Online.unity
     guid: 11117803635684c4589a33b3c3905204
   - enabled: 1

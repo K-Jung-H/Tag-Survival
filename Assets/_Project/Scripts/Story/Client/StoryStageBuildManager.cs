@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public sealed class StoryStageBuilder : MonoBehaviour
+public sealed class StoryStageBuildManager : MonoBehaviour
 {
     private const ulong LocalClientId = 0;
 
@@ -19,10 +19,12 @@ public sealed class StoryStageBuilder : MonoBehaviour
     [SerializeField] private Camera mainCamera;
     [SerializeField] private Client_StageRenderer stageRenderer;
     [SerializeField] private Client_CameraController cameraController;
-    [SerializeField] private OffScreenIndicatorView indicatorView;
     [SerializeField] private Client_WorldView worldView;
     [SerializeField] private Client_GameHudView gameHudView;
-    [SerializeField] private ClientCanvasPanelController canvasPanelController;
+
+    [Header("Story Scene Objects")]
+    [SerializeField] private GameObject[] enableObjects;
+    [SerializeField] private GameObject[] disableObjects;
 
     [Header("Local Client")]
     [SerializeField] private Client_SyncManager syncManager;
@@ -48,6 +50,7 @@ public sealed class StoryStageBuilder : MonoBehaviour
             return false;
         }
 
+        ApplySceneObjects();
         ApplyPresentation(stageDefinition);
         if (!BuildSimulation(context, stageDefinition))
         {
@@ -75,54 +78,87 @@ public sealed class StoryStageBuilder : MonoBehaviour
 
     private bool ValidateReferences(StoryStageStartContext context, out StageDefinition stageDefinition)
     {
-        stageDefinition = context.IsValid ? context.stageConfig.StageDefinition : null;
+        stageDefinition = null;
+        if (!context.IsValid)
+        {
+            Debug.LogError(
+                "[StoryStageBuildManager] StoryStageStartContext is invalid. Start through Story Select or assign Fallback Stage Config.",
+                this);
+            return false;
+        }
+
+        stageDefinition = context.stageConfig.StageDefinition;
         if (stageDefinition == null)
         {
-            Debug.LogError("[StoryStageBuilder] StageDefinition is not assigned.", this);
+            Debug.LogError("[StoryStageBuildManager] StoryStageConfig.StageDefinition is not assigned.", this);
             return false;
         }
 
         if (gamePlayRunner == null)
         {
-            Debug.LogError("[StoryStageBuilder] Server_GamePlayRunner is not assigned.", this);
+            Debug.LogError("[StoryStageBuildManager] Server_GamePlayRunner is not assigned.", this);
             return false;
         }
 
-        if (gameModeConfig == null || gameModeConfig.ModeType != gameModeType)
+        if (gameModeConfig == null)
         {
-            Debug.LogError("[StoryStageBuilder] GameModeConfig is not assigned or mismatched.", this);
+            Debug.LogError("[StoryStageBuildManager] GameModeConfig is not assigned.", this);
             return false;
         }
 
-        if (mainCamera == null || stageRenderer == null || cameraController == null || worldView == null)
+        if (gameModeConfig.ModeType != gameModeType)
         {
-            Debug.LogError("[StoryStageBuilder] Stage presentation references are not assigned.", this);
+            Debug.LogError(
+                $"[StoryStageBuildManager] GameModeConfig type is mismatched. expected={gameModeType}, actual={gameModeConfig.ModeType}",
+                this);
             return false;
         }
 
-        if (syncManager == null || localInputBridge == null)
+        if (!ValidatePresentationReferences())
         {
-            Debug.LogError("[StoryStageBuilder] Local client references are not assigned.", this);
+            return false;
+        }
+
+        if (!ValidateLocalClientReferences())
+        {
             return false;
         }
 
         return true;
     }
 
+    private bool ValidatePresentationReferences()
+    {
+        bool isValid = true;
+        isValid &= ValidateReference(mainCamera, nameof(mainCamera));
+        isValid &= ValidateReference(stageRenderer, nameof(stageRenderer));
+        isValid &= ValidateReference(cameraController, nameof(cameraController));
+        isValid &= ValidateReference(worldView, nameof(worldView));
+        return isValid;
+    }
+
+    private bool ValidateLocalClientReferences()
+    {
+        bool isValid = true;
+        isValid &= ValidateReference(syncManager, nameof(syncManager));
+        isValid &= ValidateReference(localInputBridge, nameof(localInputBridge));
+        return isValid;
+    }
+
+    private void ApplySceneObjects()
+    {
+        SetObjectsActive(enableObjects, true);
+        SetObjectsActive(disableObjects, false);
+    }
+
     private void ApplyPresentation(StageDefinition stageDefinition)
     {
-        canvasPanelController?.ApplyMode(ClientStageUiMode.LocalHost);
-
         stageRenderer.Configure(stageDefinition, mainCamera);
         cameraController.BindCamera(mainCamera);
         cameraController.BindSyncManager(syncManager);
         cameraController.StageDefinition = stageDefinition;
         cameraController.SetFollowEnabled(true);
         cameraController.SetGameplayZoom();
-        if (indicatorView != null)
-        {
-            indicatorView.enabled = false;
-        }
 
         gameHudView?.SetLeaderboardVisible(false);
         worldView.BindAudioListener(mainCamera.transform);
@@ -137,7 +173,9 @@ public sealed class StoryStageBuilder : MonoBehaviour
 
         if (gamePlayRunner.GamePlay == null)
         {
-            Debug.LogError("[StoryStageBuilder] Server_GamePlayRunner.GamePlay is not ready.", this);
+            Debug.LogError(
+                "[StoryStageBuildManager] Server_GamePlayRunner.GamePlay was not created. Check Server_GamePlayRunner catalogs, StageDefinition, and Story GameModeConfig.",
+                this);
             return false;
         }
 
@@ -162,5 +200,32 @@ public sealed class StoryStageBuilder : MonoBehaviour
         gamePlayRunner.MarkStageReady(LocalClientId);
         gamePlayRunner.MarkStageIntroReady(LocalClientId);
         return true;
+    }
+
+    private static void SetObjectsActive(GameObject[] targets, bool active)
+    {
+        if (targets == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < targets.Length; i++)
+        {
+            if (targets[i] != null)
+            {
+                targets[i].SetActive(active);
+            }
+        }
+    }
+
+    private bool ValidateReference(Object target, string referenceName)
+    {
+        if (target != null)
+        {
+            return true;
+        }
+
+        Debug.LogError($"[StoryStageBuildManager] Missing reference: {referenceName}.", this);
+        return false;
     }
 }

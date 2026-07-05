@@ -14,9 +14,9 @@ public class Client_GameHudView : MonoBehaviour
     [SerializeField] private Color localTopRankColor = Color.green;
     [SerializeField] private Color taggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
     [SerializeField] private Color defaultTextColor = Color.white;
+    [SerializeField] private bool showLeaderboard = true;
 
     private bool hasLoggedMissingReferences;
-    private bool showLeaderboard = true;
 
     public void SetLeaderboardVisible(bool visible)
     {
@@ -239,6 +239,16 @@ public class Client_GameHudView : MonoBehaviour
         if (timerText == null)
         {
             Debug.LogWarning("[Client_GameHudView] TimerText is not assigned.", this);
+        }
+
+        LogMissingLeaderboardReferences();
+    }
+
+    private void LogMissingLeaderboardReferences()
+    {
+        if (!showLeaderboard)
+        {
+            return;
         }
 
         if (leaderboardTitleText == null)

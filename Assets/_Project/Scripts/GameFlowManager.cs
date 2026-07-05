@@ -29,7 +29,7 @@ public sealed class GameFlowManager : MonoBehaviour
     private Client_RoomBuilder clientRoomBuilder;
     private ServerStageBuilder serverStageBuilder;
     private ClientStageBuilder clientStageBuilder;
-    private StoryStageBuilder storyStageBuilder;
+    private StoryStageBuildManager storyStageBuildManager;
     private RoomSnapshotPacket lastStartedRoomSnapshot;
     private GameSettingsPanelController activeSettingsPanel;
     private StoryStageStartContext currentStoryStageStartContext;
@@ -660,9 +660,9 @@ public sealed class GameFlowManager : MonoBehaviour
         StopSessionAndClearRoomFlow();
 
         Scene storyStageScene = await LoadSceneInternalAsync(ResolveStoryStageSceneName(), LoadSceneMode.Single);
-        if (TryFindUniqueBuilder(storyStageScene, out storyStageBuilder))
+        if (TryFindUniqueBuilder(storyStageScene, out storyStageBuildManager))
         {
-            storyStageBuilder.Build();
+            storyStageBuildManager.Build();
             SceneManager.SetActiveScene(storyStageScene);
         }
 
@@ -788,7 +788,7 @@ public sealed class GameFlowManager : MonoBehaviour
 
     private void ClearStoryFlowState()
     {
-        storyStageBuilder = null;
+        storyStageBuildManager = null;
         currentStoryStageStartContext = default;
     }
 

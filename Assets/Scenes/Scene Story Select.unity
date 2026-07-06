@@ -1727,10 +1727,10 @@ MonoBehaviour:
   m_ChildAlignment: 4
   m_StartCorner: 0
   m_StartAxis: 0
-  m_CellSize: {x: 120.666664, y: 88}
+  m_CellSize: {x: 188, y: 54}
   m_Spacing: {x: 14, y: 14}
   m_Constraint: 1
-  m_ConstraintCount: 3
+  m_ConstraintCount: 2
 --- !u!114 &638090131
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1743,8 +1743,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a0b76224c849f4a9bd740832577f99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StoryGridLayoutFitter
-  columns: 3
-  rows: 2
+  columns: 2
+  rows: 3
   spacing: {x: 14, y: 14}
   padding:
     m_Left: 0

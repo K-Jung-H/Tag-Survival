@@ -13,16 +13,12 @@ MonoBehaviour:
   m_Name: Story Stage 1
   m_EditorClassIdentifier: Assembly-CSharp::StoryStageConfig
   stageId: story_stage_1
-  stageDefinition: {fileID: 11400000, guid: e280c1ed45f119242908d58f59ccdb55, type: 2}
-  playerSpawnPosition: {x: 0, y: 2}
-  collectibles:
-  - id: item_1
-    position: {x: 4, y: 2}
-  - id: item_2
-    position: {x: 8, y: 2}
-  - id: item_3
-    position: {x: 12, y: 2}
-  goalPosition: {x: 16, y: 2}
+  stageDefinition: {fileID: 11400000, guid: a1b8b4d448754df45a6ef8813646de9c, type: 2}
+  playerSpawnPosition: {x: 88.34, y: 22.63}
+  goal:
+    position: {x: 103.48, y: 11.02}
+    colliderOffset: {x: 0, y: 0}
+    colliderSize: {x: 1, y: 2}
   enemies:
   - id: enemy_1
     position: {x: 14, y: 2}

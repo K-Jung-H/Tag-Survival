@@ -438,6 +438,7 @@ MonoBehaviour:
   taggerColor: {r: 1, g: 0.3137255, b: 0.3137255, a: 1}
   defaultTextColor: {r: 1, g: 1, b: 1, a: 1}
   showLeaderboard: 0
+  showZeroWhenEnded: 1
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -691,6 +692,7 @@ GameObject:
   m_Component:
   - component: {fileID: 681813941}
   - component: {fileID: 681813942}
+  - component: {fileID: 681813945}
   - component: {fileID: 681813944}
   m_Layer: 0
   m_Name: GameSystem
@@ -738,6 +740,7 @@ MonoBehaviour:
   cameraController: {fileID: 519420033}
   worldView: {fileID: 515449761}
   gameHudView: {fileID: 515449764}
+  runtimeController: {fileID: 681813945}
   enableObjects:
   - {fileID: 411244612}
   - {fileID: 2000001000}
@@ -771,6 +774,23 @@ MonoBehaviour:
   stageReadyTimeoutSeconds: 0
   introReadyTimeoutSeconds: 0
   countdownSeconds: 0
+--- !u!114 &681813945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681813940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd2fb330fcab3194ca3a33c316da5d96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StoryStageRuntimeController
+  objectCatalog: {fileID: 11400000, guid: 99b13b1103817a24297f8e0376ec3875, type: 2}
+  storyObjectRoot: {fileID: 1987552645}
+  syncManager: {fileID: 1941727314}
+  localInputBridge: {fileID: 1236628308}
+  canvasPanelController: {fileID: 1795723600}
 --- !u!1 &710973772
 GameObject:
   m_ObjectHideFlags: 0
@@ -847,7 +867,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.00012207031, y: -0.000061035156}
+  m_AnchoredPosition: {x: -0.00024414062, y: 0}
   m_SizeDelta: {x: 802.355, y: 401.1775}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &820069294
@@ -1177,7 +1197,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1015472103
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2692,6 +2712,37 @@ MonoBehaviour:
   screenOverlayFeedbackPlayer: {fileID: 1576433660}
   targetCamera: {fileID: 519420031}
   feedbackCatalog: {fileID: 11400000, guid: ebc50c4d105d493c854ceab53ed9150b, type: 2}
+--- !u!1 &1987552644
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1987552645}
+  m_Layer: 0
+  m_Name: StoryObjectRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1987552645
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1987552644}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2000001000
 GameObject:
   m_ObjectHideFlags: 0
@@ -3224,3 +3275,4 @@ SceneRoots:
   - {fileID: 681813941}
   - {fileID: 1895810908}
   - {fileID: 511372896}
+  - {fileID: 1987552645}

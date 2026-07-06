@@ -105,6 +105,30 @@ public class Server_GamePlay
     // - Role: Add player.
     public bool AddPlayer(ulong clientId, string nickname, byte characterId, byte skillId)
     {
+        if (!TryAssignSpawnPosition(clientId, out Vector2 spawnPosition))
+        {
+            Debug.LogError($"[Server_GamePlay] Failed to add player. SpawnPoint is not available. clientId={clientId}");
+            return false;
+        }
+
+        return AddPlayerAtResolvedPosition(clientId, nickname, characterId, skillId, spawnPosition, "AddPlayer");
+    }
+
+    // - Role: Add player at a fixed world position.
+    public bool AddPlayerAtPosition(ulong clientId, string nickname, byte characterId, byte skillId, Vector2 spawnPosition)
+    {
+        return AddPlayerAtResolvedPosition(clientId, nickname, characterId, skillId, spawnPosition, "AddPlayerAtPosition");
+    }
+
+    // - Role: Add player after spawn position is resolved.
+    private bool AddPlayerAtResolvedPosition(
+        ulong clientId,
+        string nickname,
+        byte characterId,
+        byte skillId,
+        Vector2 spawnPosition,
+        string context)
+    {
         if (players.ContainsKey(clientId))
         {
             return false;
@@ -113,13 +137,13 @@ public class Server_GamePlay
         if (!TryResolveCharacterDefinition(
                 clientId,
                 characterId,
-                "AddPlayer",
+                context,
                 out CharacterDefinition characterDefinition,
                 out _)
             || !TryResolveSkillDefinition(
                 clientId,
                 skillId,
-                "AddPlayer",
+                context,
                 out SkillDefinition skillDefinition,
                 out byte resolvedSkillId))
         {
@@ -132,11 +156,6 @@ public class Server_GamePlay
             Debug.LogError(
                 $"[Server_GamePlay] Failed to add player. Skill creation failed. " +
                 $"clientId={clientId}, requestedSkillId={skillId}");
-            return false;
-        }
-        if (!TryAssignSpawnPosition(clientId, out Vector2 spawnPosition))
-        {
-            Debug.LogError($"[Server_GamePlay] Failed to add player. SpawnPoint is not available. clientId={clientId}");
             return false;
         }
 
@@ -163,6 +182,18 @@ public class Server_GamePlay
 
         MarkGameStateChanged();
         return true;
+    }
+
+    // - Role: Configure story-specific simulation data.
+    public void ConfigureStoryStage(StoryStageConfig stageConfig)
+    {
+        if (stageConfig == null || gameMode is not StoryGameMode storyGameMode)
+        {
+            return;
+        }
+
+        SetGameDurationSeconds(stageConfig.StageTimeLimitSeconds);
+        storyGameMode.ConfigureGoal(stageConfig.Goal);
     }
 
     // - Role: Start world simulation after intro readiness gate.
@@ -306,6 +337,23 @@ public class Server_GamePlay
     public bool ChooseItemCandidate(ulong clientId, uint requestId, int selectedId)
     {
         return itemSystem.Choose(clientId, requestId, selectedId);
+    }
+
+    // - Role: Finish story clear sequence after client-side goal animation.
+    public bool CompleteStoryClear()
+    {
+        if (gameMode is not StoryGameMode storyGameMode)
+        {
+            return false;
+        }
+
+        if (!storyGameMode.CompleteGoalClear(gameEventQueue, Tick))
+        {
+            return false;
+        }
+
+        MarkGameStateChanged();
+        return true;
     }
 
     // - Role: Try to get item selection offer.

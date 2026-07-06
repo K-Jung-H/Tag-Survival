@@ -21,6 +21,7 @@ public sealed class StoryStageBuildManager : MonoBehaviour
     [SerializeField] private Client_CameraController cameraController;
     [SerializeField] private Client_WorldView worldView;
     [SerializeField] private Client_GameHudView gameHudView;
+    [SerializeField] private StoryStageRuntimeController runtimeController;
 
     [Header("Story Scene Objects")]
     [SerializeField] private GameObject[] enableObjects;
@@ -52,6 +53,11 @@ public sealed class StoryStageBuildManager : MonoBehaviour
 
         ApplySceneObjects();
         ApplyPresentation(stageDefinition);
+        if (!runtimeController.ConfigureStage(context.stageConfig))
+        {
+            return false;
+        }
+
         if (!BuildSimulation(context, stageDefinition))
         {
             return false;
@@ -134,6 +140,7 @@ public sealed class StoryStageBuildManager : MonoBehaviour
         isValid &= ValidateReference(stageRenderer, nameof(stageRenderer));
         isValid &= ValidateReference(cameraController, nameof(cameraController));
         isValid &= ValidateReference(worldView, nameof(worldView));
+        isValid &= ValidateReference(runtimeController, nameof(runtimeController));
         return isValid;
     }
 
@@ -179,6 +186,8 @@ public sealed class StoryStageBuildManager : MonoBehaviour
             return false;
         }
 
+        gamePlayRunner.GamePlay.ConfigureStoryStage(context.stageConfig);
+
         GameSessionPlayerProfile localPlayer = new GameSessionPlayerProfile
         {
             clientId = LocalClientId,
@@ -187,11 +196,16 @@ public sealed class StoryStageBuildManager : MonoBehaviour
             skillId = context.skillId
         };
 
-        gamePlayRunner.GamePlay.AddPlayer(
+        if (!gamePlayRunner.GamePlay.AddPlayerAtPosition(
             localPlayer.clientId,
             localPlayer.nickname,
             localPlayer.characterId,
-            localPlayer.skillId);
+            localPlayer.skillId,
+            context.stageConfig.PlayerSpawnPosition))
+        {
+            Debug.LogError("[StoryStageBuildManager] Failed to add local story player.", this);
+            return false;
+        }
 
         syncManager.ConfigureLocalServer(gamePlayRunner, LocalClientId);
         localInputBridge.Configure(gamePlayRunner, LocalClientId);

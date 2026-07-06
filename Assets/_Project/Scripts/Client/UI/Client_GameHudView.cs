@@ -15,6 +15,7 @@ public class Client_GameHudView : MonoBehaviour
     [SerializeField] private Color taggerColor = new Color(1f, 80f / 255f, 80f / 255f, 1f);
     [SerializeField] private Color defaultTextColor = Color.white;
     [SerializeField] private bool showLeaderboard = true;
+    [SerializeField] private bool showZeroWhenEnded = true;
 
     private bool hasLoggedMissingReferences;
 
@@ -57,7 +58,7 @@ public class Client_GameHudView : MonoBehaviour
         if (timerText == null)
             return;
 
-        timerText.text = isGameEnded
+        timerText.text = isGameEnded && showZeroWhenEnded
             ? FormatTimer(0)
             : FormatTimer(remainingSeconds);
     }

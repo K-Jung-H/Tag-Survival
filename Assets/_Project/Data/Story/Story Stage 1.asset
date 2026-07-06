@@ -19,9 +19,34 @@ MonoBehaviour:
     position: {x: 103.48, y: 11.02}
     colliderOffset: {x: 0, y: 0}
     colliderSize: {x: 1, y: 2}
+  items:
+  - itemIndex: 0
+    visualIndex: 1
+    position: {x: 109.39, y: 10.85}
+    colliderOffset: {x: 0, y: 0}
+    colliderSize: {x: 1, y: 1}
+  - itemIndex: 1
+    visualIndex: 3
+    position: {x: 91.09, y: 11.23}
+    colliderOffset: {x: 0, y: 0}
+    colliderSize: {x: 1, y: 1}
+  - itemIndex: 2
+    visualIndex: 5
+    position: {x: 103.08, y: 18.17}
+    colliderOffset: {x: 0, y: 0}
+    colliderSize: {x: 1, y: 1}
   enemies:
-  - id: enemy_1
-    position: {x: 14, y: 2}
+  - enemyIndex: 0
+    position: {x: 94.88, y: 20.39}
     characterId: 0
+  - enemyIndex: 1
+    position: {x: 110.69, y: 22.05}
+    characterId: 1
+  - enemyIndex: 2
+    position: {x: 124.6, y: 18.11}
+    characterId: 2
+  - enemyIndex: 3
+    position: {x: 73.009995, y: 19.77}
+    characterId: 3
   stageTimeLimitSeconds: 180
   bonusStarTimeLimitSeconds: 90

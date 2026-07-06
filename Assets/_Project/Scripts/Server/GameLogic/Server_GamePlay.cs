@@ -87,7 +87,14 @@ public class Server_GamePlay
 
         gameMode = CreateGameMode(modeType, modeConfig);
         gameMode.SetGameDurationSeconds(durationSeconds);
-        itemSystem.ConfigureSpawn(modeConfig);
+        if (modeType == GameModeType.Story)
+        {
+            itemSystem.DisableSpawn();
+        }
+        else
+        {
+            itemSystem.ConfigureSpawn(modeConfig);
+        }
     }
 
     // - Role: Add player.
@@ -127,7 +134,8 @@ public class Server_GamePlay
         byte characterId,
         byte skillId,
         Vector2 spawnPosition,
-        string context)
+        string context,
+        bool createSkill = true)
     {
         if (players.ContainsKey(clientId))
         {
@@ -139,19 +147,22 @@ public class Server_GamePlay
                 characterId,
                 context,
                 out CharacterDefinition characterDefinition,
-                out _)
-            || !TryResolveSkillDefinition(
-                clientId,
-                skillId,
-                context,
-                out SkillDefinition skillDefinition,
-                out byte resolvedSkillId))
+                out _))
         {
             return false;
         }
 
-        if (!TryCreateSkill(clientId, skillDefinition, out Skill skill)
-            && !TryCreateFallbackSkill(clientId, resolvedSkillId, out skill, out resolvedSkillId))
+        Skill skill = null;
+        byte resolvedSkillId = 0;
+        if (createSkill
+            && (!TryResolveSkillDefinition(
+                clientId,
+                skillId,
+                context,
+                out SkillDefinition skillDefinition,
+                out resolvedSkillId)
+            || !TryCreateSkill(clientId, skillDefinition, out skill)
+                && !TryCreateFallbackSkill(clientId, resolvedSkillId, out skill, out resolvedSkillId)))
         {
             Debug.LogError(
                 $"[Server_GamePlay] Failed to add player. Skill creation failed. " +
@@ -194,6 +205,35 @@ public class Server_GamePlay
 
         SetGameDurationSeconds(stageConfig.StageTimeLimitSeconds);
         storyGameMode.ConfigureGoal(stageConfig.Goal);
+        storyGameMode.ConfigureItems(stageConfig.Items);
+        storyGameMode.ClearEnemyPlayers();
+    }
+
+    // - Role: Add a story enemy as a server-controlled player.
+    public bool AddStoryEnemy(StoryEnemySpawnData enemyData)
+    {
+        if (gameMode is not StoryGameMode storyGameMode)
+        {
+            return false;
+        }
+
+        int enemyIndex = Mathf.Max(0, enemyData.enemyIndex);
+        ulong clientId = StoryGameMode.GetEnemyClientId(enemyIndex);
+
+        if (!AddPlayerAtResolvedPosition(
+                clientId,
+                $"Enemy {enemyIndex}",
+                enemyData.characterId,
+                0,
+                enemyData.position,
+                "AddStoryEnemy",
+                createSkill: false))
+        {
+            return false;
+        }
+
+        storyGameMode.RegisterEnemyPlayer(clientId);
+        return true;
     }
 
     // - Role: Start world simulation after intro readiness gate.
@@ -296,6 +336,10 @@ public class Server_GamePlay
         if (gameMode.IsGameEnded)
         {
             itemSystem.CancelAllSelections();
+            if (ShouldStopSimulationAfterGameEnd())
+            {
+                return;
+            }
         }
 
         bool isGameEnded = gameMode.IsGameEnded;
@@ -319,8 +363,18 @@ public class Server_GamePlay
 
         for (int i = 0; i < subSteps; i++)
         {
+            if (ShouldStopSimulationAfterGameEnd())
+            {
+                break;
+            }
+
             playerSystem.Simulate(stepDeltaTime);
-            if (!isGameEnded)
+            if (ShouldStopSimulationAfterGameEnd())
+            {
+                break;
+            }
+
+            if (!gameMode.IsGameEnded)
             {
                 ResolveWorldCollisions();
             }
@@ -440,6 +494,13 @@ public class Server_GamePlay
         itemSystem.CopyWorldObjectsTo(worldObjects);
         gameMode.CopyWorldObjectsTo(worldObjects);
         worldCollisionSystem.ResolveCollisions(worldObjects, worldCollisionEvents, collisionSystem);
+    }
+
+    private bool ShouldStopSimulationAfterGameEnd()
+    {
+        return gameMode != null
+            && gameMode.ModeType == GameModeType.Story
+            && gameMode.IsGameEnded;
     }
 
     // - Role: Mark game state as changed.

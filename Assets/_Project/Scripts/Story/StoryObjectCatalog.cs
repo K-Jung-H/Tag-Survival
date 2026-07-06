@@ -15,6 +15,7 @@ public struct StoryObjectCatalogEntry
 public sealed class StoryObjectCatalog : ScriptableObject
 {
     public const int GoalObjectIndex = 0;
+    public const int ItemObjectIndex = 1;
 
     [SerializeField] private StoryObjectCatalogEntry[] entries = Array.Empty<StoryObjectCatalogEntry>();
 
@@ -39,5 +40,10 @@ public sealed class StoryObjectCatalog : ScriptableObject
     public bool TryGetGoalPrefab(out GameObject prefab)
     {
         return TryGetPrefab(GoalObjectIndex, out prefab);
+    }
+
+    public bool TryGetItemPrefab(out GameObject prefab)
+    {
+        return TryGetPrefab(ItemObjectIndex, out prefab);
     }
 }

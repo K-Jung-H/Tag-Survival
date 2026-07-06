@@ -15,3 +15,5 @@ MonoBehaviour:
   entries:
   - index: 0
     prefab: {fileID: 8349632771054755275, guid: d8186fee6188c404aa8e4f302b985f83, type: 3}
+  - index: 1
+    prefab: {fileID: 5047502981615759750, guid: db300274889927f4c884f56d3eb0e2cb, type: 3}

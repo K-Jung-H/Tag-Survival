@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StoryStageCatalog
   entries:
   - stageConfig: {fileID: 11400000, guid: 6fb4bd4457e3409daad20bbbe505a01d, type: 2}
-    thumbnail: {fileID: 0}
+    thumbnail: {fileID: 1437503401646794464, guid: fc584d329b77b9545b9c9c8bb829e553, type: 3}
     displayName: Stage 1
     unlockedByDefault: 1
     unlockPlayerPrefsKey: 

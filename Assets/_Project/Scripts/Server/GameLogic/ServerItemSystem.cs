@@ -68,9 +68,7 @@ public sealed class ServerItemSystem
     {
         if (config == null)
         {
-            minActiveItemCount = 0;
-            maxActiveItemCount = 0;
-            itemTypeWeights.Clear();
+            DisableSpawn();
             Debug.LogError("[ServerItemSystem] GameModeConfig is not assigned. Item spawning is disabled.");
             return;
         }
@@ -87,6 +85,13 @@ public sealed class ServerItemSystem
                 itemTypeWeights.Add(weights[i]);
             }
         }
+    }
+
+    public void DisableSpawn()
+    {
+        minActiveItemCount = 0;
+        maxActiveItemCount = 0;
+        itemTypeWeights.Clear();
     }
 
     // - Role: Tick item spawning.

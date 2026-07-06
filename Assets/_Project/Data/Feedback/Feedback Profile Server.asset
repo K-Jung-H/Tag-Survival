@@ -16,7 +16,7 @@ MonoBehaviour:
   - type: 1
     spawnMode: 0
     data:
-      visualPrefab: {fileID: 0}
+      visualPrefab: {fileID: 9157105887711914197, guid: 4c6f35f374f5997468460b4561666a11, type: 3}
       sound:
         clip: {fileID: 8300000, guid: 0d8bfad37dfa3f149a92d996c9554251, type: 3}
         space: 0

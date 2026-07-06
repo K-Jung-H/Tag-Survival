@@ -13,7 +13,6 @@ public sealed class StoryStageBuildManager : MonoBehaviour
     [Header("Simulation")]
     [SerializeField] private Server_GamePlayRunner gamePlayRunner;
     [SerializeField] private GameModeType gameModeType = GameModeType.Story;
-    [SerializeField] private GameModeConfig gameModeConfig;
 
     [Header("Presentation")]
     [SerializeField] private Camera mainCamera;
@@ -53,7 +52,7 @@ public sealed class StoryStageBuildManager : MonoBehaviour
 
         ApplySceneObjects();
         ApplyPresentation(stageDefinition);
-        if (!runtimeController.ConfigureStage(context.stageConfig))
+        if (!runtimeController.ConfigureStage(context))
         {
             return false;
         }
@@ -103,20 +102,6 @@ public sealed class StoryStageBuildManager : MonoBehaviour
         if (gamePlayRunner == null)
         {
             Debug.LogError("[StoryStageBuildManager] Server_GamePlayRunner is not assigned.", this);
-            return false;
-        }
-
-        if (gameModeConfig == null)
-        {
-            Debug.LogError("[StoryStageBuildManager] GameModeConfig is not assigned.", this);
-            return false;
-        }
-
-        if (gameModeConfig.ModeType != gameModeType)
-        {
-            Debug.LogError(
-                $"[StoryStageBuildManager] GameModeConfig type is mismatched. expected={gameModeType}, actual={gameModeConfig.ModeType}",
-                this);
             return false;
         }
 
@@ -175,13 +160,13 @@ public sealed class StoryStageBuildManager : MonoBehaviour
     {
         gamePlayRunner.ConfigureRunMode(ServerGamePlayRunMode.LocalSimulation);
         gamePlayRunner.ConfigureStageDefinition(stageDefinition);
-        gamePlayRunner.ConfigureGameMode(gameModeType, gameModeConfig);
+        gamePlayRunner.ConfigureGameMode(gameModeType);
         gamePlayRunner.enabled = true;
 
         if (gamePlayRunner.GamePlay == null)
         {
             Debug.LogError(
-                "[StoryStageBuildManager] Server_GamePlayRunner.GamePlay was not created. Check Server_GamePlayRunner catalogs, StageDefinition, and Story GameModeConfig.",
+                "[StoryStageBuildManager] Server_GamePlayRunner.GamePlay was not created. Check Server_GamePlayRunner catalogs and StageDefinition.",
                 this);
             return false;
         }
@@ -207,12 +192,37 @@ public sealed class StoryStageBuildManager : MonoBehaviour
             return false;
         }
 
+        if (!AddStoryEnemies(context.stageConfig))
+        {
+            return false;
+        }
+
         syncManager.ConfigureLocalServer(gamePlayRunner, LocalClientId);
         localInputBridge.Configure(gamePlayRunner, LocalClientId);
         localInputBridge.enabled = true;
 
         gamePlayRunner.MarkStageReady(LocalClientId);
         gamePlayRunner.MarkStageIntroReady(LocalClientId);
+        return true;
+    }
+
+    private bool AddStoryEnemies(StoryStageConfig stageConfig)
+    {
+        StoryEnemySpawnData[] enemies = stageConfig != null
+            ? stageConfig.Enemies
+            : System.Array.Empty<StoryEnemySpawnData>();
+
+        for (int i = 0; i < enemies.Length; i++)
+        {
+            if (!gamePlayRunner.GamePlay.AddStoryEnemy(enemies[i]))
+            {
+                Debug.LogError(
+                    $"[StoryStageBuildManager] Failed to add story enemy. index={i}",
+                    this);
+                return false;
+            }
+        }
+
         return true;
     }
 

@@ -125,7 +125,9 @@ public class Server_GamePlayRunner : MonoBehaviour
     public void ConfigureGameMode(GameModeType modeType, GameModeConfig modeConfig)
     {
         gameModeType = modeType;
-        gameModeConfig = IsMatchingGameModeConfig(modeConfig) ? modeConfig : null;
+        gameModeConfig = CanRunWithoutGameModeConfig(modeType)
+            ? null
+            : IsMatchingGameModeConfig(modeConfig) ? modeConfig : null;
         TryRecreateGamePlay();
     }
 
@@ -1446,14 +1448,19 @@ public class Server_GamePlayRunner : MonoBehaviour
         return modeConfig != null && modeConfig.ModeType == gameModeType;
     }
 
+    private static bool CanRunWithoutGameModeConfig(GameModeType modeType)
+    {
+        return modeType == GameModeType.Story;
+    }
+
     private bool CanCreateGamePlay()
     {
         return stageDefinition != null
             && characterCatalog != null
             && skillCatalog != null
             && itemEffectCatalog != null
-            && gameModeConfig != null
-            && gameModeConfig.ModeType == gameModeType;
+            && (CanRunWithoutGameModeConfig(gameModeType)
+                || gameModeConfig != null && gameModeConfig.ModeType == gameModeType);
     }
 
     private bool TryRecreateGamePlay()

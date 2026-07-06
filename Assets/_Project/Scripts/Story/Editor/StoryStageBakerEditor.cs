@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,6 +10,8 @@ public sealed class StoryStageBakerWindow : EditorWindow
     [SerializeField] private StageRenderBinding stageRender;
     [SerializeField] private StorySpawnMarker playerSpawn;
     [SerializeField] private StoryGoalMarker goal;
+    [SerializeField] private StoryItemMarker[] itemMarkers = Array.Empty<StoryItemMarker>();
+    [SerializeField] private StoryEnemyMarker[] enemyMarkers = Array.Empty<StoryEnemyMarker>();
     [SerializeField] private bool showConfig = true;
     [SerializeField] private bool showReferences = true;
     [SerializeField] private bool showPreview = true;
@@ -61,6 +64,8 @@ public sealed class StoryStageBakerWindow : EditorWindow
         stageRender = (StageRenderBinding)EditorGUILayout.ObjectField("Stage Render", stageRender, typeof(StageRenderBinding), true);
         playerSpawn = (StorySpawnMarker)EditorGUILayout.ObjectField("Player Spawn", playerSpawn, typeof(StorySpawnMarker), true);
         goal = (StoryGoalMarker)EditorGUILayout.ObjectField("Goal", goal, typeof(StoryGoalMarker), true);
+        DrawItemMarkerFields();
+        DrawEnemyMarkerFields();
         EditorGUILayout.Space(8f);
     }
 
@@ -86,7 +91,8 @@ public sealed class StoryStageBakerWindow : EditorWindow
         DrawMarkerPreview(report);
         EditorGUILayout.EndVertical();
 
-        DrawEnemyPreview();
+        DrawItemPreview(report);
+        DrawEnemyPreview(report);
         DrawReportMessages(report);
         EditorGUILayout.Space(8f);
     }
@@ -194,7 +200,9 @@ public sealed class StoryStageBakerWindow : EditorWindow
             stageDefinition = stageDefinition,
             stageRender = stageRender,
             playerSpawn = playerSpawn,
-            goal = goal
+            goal = goal,
+            items = itemMarkers,
+            enemies = enemyMarkers
         };
     }
 
@@ -208,27 +216,93 @@ public sealed class StoryStageBakerWindow : EditorWindow
         return output != null ? output.StageId : "-";
     }
 
-    private void DrawEnemyPreview()
+    private void DrawEnemyPreview(StoryStageBakeReport report)
     {
-        if (output == null)
-        {
-            return;
-        }
-
-        StoryEnemySpawnData[] enemies = output.Enemies;
-        if (enemies.Length == 0)
-        {
-            return;
-        }
-
         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
         EditorGUILayout.LabelField("Enemies", EditorStyles.boldLabel);
-        for (int i = 0; i < enemies.Length; i++)
+
+        if (report.enemies.Count == 0)
         {
-            StoryEnemySpawnData enemy = enemies[i];
+            DrawPreviewLine("Count", "0");
+            EditorGUILayout.EndVertical();
+            return;
+        }
+
+        DrawPreviewLine("Count", report.enemies.Count.ToString());
+        for (int i = 0; i < report.enemies.Count; i++)
+        {
+            StoryEnemySpawnData enemy = report.enemies[i];
             DrawPreviewLine(
+                $"Enemy {enemy.enemyIndex}",
+                $"character: {enemy.characterId}, pos: {FormatVector(enemy.position)}");
+        }
+
+        EditorGUILayout.EndVertical();
+    }
+
+    private void DrawItemMarkerFields()
+    {
+        int currentCount = itemMarkers != null ? itemMarkers.Length : 0;
+        int nextCount = Mathf.Max(0, EditorGUILayout.IntField("Item Marker Count", currentCount));
+        if (nextCount != currentCount)
+        {
+            Array.Resize(ref itemMarkers, nextCount);
+        }
+
+        EditorGUI.indentLevel++;
+        for (int i = 0; i < nextCount; i++)
+        {
+            itemMarkers[i] = (StoryItemMarker)EditorGUILayout.ObjectField(
+                $"Item {i}",
+                itemMarkers[i],
+                typeof(StoryItemMarker),
+                true);
+        }
+
+        EditorGUI.indentLevel--;
+    }
+
+    private void DrawEnemyMarkerFields()
+    {
+        int currentCount = enemyMarkers != null ? enemyMarkers.Length : 0;
+        int nextCount = Mathf.Max(0, EditorGUILayout.IntField("Enemy Marker Count", currentCount));
+        if (nextCount != currentCount)
+        {
+            Array.Resize(ref enemyMarkers, nextCount);
+        }
+
+        EditorGUI.indentLevel++;
+        for (int i = 0; i < nextCount; i++)
+        {
+            enemyMarkers[i] = (StoryEnemyMarker)EditorGUILayout.ObjectField(
                 $"Enemy {i}",
-                $"type: {enemy.characterId}, id: {enemy.id}, pos: {FormatVector(enemy.position)}");
+                enemyMarkers[i],
+                typeof(StoryEnemyMarker),
+                true);
+        }
+
+        EditorGUI.indentLevel--;
+    }
+
+    private void DrawItemPreview(StoryStageBakeReport report)
+    {
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+        EditorGUILayout.LabelField("Items", EditorStyles.boldLabel);
+        DrawPreviewLine("Goal Requirement Count", report.items.Count.ToString());
+
+        if (report.items.Count == 0)
+        {
+            DrawPreviewLine("Condition", "None");
+            EditorGUILayout.EndVertical();
+            return;
+        }
+
+        for (int i = 0; i < report.items.Count; i++)
+        {
+            StoryItemSpawnData item = report.items[i];
+            DrawPreviewLine(
+                $"Item {item.itemIndex}",
+                $"visual: {item.visualIndex}, pos: {FormatVector(item.position)}, collider: {FormatVector(item.colliderSize)}");
         }
 
         EditorGUILayout.EndVertical();
@@ -278,7 +352,9 @@ public sealed class StoryStageBakerWindow : EditorWindow
             $"spawn: {report.playerSpawnPosition}, " +
             $"goal: {report.goal.position}, " +
             $"goal collider offset: {report.goal.colliderOffset}, " +
-            $"goal collider size: {report.goal.colliderSize}.");
+            $"goal collider size: {report.goal.colliderSize}, " +
+            $"items: {report.items.Count}, " +
+            $"enemies: {report.enemies.Count}.");
     }
 }
 #endif

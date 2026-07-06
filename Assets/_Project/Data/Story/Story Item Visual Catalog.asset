@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68b96cfd49ea2d143894e16615e6e227, type: 3}
+  m_Name: Story Item Visual Catalog
+  m_EditorClassIdentifier: Assembly-CSharp::StoryItemVisualCatalog
+  visuals:
+  - visualIndex: 0
+    idleClip: {fileID: 7400000, guid: 2fdac416394f5644db270f503f47e111, type: 2}
+  - visualIndex: 1
+    idleClip: {fileID: 7400000, guid: 5c33ca81a3d8899438c53650a10e3916, type: 2}
+  - visualIndex: 2
+    idleClip: {fileID: 7400000, guid: 97c8c4f82eb3e6845b6c539c9cdfe2be, type: 2}
+  - visualIndex: 3
+    idleClip: {fileID: 7400000, guid: 5d093a452978e294ea9d0a4a99253f30, type: 2}
+  - visualIndex: 4
+    idleClip: {fileID: 7400000, guid: b01b45f162c750d449d96c77f3b1de69, type: 2}
+  - visualIndex: 5
+    idleClip: {fileID: 7400000, guid: 6b71831f872857845a1682adfeb09817, type: 2}
+  - visualIndex: 6
+    idleClip: {fileID: 7400000, guid: 8d099beef93b31d4a97c2d16d2545eaf, type: 2}
+  - visualIndex: 7
+    idleClip: {fileID: 7400000, guid: ef5f5389357cfb240b9dcce008130aa9, type: 2}

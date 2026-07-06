@@ -42,4 +42,33 @@ public sealed class StoryStageCatalog : ScriptableObject
         entry = default;
         return false;
     }
+
+    public bool TryGetIndexOf(StoryStageConfig stageConfig, out int index)
+    {
+        if (entries != null && stageConfig != null)
+        {
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].StageConfig == stageConfig)
+                {
+                    index = i;
+                    return true;
+                }
+            }
+        }
+
+        index = -1;
+        return false;
+    }
+
+    public bool TryGetNext(StoryStageConfig stageConfig, out StoryStageCatalogEntry entry)
+    {
+        if (TryGetIndexOf(stageConfig, out int index))
+        {
+            return TryGetByIndex(index + 1, out entry);
+        }
+
+        entry = default;
+        return false;
+    }
 }

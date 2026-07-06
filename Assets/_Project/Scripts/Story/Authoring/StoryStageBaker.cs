@@ -8,6 +8,8 @@ public sealed class StoryStageBakeRequest
     public StageRenderBinding stageRender;
     public StorySpawnMarker playerSpawn;
     public StoryGoalMarker goal;
+    public StoryItemMarker[] items;
+    public StoryEnemyMarker[] enemies;
 }
 
 public sealed class StoryStageBakeReport
@@ -17,6 +19,8 @@ public sealed class StoryStageBakeReport
     public Vector2 playerSpawnPosition;
     public bool hasGoal;
     public StoryGoalData goal;
+    public readonly List<StoryItemSpawnData> items = new();
+    public readonly List<StoryEnemySpawnData> enemies = new();
     public readonly List<string> warnings = new();
     public readonly List<string> errors = new();
 
@@ -45,7 +49,9 @@ public static class StoryStageBaker
         request.output.SetStageBakeResult(
             request.stageDefinition,
             report.playerSpawnPosition,
-            report.goal);
+            report.goal,
+            report.items.ToArray(),
+            report.enemies.ToArray());
 
         UnityEditor.EditorUtility.SetDirty(request.output);
         UnityEditor.AssetDatabase.SaveAssets();
@@ -94,6 +100,9 @@ public static class StoryStageBaker
             report.goal = BuildGoalData(request, request.goal);
             report.hasGoal = true;
         }
+
+        BuildItemData(request, report);
+        BuildEnemyData(request, report);
     }
 
     private static void ValidateRequest(StoryStageBakeRequest request, StoryStageBakeReport report)
@@ -140,6 +149,9 @@ public static class StoryStageBaker
         {
             report.errors.Add("StoryGoalMarker.BoxCollider is not assigned.");
         }
+
+        ValidateItemMarkers(request, report);
+        ValidateEnemyMarkers(request, report);
     }
 
     private static StoryGoalData BuildGoalData(StoryStageBakeRequest request, StoryGoalMarker marker)
@@ -155,6 +167,93 @@ public static class StoryStageBaker
             colliderOffset = boxCenter - goalPosition,
             colliderSize = boxSize
         };
+    }
+
+    private static void BuildItemData(StoryStageBakeRequest request, StoryStageBakeReport report)
+    {
+        StoryItemMarker[] markers = request.items ?? System.Array.Empty<StoryItemMarker>();
+        for (int i = 0; i < markers.Length; i++)
+        {
+            StoryItemMarker marker = markers[i];
+            if (marker == null || marker.BoxCollider == null)
+            {
+                continue;
+            }
+
+            report.items.Add(BuildItemData(request, marker, report.items.Count));
+        }
+    }
+
+    private static StoryItemSpawnData BuildItemData(
+        StoryStageBakeRequest request,
+        StoryItemMarker marker,
+        int itemIndex)
+    {
+        BoxCollider2D box = marker.BoxCollider;
+        Vector2 itemPosition = ConvertWorldToStoryPosition(request, marker.transform.position);
+        Vector2 boxCenter = ConvertWorldToStoryPosition(request, box.transform.TransformPoint(box.offset));
+        Vector2 boxSize = ResolveColliderSize(request, box);
+
+        return new StoryItemSpawnData
+        {
+            itemIndex = itemIndex,
+            visualIndex = marker.VisualIndex,
+            position = itemPosition,
+            colliderOffset = boxCenter - itemPosition,
+            colliderSize = boxSize
+        };
+    }
+
+    private static void ValidateItemMarkers(StoryStageBakeRequest request, StoryStageBakeReport report)
+    {
+        StoryItemMarker[] markers = request.items ?? System.Array.Empty<StoryItemMarker>();
+        for (int i = 0; i < markers.Length; i++)
+        {
+            StoryItemMarker marker = markers[i];
+            if (marker == null)
+            {
+                report.warnings.Add($"StoryItemMarker slot {i} is empty.");
+                continue;
+            }
+
+            if (marker.BoxCollider == null)
+            {
+                report.errors.Add($"StoryItemMarker slot {i} has no BoxCollider2D.");
+            }
+        }
+    }
+
+    private static void BuildEnemyData(StoryStageBakeRequest request, StoryStageBakeReport report)
+    {
+        StoryEnemyMarker[] markers = request.enemies ?? System.Array.Empty<StoryEnemyMarker>();
+        for (int i = 0; i < markers.Length; i++)
+        {
+            StoryEnemyMarker marker = markers[i];
+            if (marker == null)
+            {
+                continue;
+            }
+
+            int enemyIndex = report.enemies.Count;
+            report.enemies.Add(new StoryEnemySpawnData
+            {
+                enemyIndex = enemyIndex,
+                position = ConvertWorldToStoryPosition(request, marker.transform.position),
+                characterId = marker.CharacterId
+            });
+        }
+    }
+
+    private static void ValidateEnemyMarkers(StoryStageBakeRequest request, StoryStageBakeReport report)
+    {
+        StoryEnemyMarker[] markers = request.enemies ?? System.Array.Empty<StoryEnemyMarker>();
+        for (int i = 0; i < markers.Length; i++)
+        {
+            if (markers[i] == null)
+            {
+                report.warnings.Add($"StoryEnemyMarker slot {i} is empty.");
+            }
+        }
     }
 
     private static bool CanConvertWorldPosition(StoryStageBakeRequest request)

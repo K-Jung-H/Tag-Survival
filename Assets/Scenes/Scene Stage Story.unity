@@ -1285,8 +1285,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StoryStageBuildManager
   fallbackStageConfig: {fileID: 11400000, guid: 6fb4bd4457e3409daad20bbbe505a01d, type: 2}
   fallbackNickname: Player
-  fallbackCharacterId: 0
-  fallbackSkillId: 1
+  fallbackCharacterId: 3
+  fallbackSkillId: 0
   gamePlayRunner: {fileID: 681813944}
   gameModeType: 2
   mainCamera: {fileID: 519420031}

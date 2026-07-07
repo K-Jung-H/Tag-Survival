@@ -14,6 +14,7 @@ public class Server_GamePlay
     private readonly ServerSkillSystem skillSystem = new();
     private readonly ServerItemSystem itemSystem = new();
     private readonly ServerWorldCollisionSystem worldCollisionSystem = new();
+    private readonly StoryEnemyAiSystem storyEnemyAiSystem = new();
     private readonly Dictionary<ulong, int> spawnPointIndexByClientId = new();
     private IServerGameMode gameMode;
     private readonly ServerSnapshotBuilder snapshotBuilder = new();
@@ -208,6 +209,7 @@ public class Server_GamePlay
         storyGameMode.ConfigureItems(stageConfig.Items);
         storyGameMode.SetItemReturnLockSeconds(stageConfig.ItemReturnLockSeconds);
         storyGameMode.ClearEnemyPlayers();
+        storyEnemyAiSystem.Configure(stageConfig);
     }
 
     // - Role: Add a story enemy as a server-controlled player.
@@ -352,6 +354,7 @@ public class Server_GamePlay
         if (gameMode.IsGameStarted || isGameEnded)
         {
             playerSystem.ApplyQueuedInputs(inputBuffer);
+            TickStoryEnemyAi(deltaTime);
         }
 
         if (!isGameEnded)
@@ -495,6 +498,14 @@ public class Server_GamePlay
         itemSystem.CopyWorldObjectsTo(worldObjects);
         gameMode.CopyWorldObjectsTo(worldObjects);
         worldCollisionSystem.ResolveCollisions(worldObjects, worldCollisionEvents, collisionSystem);
+    }
+
+    private void TickStoryEnemyAi(float deltaTime)
+    {
+        if (gameMode is StoryGameMode storyGameMode)
+        {
+            storyEnemyAiSystem.Tick(players, storyGameMode, collisionSystem, deltaTime);
+        }
     }
 
     private bool ShouldStopSimulationAfterGameEnd()

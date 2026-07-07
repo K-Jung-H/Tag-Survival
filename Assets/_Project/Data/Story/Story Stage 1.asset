@@ -52,3 +52,4 @@ MonoBehaviour:
   bonusStarTimeLimitSeconds: 90
   itemReturnLockSeconds: 3
   itemReturnMoveSeconds: 5
+  enemyAiConfig: {fileID: 11400000, guid: ba6e9d963706ca740a9452197de950cb, type: 2}

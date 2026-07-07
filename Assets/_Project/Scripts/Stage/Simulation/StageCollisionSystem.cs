@@ -128,6 +128,67 @@ public sealed class StageCollisionSystem
             && (data.flags & StageTileFlags.Solid) != 0;
     }
 
+    // - Role: Check if a solid cell blocks the line segment.
+    public bool IsLineBlocked(Vector2 start, Vector2 end, float sampleStep)
+    {
+        if (stageBakeData == null)
+        {
+            return false;
+        }
+
+        Vector2 delta = end - start;
+        float distance = delta.magnitude;
+        if (distance <= 0.0001f)
+        {
+            return false;
+        }
+
+        int sampleCount = Mathf.Max(1, Mathf.CeilToInt(distance / Mathf.Max(0.0001f, sampleStep)));
+        for (int i = 1; i <= sampleCount; i++)
+        {
+            Vector2 sample = Vector2.Lerp(start, end, i / (float)sampleCount);
+            Vector2Int cell = GetCellFromWorldPosition(sample);
+            if (!IsCellInsideStageBounds(cell) || IsCellSolid(cell))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // - Role: Check if a player-sized area overlaps solid stage cells.
+    public bool IsAreaBlocked(Vector2 center, Vector2 halfExtent, float sampleStep)
+    {
+        if (stageBakeData == null)
+        {
+            return false;
+        }
+
+        halfExtent = ClampHalfExtent(halfExtent);
+        float safeStep = Mathf.Max(0.0001f, sampleStep);
+        int xSteps = Mathf.Max(1, Mathf.CeilToInt((halfExtent.x * 2f) / safeStep));
+        int ySteps = Mathf.Max(1, Mathf.CeilToInt((halfExtent.y * 2f) / safeStep));
+
+        for (int y = 0; y <= ySteps; y++)
+        {
+            float ty = y / (float)ySteps;
+            float sampleY = Mathf.Lerp(center.y - halfExtent.y, center.y + halfExtent.y, ty);
+            for (int x = 0; x <= xSteps; x++)
+            {
+                float tx = x / (float)xSteps;
+                float sampleX = Mathf.Lerp(center.x - halfExtent.x, center.x + halfExtent.x, tx);
+                Vector2Int cell = GetCellFromWorldPosition(new Vector2(sampleX, sampleY));
+                if (!IsCellInsideStageBounds(cell) || IsCellSolid(cell))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     // - Role: Get stage center position.
     public Vector2 GetStageCenterPosition()
     {

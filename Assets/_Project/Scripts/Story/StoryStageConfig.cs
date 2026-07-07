@@ -40,6 +40,7 @@ public sealed class StoryStageConfig : ScriptableObject
     [SerializeField] private float bonusStarTimeLimitSeconds = 90f;
     [SerializeField] private float itemReturnLockSeconds = 3f;
     [SerializeField] private float itemReturnMoveSeconds = 2f;
+    [SerializeField] private StoryEnemyAiConfig enemyAiConfig;
 
     public string StageId => !string.IsNullOrWhiteSpace(stageId) ? stageId : name;
     public StageDefinition StageDefinition => stageDefinition;
@@ -51,6 +52,7 @@ public sealed class StoryStageConfig : ScriptableObject
     public float BonusStarTimeLimitSeconds => Mathf.Max(0f, bonusStarTimeLimitSeconds);
     public float ItemReturnLockSeconds => Mathf.Max(0f, itemReturnLockSeconds);
     public float ItemReturnMoveSeconds => Mathf.Max(0f, itemReturnMoveSeconds);
+    public StoryEnemyAiConfig EnemyAiConfig => enemyAiConfig;
 
 #if UNITY_EDITOR
     public void SetStageBakeResult(

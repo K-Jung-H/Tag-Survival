@@ -38,6 +38,8 @@ public sealed class StoryStageConfig : ScriptableObject
     [SerializeField] private StoryEnemySpawnData[] enemies = Array.Empty<StoryEnemySpawnData>();
     [SerializeField] private float stageTimeLimitSeconds = 180f;
     [SerializeField] private float bonusStarTimeLimitSeconds = 90f;
+    [SerializeField] private float itemReturnLockSeconds = 3f;
+    [SerializeField] private float itemReturnMoveSeconds = 2f;
 
     public string StageId => !string.IsNullOrWhiteSpace(stageId) ? stageId : name;
     public StageDefinition StageDefinition => stageDefinition;
@@ -47,6 +49,8 @@ public sealed class StoryStageConfig : ScriptableObject
     public StoryEnemySpawnData[] Enemies => enemies ?? Array.Empty<StoryEnemySpawnData>();
     public float StageTimeLimitSeconds => Mathf.Max(0f, stageTimeLimitSeconds);
     public float BonusStarTimeLimitSeconds => Mathf.Max(0f, bonusStarTimeLimitSeconds);
+    public float ItemReturnLockSeconds => Mathf.Max(0f, itemReturnLockSeconds);
+    public float ItemReturnMoveSeconds => Mathf.Max(0f, itemReturnMoveSeconds);
 
 #if UNITY_EDITOR
     public void SetStageBakeResult(

@@ -9,10 +9,12 @@ public sealed class StoryStageRuntimeController : MonoBehaviour
     [SerializeField] private LocalClient_InputBridge localInputBridge;
     [SerializeField] private ClientCanvasPanelController canvasPanelController;
     [SerializeField] private StoryResultPanelView resultPanelView;
+    [SerializeField] private StoryItemFollowChainView itemFollowChainView;
 
     private readonly System.Collections.Generic.Dictionary<int, StoryItemView> itemViews = new();
     private StoryGoalView goalView;
     private StoryStageStartContext stageContext;
+    private Client_WorldView worldView;
     private bool hasStartedClearSequence;
     private bool hasShownResult;
 
@@ -49,9 +51,12 @@ public sealed class StoryStageRuntimeController : MonoBehaviour
         BeginClearSequence();
     }
 
-    public bool ConfigureStage(StoryStageStartContext context)
+    public bool ConfigureStage(StoryStageStartContext context, Client_WorldView newWorldView)
     {
         stageContext = context;
+        worldView = newWorldView;
+        itemFollowChainView?.Configure(worldView, syncManager);
+        itemFollowChainView?.Clear();
         canvasPanelController?.SetGameResultVisible(false);
         resultPanelView?.Configure(context);
         resultPanelView?.Hide();
@@ -113,6 +118,12 @@ public sealed class StoryStageRuntimeController : MonoBehaviour
         if (itemVisualCatalog == null)
         {
             Debug.LogError("[StoryStageRuntimeController] StoryItemVisualCatalog is not assigned.", this);
+            return false;
+        }
+
+        if (itemFollowChainView == null)
+        {
+            Debug.LogError("[StoryStageRuntimeController] StoryItemFollowChainView is not assigned.", this);
             return false;
         }
 
@@ -217,7 +228,10 @@ public sealed class StoryStageRuntimeController : MonoBehaviour
         {
             if (pair.Value != null)
             {
-                pair.Value.SetCollected(storyGameMode.IsItemCollected(pair.Key));
+                pair.Value.SetServerState(
+                    storyGameMode.GetItemState(pair.Key),
+                    stageContext.stageConfig.ItemReturnMoveSeconds,
+                    itemFollowChainView);
             }
         }
     }
@@ -268,5 +282,6 @@ public sealed class StoryStageRuntimeController : MonoBehaviour
         }
 
         itemViews.Clear();
+        itemFollowChainView?.Clear();
     }
 }

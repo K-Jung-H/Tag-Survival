@@ -9,9 +9,11 @@ public sealed class StoryGameMode : IServerGameMode
 
     private float gameDurationSeconds = 180f;
     private float gameElapsedSeconds;
+    private float itemReturnLockSeconds = 3f;
     private StoryGoalObject goalObject;
     private StoryItemObject[] itemObjects = System.Array.Empty<StoryItemObject>();
-    private bool[] collectedItems = System.Array.Empty<bool>();
+    private StoryItemState[] itemStates = System.Array.Empty<StoryItemState>();
+    private float[] itemReturnLockTimers = System.Array.Empty<float>();
     private readonly HashSet<ulong> enemyPlayerIds = new();
     private int collectedItemCount;
     private bool isCleared;
@@ -51,7 +53,8 @@ public sealed class StoryGameMode : IServerGameMode
     {
         StoryItemSpawnData[] safeItems = items ?? System.Array.Empty<StoryItemSpawnData>();
         itemObjects = new StoryItemObject[safeItems.Length];
-        collectedItems = new bool[safeItems.Length];
+        itemStates = new StoryItemState[safeItems.Length];
+        itemReturnLockTimers = new float[safeItems.Length];
         collectedItemCount = 0;
 
         for (int i = 0; i < safeItems.Length; i++)
@@ -60,6 +63,11 @@ public sealed class StoryGameMode : IServerGameMode
             itemData.itemIndex = i;
             itemObjects[i] = new StoryItemObject(this, itemData);
         }
+    }
+
+    public void SetItemReturnLockSeconds(float seconds)
+    {
+        itemReturnLockSeconds = Mathf.Max(0f, seconds);
     }
 
     public void ClearEnemyPlayers()
@@ -169,10 +177,9 @@ public sealed class StoryGameMode : IServerGameMode
         }
 
         gameElapsedSeconds = Mathf.Min(gameDurationSeconds, gameElapsedSeconds + Mathf.Max(0f, deltaTime));
+        bool changed = TickReturningItems(Mathf.Max(0f, deltaTime));
         if (gameElapsedSeconds < gameDurationSeconds)
-        {
-            return false;
-        }
+            return changed;
 
         EndGame(eventQueue, serverTick, eventPosition, forceDurationElapsed: true, StoryStageResultState.Fail);
         return true;
@@ -326,19 +333,28 @@ public sealed class StoryGameMode : IServerGameMode
 
     public bool TryCollectItem(int itemIndex)
     {
-        if (Phase != GamePhase.Playing || isCleared || !IsValidItemIndex(itemIndex) || collectedItems[itemIndex])
+        if (Phase != GamePhase.Playing
+            || isCleared
+            || !IsValidItemIndex(itemIndex)
+            || itemStates[itemIndex] != StoryItemState.Available)
         {
             return false;
         }
 
-        collectedItems[itemIndex] = true;
+        itemStates[itemIndex] = StoryItemState.Collected;
+        itemReturnLockTimers[itemIndex] = 0f;
         collectedItemCount = Mathf.Min(collectedItemCount + 1, TotalItemCount);
         return true;
     }
 
     public bool IsItemCollected(int itemIndex)
     {
-        return IsValidItemIndex(itemIndex) && collectedItems[itemIndex];
+        return IsValidItemIndex(itemIndex) && itemStates[itemIndex] == StoryItemState.Collected;
+    }
+
+    public StoryItemState GetItemState(int itemIndex)
+    {
+        return IsValidItemIndex(itemIndex) ? itemStates[itemIndex] : StoryItemState.Available;
     }
 
     public bool CompleteGoalClear(ServerGameEventQueue eventQueue, uint serverTick)
@@ -354,15 +370,15 @@ public sealed class StoryGameMode : IServerGameMode
 
     private bool ReturnRandomCollectedItem()
     {
-        if (collectedItems == null || collectedItemCount <= 0)
+        if (itemStates == null || collectedItemCount <= 0)
         {
             return false;
         }
 
         int targetCollectedOrder = itemReturnRandom.Next(collectedItemCount);
-        for (int i = 0; i < collectedItems.Length; i++)
+        for (int i = 0; i < itemStates.Length; i++)
         {
-            if (!collectedItems[i])
+            if (itemStates[i] != StoryItemState.Collected)
             {
                 continue;
             }
@@ -373,7 +389,8 @@ public sealed class StoryGameMode : IServerGameMode
                 continue;
             }
 
-            collectedItems[i] = false;
+            itemStates[i] = StoryItemState.ReturningLocked;
+            itemReturnLockTimers[i] = itemReturnLockSeconds;
             collectedItemCount = Mathf.Max(0, collectedItemCount - 1);
             return true;
         }
@@ -428,14 +445,20 @@ public sealed class StoryGameMode : IServerGameMode
 
     private void ResetItems()
     {
-        if (collectedItems == null)
+        if (itemStates == null)
         {
-            collectedItems = System.Array.Empty<bool>();
+            itemStates = System.Array.Empty<StoryItemState>();
         }
 
-        for (int i = 0; i < collectedItems.Length; i++)
+        if (itemReturnLockTimers == null || itemReturnLockTimers.Length != itemStates.Length)
         {
-            collectedItems[i] = false;
+            itemReturnLockTimers = new float[itemStates.Length];
+        }
+
+        for (int i = 0; i < itemStates.Length; i++)
+        {
+            itemStates[i] = StoryItemState.Available;
+            itemReturnLockTimers[i] = 0f;
         }
 
         collectedItemCount = 0;
@@ -446,7 +469,7 @@ public sealed class StoryGameMode : IServerGameMode
         StoryItemObject[] safeItems = itemObjects ?? System.Array.Empty<StoryItemObject>();
         for (int i = 0; i < safeItems.Length; i++)
         {
-            if (safeItems[i] == null || IsItemCollected(i))
+            if (safeItems[i] == null || GetItemState(i) != StoryItemState.Available)
             {
                 continue;
             }
@@ -457,7 +480,36 @@ public sealed class StoryGameMode : IServerGameMode
 
     private bool IsValidItemIndex(int itemIndex)
     {
-        return collectedItems != null && itemIndex >= 0 && itemIndex < collectedItems.Length;
+        return itemStates != null && itemIndex >= 0 && itemIndex < itemStates.Length;
+    }
+
+    private bool TickReturningItems(float deltaTime)
+    {
+        if (itemStates == null || itemReturnLockTimers == null || deltaTime <= 0f)
+        {
+            return false;
+        }
+
+        bool changed = false;
+        int count = Mathf.Min(itemStates.Length, itemReturnLockTimers.Length);
+        for (int i = 0; i < count; i++)
+        {
+            if (itemStates[i] != StoryItemState.ReturningLocked)
+            {
+                continue;
+            }
+
+            itemReturnLockTimers[i] = Mathf.Max(0f, itemReturnLockTimers[i] - deltaTime);
+            if (itemReturnLockTimers[i] > 0f)
+            {
+                continue;
+            }
+
+            itemStates[i] = StoryItemState.Available;
+            changed = true;
+        }
+
+        return changed;
     }
 
     private static uint SecondsToMilliseconds(float seconds)

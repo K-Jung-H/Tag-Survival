@@ -52,7 +52,7 @@ public sealed class StoryStageBuildManager : MonoBehaviour
 
         ApplySceneObjects();
         ApplyPresentation(stageDefinition);
-        if (!runtimeController.ConfigureStage(context))
+        if (!runtimeController.ConfigureStage(context, worldView))
         {
             return false;
         }

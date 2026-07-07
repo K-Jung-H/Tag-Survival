@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 8806318540422564710}
   - component: {fileID: 5936406098111851696}
   m_Layer: 0
-  m_Name: StoryItemObject
+  m_Name: StoryItemView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -51,6 +51,9 @@ MonoBehaviour:
   collectStateName: Item Selected
   layerIndex: 0
   transitionDurationSeconds: 0
+  worldScale: {x: 5, y: 5, z: 5}
+  followScale: {x: 4, y: 4, z: 4}
+  returnStartScale: {x: 1, y: 1, z: 1}
 --- !u!212 &8806318540422564710
 SpriteRenderer:
   serializedVersion: 2

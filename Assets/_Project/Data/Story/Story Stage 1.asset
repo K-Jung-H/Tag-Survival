@@ -50,3 +50,5 @@ MonoBehaviour:
     characterId: 3
   stageTimeLimitSeconds: 180
   bonusStarTimeLimitSeconds: 90
+  itemReturnLockSeconds: 3
+  itemReturnMoveSeconds: 5

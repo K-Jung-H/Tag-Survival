@@ -206,6 +206,7 @@ public class Server_GamePlay
         SetGameDurationSeconds(stageConfig.StageTimeLimitSeconds);
         storyGameMode.ConfigureGoal(stageConfig.Goal);
         storyGameMode.ConfigureItems(stageConfig.Items);
+        storyGameMode.SetItemReturnLockSeconds(stageConfig.ItemReturnLockSeconds);
         storyGameMode.ClearEnemyPlayers();
     }
 

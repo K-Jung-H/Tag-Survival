@@ -115,11 +115,6 @@ public sealed class StorySelectSceneController : MonoBehaviour
             skillGridView.SelectionChanged += OnSkillSelectionChanged;
         }
 
-        if (startButton != null)
-        {
-            startButton.onClick.RemoveListener(ClickStart);
-            startButton.onClick.AddListener(ClickStart);
-        }
     }
 
     private void Unbind()
@@ -139,10 +134,6 @@ public sealed class StorySelectSceneController : MonoBehaviour
             skillGridView.SelectionChanged -= OnSkillSelectionChanged;
         }
 
-        if (startButton != null)
-        {
-            startButton.onClick.RemoveListener(ClickStart);
-        }
     }
 
     private void OnStageSelectionChanged(StoryStageConfig _) => RefreshStartState();
